@@ -389,6 +389,23 @@ with sync_playwright() as p:
     check('la fiche revient en place', pg.evaluate("getComputedStyle(document.getElementById('sheet')).transform") in ('none', 'matrix(1, 0, 0, 1, 0, 0)'))
     swipe(top + 20, top + 140, 4, 16)
     check('glissement rapide vers le bas : la fiche se ferme', not pg.evaluate("document.body.classList.contains('sheet-open')"))
+    # un glissement de côté sur la rangée des dates ne doit pas fermer la fiche (vu sur iPhone)
+    pg.click('#fab'); pg.wait_for_timeout(400)
+    r = pg.evaluate("(()=>{const e=document.querySelector('#sheet [data-act=\"sdate\"]').parentElement.getBoundingClientRect();return [e.left,e.top,e.width,e.height]})()")
+    x0, y0 = r[0] + r[2] - 30, r[1] + r[3] / 2
+    def swipe2(dx, dy, steps=5, pause=16):
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [{'x': x0, 'y': y0}]})
+        for i in range(1, steps + 1):
+            pg.wait_for_timeout(pause)
+            cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove', 'touchPoints': [{'x': x0 + dx * i / steps, 'y': y0 + dy * i / steps}]})
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
+        pg.wait_for_timeout(450)
+    swipe2(-160, 25)
+    check('glissement de côté sur les dates : la fiche reste ouverte', pg.evaluate("document.body.classList.contains('sheet-open')"))
+    top2 = pg.evaluate("document.getElementById('sheet').getBoundingClientRect().top")
+    x0, y0 = 200, top2 + 12
+    swipe2(30, 140, 4, 16)
+    check('glissement vers le bas sur le haut de la fiche : elle se ferme', not pg.evaluate("document.body.classList.contains('sheet-open')"))
     check('pas de débordement horizontal sur iPhone', pg.evaluate("document.documentElement.scrollWidth<=window.innerWidth"))
     check('aucune erreur pendant les gestes', not errs)
     c.close()

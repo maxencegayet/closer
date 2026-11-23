@@ -20,6 +20,7 @@ var IC={
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["23 nov.","Corrigé sur iPhone : faire défiler les dates dans une fiche ne la ferme plus, et la page ne glisse plus de côté."],
   ["23 nov.","Thème clair par défaut, avec le choix Clair, Sombre ou Auto dans Réglages › Apparence. Page Tâches rangée : sections Aujourd'hui, Demain, Cette semaine, Plus tard, repliables ; date et catégorie à droite de chaque ligne."],
   ["23 nov.","Tâches et devoirs réunis dans un seul onglet, tri rangé dans un menu, mode sombre automatique, points dans l'agenda, carte du jour plus claire. Synchro : une note modifiée sur deux appareils garde ses deux versions."],
   ["23 nov.","Closer marche de nouveau sans réseau. Objectifs repliables. Recherche du Brouillon : le mot est surligné dans la liste et dans la note, avec flèches pour passer d'un passage à l'autre."],

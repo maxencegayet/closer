@@ -3,8 +3,9 @@
 /* ---------- fiche : glisser vers le bas pour fermer, comme sur iOS ---------- */
 (function(){
   var sh=$("sheet"), sc=document.querySelector(".scrim");
-  var ys=0, y0=0, t0=0, dy=0, drag=false, armed=false;
-  function noDrag(t){return !!(t&&t.closest&&t.closest("input,textarea,select,[contenteditable]"));}
+  var ys=0, xs=0, y0=0, t0=0, dy=0, drag=false, armed=false;
+  // pas de fermeture depuis un champ ni depuis une rangée qui défile de côté (dates, catégories…)
+  function noDrag(t){return !!(t&&t.closest&&t.closest("input,textarea,select,[contenteditable],.chips.scroll,.segc"));}
   function begin(y){drag=true;y0=y;t0=Date.now();dy=0;sh.classList.add("dragging");document.body.classList.add("sheet-drag");}
   function move(y){
     dy=y-y0;
@@ -21,13 +22,17 @@
   }
   sh.addEventListener("touchstart",function(e){
     if(!sheet||e.touches.length!==1||noDrag(e.target)){armed=false;return;}
-    armed=sh.scrollTop<=0;ys=e.touches[0].clientY;
+    armed=sh.scrollTop<=0;ys=e.touches[0].clientY;xs=e.touches[0].clientX;
   },{passive:true});
   sh.addEventListener("touchmove",function(e){
     if(!sheet||!armed)return;
     if(e.touches.length!==1){end();return;}               /* un deuxième doigt : on ne suit pas */
-    var y=e.touches[0].clientY;
-    if(!drag){ if(y-ys>6&&sh.scrollTop<=0){begin(y);} else if(ys-y>6){armed=false;return;} else return; }
+    var y=e.touches[0].clientY, x=e.touches[0].clientX, ddx=Math.abs(x-xs), ddy=y-ys;
+    if(!drag){
+      if(ddx>8&&ddx>Math.abs(ddy)){armed=false;return;}          /* geste de côté : ce n'est pas une fermeture */
+      if(ddy>10&&ddy>ddx*1.5&&sh.scrollTop<=0){begin(y);}        /* nettement vers le bas */
+      else if(-ddy>6){armed=false;return;} else return;
+    }
     e.preventDefault();move(y);
   },{passive:false});
   sh.addEventListener("touchend",end);
