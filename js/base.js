@@ -50,6 +50,18 @@ function storageWarn(){if(storageWarned)return;storageWarned=true;showToast("Mé
 addEventListener("error",function(e){logErr("page",e.error||e.message);});
 addEventListener("unhandledrejection",function(e){logErr("promesse",e.reason);});
 
+/* ---------- apparence : clair par défaut, sombre ou comme le téléphone ---------- */
+var THEME_KEY="closer-theme", darkMQ=window.matchMedia?matchMedia("(prefers-color-scheme: dark)"):{matches:false};
+function themeChoice(){try{var t=localStorage.getItem(THEME_KEY);return t==="dark"||t==="auto"?t:"light";}catch(e){return "light";}}
+function applyTheme(){
+  var t=themeChoice(), dark=t==="dark"||(t==="auto"&&darkMQ.matches);
+  document.documentElement.dataset.theme=t;
+  var m=$("theme-color");if(m)m.setAttribute("content",dark?"#000000":"#eff0f2");
+}
+function setTheme(t){try{if(t==="light")localStorage.removeItem(THEME_KEY);else localStorage.setItem(THEME_KEY,t);}catch(e){}applyTheme();}
+if(darkMQ.addEventListener)darkMQ.addEventListener("change",applyTheme);
+applyTheme();
+
 /* ---------- stockage ---------- */
 function newId(){
   return "l"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -97,26 +109,48 @@ function dueSpan(due,done){
   if(n===1)return '<span>Demain</span>';
   return '<span>'+esc(fmt(due))+'</span>';
 }
-function taskMeta(d,hideDate){
-  var m="";
-  if(d.prio)m+='<span class="flag">Important</span>';
-  if(!hideDate||(isDate(d.due)&&d.due<today()&&!d.done))m+=dueSpan(d.due,d.done);
-  m+='<span>'+esc(d.cat==="Devoir"?cap(d.subject||"Devoir"):(d.cat||""))+'</span>';
-  return m;
+// date courte, affichée à droite de la ligne (comme le montant sur un relevé)
+function sideDue(due,done){
+  if(!isDate(due))return "";
+  var n=diffDays(due,today());
+  if(done)return esc(fmt(due,{day:"numeric",month:"short"}));
+  if(n<0)return '<span class="late">Retard '+(-n)+' j</span>';
+  if(n===0)return "Aujourd'hui";
+  if(n===1)return "Demain";
+  if(n<7)return esc(cap(fmt(due,{weekday:"short"})));
+  return esc(fmt(due,{day:"numeric",month:"short"}));
 }
+function taskCat(d){return d.cat==="Devoir"?cap(d.subject||"Devoir"):(d.cat||"");}
+// à droite : la date (si la section ne la dit pas déjà) et la catégorie (si le filtre ne la dit pas déjà)
+function taskSide(d,hideDate,hideCat){
+  var late=isDate(d.due)&&d.due<today()&&!d.done, dt=(!hideDate||late)?sideDue(d.due,d.done):"", c=hideCat?"":esc(taskCat(d));
+  if(!dt&&!c)return "";
+  return '<span class="side">'+(dt?'<span class="sd">'+dt+'</span>':"")+(c?'<span class="sc">'+c+'</span>':"")+'</span>';
+}
+var BANG='<i class="bang" aria-hidden="true">!</i>';
 var UP='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 10L8 5.5 12.5 10"/></svg>', DOWN='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 6L8 10.5 12.5 6"/></svg>';
 function mvBtn(a,id,dir,ti){
   var ok=dir<0?a.up:a.down;
   return '<button type="button" class="mv" id="mv-'+esc(id)+(dir<0?"-u":"-d")+'" data-act="mv" data-k="'+a.v+'" data-g="'+a.g+'" data-dir="'+dir+'" data-id="'+esc(id)+'" aria-label="'+(dir<0?"Monter : ":"Descendre : ")+esc(ti)+'"'+(ok?"":" disabled")+'>'+(dir<0?UP:DOWN)+'</button>';
 }
-function taskRow(t,hideDate,a){
-  var d=t.d,ti=cap(d.title);
-  if(a)return '<div class="row'+(d.prio?" prio":"")+'" style="padding-left:16px"><div class="body" style="padding-right:8px"><span class="title">'+esc(ti)+'</span><span class="meta">'+taskMeta(d,hideDate)+'</span></div>'+
+function taskRow(t,hideDate,a,hideCat){
+  var d=t.d,ti=cap(d.title), tl='<span class="title">'+(d.prio?BANG:"")+esc(ti)+'</span>', lab=(d.prio?"Important. ":"");
+  if(a)return '<div class="row'+(d.prio?" prio":"")+'" style="padding-left:16px"><div class="body tline" style="padding-right:8px">'+tl+taskSide(d,hideDate,hideCat)+'</div>'+
     '<span class="mvs">'+mvBtn(a,t.id,-1,ti)+mvBtn(a,t.id,1,ti)+'</span></div>';
   return '<div class="row'+(d.prio?" prio":"")+(d.done?" done":"")+'">'+
     checkBtn("task",t.id,d.done,(d.done?"Marquer non fait : ":"Marquer fait : ")+ti)+
-    '<button type="button" class="body" data-act="edit" data-id="'+esc(t.id)+'" aria-label="Modifier : '+esc(ti)+'">'+
-    '<span class="title">'+esc(ti)+'</span><span class="meta">'+taskMeta(d,hideDate)+'</span></button></div>';
+    '<button type="button" class="body tline" data-act="edit" data-id="'+esc(t.id)+'" aria-label="'+esc(lab)+'Modifier : '+esc(ti)+'">'+tl+taskSide(d,hideDate,hideCat)+'</button></div>';
+}
+/* section repliable (Tâches) : l'état est gardé sur l'appareil */
+var FOLD_KEY="closer-fold", FOLD_DEF={"taches:later":true,"taches:done":true,"devoirs:later":true,"devoirs:done":true};
+function folds(){try{return Object.assign({},FOLD_DEF,JSON.parse(localStorage.getItem(FOLD_KEY)||"{}"));}catch(e){return Object.assign({},FOLD_DEF);}}
+function isFolded(k){return !!folds()[k];}
+function setFold(k,on){var f=folds();f[k]=!!on;try{localStorage.setItem(FOLD_KEY,JSON.stringify(f));}catch(e){}}
+function foldBlock(key,title,count,rowsHtml,cls,extra){
+  var shut=isFolded(key);
+  return '<section class="block fold'+(shut?" shut":"")+'"><button type="button" class="sh fh" data-act="fold" data-id="'+esc(key)+'" aria-expanded="'+!shut+'">'+
+    '<h2 class="'+(cls||"")+'">'+esc(title)+'</h2><span class="n">'+count+'</span><svg class="fchev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>'+
+    (shut?"":'<div class="list">'+rowsHtml+'</div>'+(extra||""))+'</section>';
 }
 function streakOf(d){var t=today();return (d.lastDone===t||d.lastDone===shift(t,-1))?(d.streak||0):0;}
 function dailyRow(x){

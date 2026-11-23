@@ -13,7 +13,7 @@ Les applications existantes (to-do, agenda, suivi d'habitudes) séparaient ce qu
 ## Fonctionnalités
 
 - **Jour** : ce qui reste aujourd'hui (tâches et habitudes), une barre d'avancement et une bande des 7 prochains jours.
-- **Tâches** : un seul onglet pour les tâches et les devoirs (filtre « Devoirs », regroupement par matière), catégories personnalisables, tri par date ou par catégorie, rangement manuel.
+- **Tâches** : un seul onglet pour les tâches et les devoirs (filtre « Devoirs »), sections par période (aujourd'hui, demain, cette semaine, plus tard) repliables, date et catégorie alignées à droite comme sur un relevé, tri par catégorie ou matière, rangement manuel.
 - **Habitudes** : quotidiennes (avec série de jours consécutifs) ou hebdomadaires (par exemple 3 séances par semaine).
 - **Objectifs** : repliables, avec échéance, compte à rebours et une seule liste pour les étapes et les tâches reliées.
 - **Brouillon** : notes façon Notes d'iPhone (dossiers, épingles), recherche avec le mot surligné dans la liste et dans la note.
@@ -21,7 +21,7 @@ Les applications existantes (to-do, agenda, suivi d'habitudes) séparaient ce qu
 - **Sauvegarde** : export et import des données dans un fichier.
 - **Mises à jour** : un bandeau « Nouvelle version » apparaît dès qu'une version est mise en ligne.
 - **Installable** : s'ajoute à l'écran d'accueil du téléphone et s'ouvre hors connexion.
-- **Mode sombre** : suit automatiquement le réglage du téléphone.
+- **Apparence** : clair par défaut, sombre ou automatique (comme le téléphone), au choix dans les Réglages.
 
 ## Choix techniques
 

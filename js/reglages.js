@@ -15,10 +15,12 @@ var IC={
   shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
   home:'<rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M12 9v6M9 12h6"/>',
   sync:'<path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/>',
+  theme:'<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>',
   fx:'<path d="M4 10v4h3l5 4V6L7 10z"/><path d="M16 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/>'
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["23 nov.","Thème clair par défaut, avec le choix Clair, Sombre ou Auto dans Réglages › Apparence. Page Tâches rangée : sections Aujourd'hui, Demain, Cette semaine, Plus tard, repliables ; date et catégorie à droite de chaque ligne."],
   ["23 nov.","Tâches et devoirs réunis dans un seul onglet, tri rangé dans un menu, mode sombre automatique, points dans l'agenda, carte du jour plus claire. Synchro : une note modifiée sur deux appareils garde ses deux versions."],
   ["23 nov.","Closer marche de nouveau sans réseau. Objectifs repliables. Recherche du Brouillon : le mot est surligné dans la liste et dans la note, avec flèches pour passer d'un passage à l'autre."],
   ["23 nov.","Objectifs : étapes et tâches reliées réunies dans une seule liste, avec un ajout directement dans la liste. Curseur de saisie de nouveau bien placé sur iPhone."],
@@ -95,6 +97,9 @@ function acHTML(){
   rows+=sRow("set-cats","tag","Catégories de tâches",{val:cats().length});
   rows+=sRow("set-folders","folder","Dossiers du Brouillon",{val:nFolders().length});
   if(badgeOk())rows+=perm==="denied"?sRow("set-badge","badge","Pastille sur l'icône",{sub:"Refusée : réactive les notifications de Closer dans les réglages du téléphone",noChev:true}):sRow("set-badge","badge","Pastille sur l'icône",{sub:"Le nombre de choses restantes sur l'icône",sw:perm==="granted"&&!badgeOff()});
+  var th=themeChoice();
+  rows+='<div class="srow segrow">'+sIcon("theme")+'<span class="sl">Apparence</span><span class="segc" role="radiogroup" aria-label="Apparence">'+
+    [["light","Clair"],["dark","Sombre"],["auto","Auto"]].map(function(o){return '<button type="button" role="radio" aria-checked="'+(th===o[0])+'" data-act="set-theme" data-v="'+o[0]+'"'+(o[0]==="auto"?' aria-label="Auto, comme le téléphone"':"")+'>'+o[1]+'</button>';}).join("")+'</span></div>';
   rows+=sRow("set-fx","fx","Son et vibration",{sub:"Quand tu enregistres une tâche",sw:!fxOff()});
   if(acOn())rows+=sRow("ac-stats","chart","Statistiques anonymes",{sub:statsOff()?"désactivées":"activées · aucun contenu envoyé",sw:!statsOff()});
   h+=sGroup("Préférences",rows);

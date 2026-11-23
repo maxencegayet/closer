@@ -89,14 +89,19 @@ function viewTasks(v){
   });
 }
 function renderTaches(){
-  var cl=allCats();
+  var cl=allCats(), openAll=byKind("task").filter(function(x){return !x.d.done;});
   if(state.filter!=="Tout"&&state.filter!=="Devoirs"&&cl.indexOf(state.filter)<0)state.filter="Tout";
-  $("chips").innerHTML=chipsHtml("filter",["Tout","Devoirs"].concat(cl));
-  var v=taskKey(), info=renderTaskView(v,"l-tasks",v==="devoirs"?"Aucun devoir en cours. Touche + pour noter le prochain.":"Aucune tâche en cours. Touche + pour noter la prochaine.");
-  // menu « Trier et ranger » : remplace la deuxième rangée de boutons
+  // seules les catégories qui ont quelque chose à faire ont un bouton (plus celle choisie)
+  var has=function(c){return c===state.filter||openAll.some(function(x){return c==="Devoirs"?x.d.cat==="Devoir":x.d.cat===c;});};
+  $("chips").innerHTML=chipsHtml("filter",["Tout"].concat(["Devoirs"].concat(cl).filter(has)));
+  var v=taskKey(), info=renderTaskView(v,"l-tasks",v==="devoirs"?"Aucun devoir en cours. Touche + pour noter le prochain.":state.filter==="Tout"?"Aucune tâche en cours. Touche + pour noter la prochaine.":"Rien à faire dans « "+state.filter+" ».");
+  // résumé d'une ligne sous le titre
+  var late=info.late;
+  $("tsum").innerHTML=info.open?(info.open+" à faire"+(late?' · <span class="late">'+late+" en retard</span>":"")):"";
+  // menu « Trier et ranger »
   var mode=groupMode(v), canGroup=state.filter==="Tout"||v==="devoirs";
   if(!canGroup&&mode==="group")mode="date";
-  var item=function(act,val,label,on,extra){return '<button type="button" role="'+(on===null?"menuitem":"menuitemradio")+'"'+(on===null?"":' aria-checked="'+on+'"')+' data-act="'+act+'" data-k="'+v+'"'+(val?' data-v="'+val+'"':"")+(extra||"")+'><span>'+label+'</span>'+(on?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>':"")+'</button>';};
+  var item=function(act,val,label,on){return '<button type="button" role="'+(on===null?"menuitem":"menuitemradio")+'"'+(on===null?"":' aria-checked="'+on+'"')+' data-act="'+act+'" data-k="'+v+'"'+(val?' data-v="'+val+'"':"")+'><span>'+label+'</span>'+(on?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>':"")+'</button>';};
   var m='<div class="tm-h">Trier</div>'+item("group","date","Par date",mode==="date");
   if(canGroup)m+=item("group","group",v==="devoirs"?"Par matière":"Par catégorie",mode==="group");
   m+='<hr>';
@@ -109,18 +114,22 @@ function renderTaskView(v,target,emptyTxt){
   var t=today(), all=viewTasks(v), mode=groupMode(v), arr=state.arr[v], isHw=v==="devoirs";
   if(!isHw&&state.filter!=="Tout")mode="date";
   var open=all.filter(function(x){return !x.d.done;});
-  var groups=[];
+  var catShown=state.filter==="Tout"||isHw;           // la catégorie (ou la matière) n'est utile que si elle varie
+  var groups=[];                                     // [titre, classe, lignes, date masquée, catégorie masquée, clé de repli]
   if(mode==="date"){
     open.sort(sortTasks);
+    var wk=shift(t,6);
     groups=[
-      ["En retard","late",open.filter(function(x){return isDate(x.d.due)&&x.d.due<t;}),false],
-      ["Aujourd'hui","",open.filter(function(x){return x.d.due===t;}),true],
-      ["À venir","",open.filter(function(x){return isDate(x.d.due)&&x.d.due>t;}),false],
-      ["Sans date","",open.filter(function(x){return !isDate(x.d.due);}),true]
+      ["En retard","late",open.filter(function(x){return isDate(x.d.due)&&x.d.due<t;}),false,!catShown,"late"],
+      ["Aujourd'hui","",open.filter(function(x){return x.d.due===t;}),true,!catShown,"today"],
+      ["Demain","",open.filter(function(x){return x.d.due===shift(t,1);}),true,!catShown,"tomorrow"],
+      ["Cette semaine","",open.filter(function(x){return isDate(x.d.due)&&x.d.due>shift(t,1)&&x.d.due<=wk;}),false,!catShown,"week"],
+      ["Plus tard","",open.filter(function(x){return isDate(x.d.due)&&x.d.due>wk;}),false,!catShown,"later"],
+      ["Sans date","",open.filter(function(x){return !isDate(x.d.due);}),true,!catShown,"nodate"]
     ];
   }else{
     (isHw?subjectsList(true):allCats().concat(["Devoir"])).forEach(function(k){
-      groups.push([!isHw&&k==="Devoir"?"Devoirs":k,"",open.filter(function(x){return isHw?(cap(x.d.subject||"")||"Sans matière")===k:x.d.cat===k;}).sort(ordCSort),false]);
+      groups.push([!isHw&&k==="Devoir"?"Devoirs":k,"",open.filter(function(x){return isHw?(cap(x.d.subject||"")||"Sans matière")===k:x.d.cat===k;}).sort(ordCSort),false,true,"c:"+k]);
     });
   }
   groups=groups.filter(function(g){return g[2].length;});
@@ -129,25 +138,25 @@ function renderTaskView(v,target,emptyTxt){
   var html="";
   if(arr)html+='<div class="arrbar" role="status"><span>'+(mode==="date"?"Range avec les flèches les lignes d'un même jour.":"Range avec les flèches dans chaque groupe.")+'</span><button type="button" class="btn small" id="arr-'+v+'" data-act="arr" data-k="'+v+'">Terminé</button></div>';
   groups.forEach(function(g,gi){
-    html+=block(g[0],g[2].length,g[2].map(function(x,i){
+    var rows=g[2].map(function(x,i){
       var a=null;
       if(arr){
         var pv=g[2][i-1],nx=g[2][i+1];
         a={v:v,g:gi,up:!!pv&&(mode!=="date"||dueCmp(pv,x)===0),down:!!nx&&(mode!=="date"||dueCmp(nx,x)===0)};
       }
-      return taskRow(x,g[3],a);
-    }).join(""),g[1]);
+      return taskRow(x,g[3],a,g[4]);
+    }).join("");
+    // en mode rangement, tout est déplié ; « En retard » ne se replie jamais
+    html+=arr||g[5]==="late"?block(g[0],g[2].length,rows,g[1]):foldBlock(v+":"+g[5],g[0],g[2].length,rows,g[1]);
   });
-  if(!open.length)html+='<div class="list"><div class="empty">'+(state.mode==="loading"?"Chargement…":emptyTxt)+'</div></div>';
+  if(!open.length)html+='<div class="list"><div class="empty">'+(state.mode==="loading"?"Chargement…":esc(emptyTxt))+'</div></div>';
   var done=all.filter(function(x){return x.d.done;}).sort(function(a,b){return (b.d.doneAt||0)-(a.d.doneAt||0);});
   if(done.length&&!arr){
-    html+='<section class="block"><div class="sh"><h2>Terminées</h2><span class="n">'+done.length+'</span></div>'+
-      (state.showDone[v]?'<div class="list">'+done.slice(0,50).map(function(x){return taskRow(x,false);}).join("")+'</div>':"")+
-      '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn ghost small" data-act="toggle-done" data-id="'+v+'">'+(state.showDone[v]?"Masquer les terminées":"Afficher les terminées")+'</button>'+
-      (state.showDone[v]?'<button type="button" class="btn ghost small" data-act="clear-done" data-id="'+v+'">Supprimer les terminées</button>':"")+'</div></section>';
+    html+=foldBlock(v+":done","Terminées",done.length,done.slice(0,50).map(function(x){return taskRow(x,false,null,!catShown);}).join(""),"",
+      '<button type="button" class="linkbtn" data-act="clear-done" data-id="'+v+'" style="margin:2px 8px 0">Supprimer les terminées</button>');
   }
   $(target).innerHTML=html;
-  return {open:open.length};
+  return {open:open.length,late:open.filter(function(x){return isDate(x.d.due)&&x.d.due<t;}).length};
 }
 
 /* ---------- Objectifs ---------- */

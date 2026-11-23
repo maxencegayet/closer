@@ -15,18 +15,29 @@
   --flash:#e3f5e9; --switch-off:#d5d8de; --chev:#b5b9c1; --x:#787d88; --on-solid:#ffffff; --on-credit:#ffffff;
   --mark:#ffe27a; --mark-cur:#ffc21a; --mark-ink:inherit; --warm-bg:#fff7e0; --warm-ink:#5b4300; --credit-on:#7ee2a0;
   --scrim:rgba(0,0,0,.42); --pop-shadow:0 12px 32px rgba(0,0,0,.16);
-  color-scheme:light dark;
+  color-scheme:light;
 }
 /* Mode sombre : suit le réglage de l'iPhone. Même logique de « relevé de compte » :
    fond noir, cartes gris très foncé, et le bloc fort (carte du jour, boutons) passe en blanc. */
-@media (prefers-color-scheme:dark){
-  :root{
+/* Mode sombre : au choix dans Réglages › Apparence (clair par défaut, sombre, ou comme l'iPhone). */
+:root[data-theme="dark"]{
     --bg:#000000; --surface:#1c1c1e; --ink:#f5f5f7; --muted:#9a9ea8; --line:#2c2c2e;
     --credit:#2fbf71; --late:#ff5a4f; --hero-off:#d6d8dd; --hero-soft:#6b6f78;
     --check-line:#5a5d64; --faint:#62666e; --pip:#3a3a3e; --solid-press:#d9d9de; --grab:#48484c;
     --flash:#11351f; --switch-off:#3a3a3e; --chev:#5f636b; --x:#8e929b; --on-solid:#000000; --on-credit:#ffffff;
     --mark:#ffd60a; --mark-cur:#ff9f0a; --mark-ink:#000000; --warm-bg:#3a2f0a; --warm-ink:#ffd98a; --credit-on:#0a9a56;
     --scrim:rgba(0,0,0,.6); --pop-shadow:0 12px 32px rgba(0,0,0,.6);
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:dark){
+  :root[data-theme="auto"]{
+    --bg:#000000; --surface:#1c1c1e; --ink:#f5f5f7; --muted:#9a9ea8; --line:#2c2c2e;
+    --credit:#2fbf71; --late:#ff5a4f; --hero-off:#d6d8dd; --hero-soft:#6b6f78;
+    --check-line:#5a5d64; --faint:#62666e; --pip:#3a3a3e; --solid-press:#d9d9de; --grab:#48484c;
+    --flash:#11351f; --switch-off:#3a3a3e; --chev:#5f636b; --x:#8e929b; --on-solid:#000000; --on-credit:#ffffff;
+    --mark:#ffd60a; --mark-cur:#ff9f0a; --mark-ink:#000000; --warm-bg:#3a2f0a; --warm-ink:#ffd98a; --credit-on:#0a9a56;
+    --scrim:rgba(0,0,0,.6); --pop-shadow:0 12px 32px rgba(0,0,0,.6);
+  color-scheme:dark;
   }
 }
 *{box-sizing:border-box}
@@ -396,3 +407,25 @@ ol.sdetail,ul.sdetail{padding-left:74px;display:flex;flex-direction:column;gap:6
 .flash{animation:rowFlash 1300ms ease-out}
 @keyframes rowFlash{0%,25%{background-color:var(--flash);box-shadow:inset 3px 0 0 var(--credit)}100%{background-color:transparent;box-shadow:inset 3px 0 0 transparent}}
 @media (prefers-reduced-motion:reduce){.toast.ok,.toast.ok .tk circle,.toast.ok .tk path{animation:none;stroke-dashoffset:0}.flash{animation:none}}
+.segrow{cursor:default}
+.segc{flex:none;display:flex;background:var(--bg);border-radius:999px;padding:3px;gap:2px}
+.segc button{border:0;background:transparent;border-radius:999px;padding:7px 12px;font-size:14px;font-weight:600;color:var(--muted);transition:background-color 150ms ease,color 150ms ease}
+.segc button[aria-checked="true"]{background:var(--ink);color:var(--surface)}
+/* Tâches : lignes d'une seule ligne, infos à droite comme sur un relevé ; sections repliables */
+.thead{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.tsum{font-size:14px;font-weight:600;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.tsum .late{color:var(--late)}
+.body.tline{flex-direction:row;align-items:center;gap:12px}
+.body.tline .title{flex:1;min-width:0}
+.side{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:1px;max-width:42%;text-align:right;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.side .sd{font-weight:600;color:var(--ink);white-space:nowrap}
+.side .sd .late{color:var(--late)}
+.side .sc{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.done .side .sd{color:var(--muted);font-weight:500}
+.bang{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:50%;background:var(--ink);color:var(--surface);font-style:normal;font-size:11px;font-weight:800;margin-right:7px;vertical-align:1px}
+.done .bang{background:var(--muted)}
+.fh{width:100%;border:0;background:transparent;text-align:left;padding:4px 8px;margin:-4px 0;border-radius:10px;cursor:pointer;align-items:center}
+.fh h2{flex:1}
+.fchev{flex:none;width:18px;height:18px;fill:none;stroke:var(--muted);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:transform 200ms var(--ease-out);margin-left:-4px}
+.fold.shut .fchev{transform:rotate(-90deg)}
+.fold.shut{gap:0}
