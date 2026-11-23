@@ -174,6 +174,24 @@ with sync_playwright() as p:
     check('appareil A : changements de B reçus', items(pa) == ['Préparer l\'oral', 'Réviser la compta'])
     check('aucune erreur sur A et B', not ea and not eb)
 
+    # 4 bis. Conflit : la même note modifiée sur A et sur B avant synchro -> les deux versions sont gardées
+    pa.evaluate("save('nc',{kind:'note',title:'Plan',text:'départ',folder:'',pinned:false,created:Date.now(),updated:Date.now()});syncNow()"); pa.wait_for_timeout(900)
+    pb.evaluate("syncNow()"); pb.wait_for_timeout(900)
+    check('conflit : la note est arrivée sur B', pb.evaluate("state.items.has('nc')"))
+    pa.evaluate("save('nc',Object.assign({},state.items.get('nc'),{text:'version A',updated:Date.now()}));syncNow()"); pa.wait_for_timeout(900)
+    pb.evaluate("save('nc',Object.assign({},state.items.get('nc'),{text:'version B',updated:Date.now()}));syncNow()"); pb.wait_for_timeout(1200)
+    notes_b = pb.evaluate("[...state.items.values()].filter(d=>d.kind==='note').map(d=>d.title+'|'+d.text).sort()")
+    check('conflit : B garde sa version et celle de A à côté', notes_b == ['Plan (autre appareil)|version A', 'Plan|version B'])
+    check('conflit : message affiché', 'deux appareils' in pb.inner_text('#toast'))
+    srv_notes = sorted(r['data']['text'] for r in ROWS.values() if r['data'] and r['data'].get('kind') == 'note' and not r['deleted'])
+    check('conflit : les deux versions sont en ligne', srv_notes == ['version A', 'version B'])
+    pb.evaluate("syncNow()"); pb.wait_for_timeout(900)
+    check('conflit : pas de nouvelle copie au passage suivant', pb.evaluate("[...state.items.values()].filter(d=>d.kind==='note').length") == 2)
+    for pg_ in (pa, pb):
+        pg_.evaluate("[...state.items.entries()].filter(e=>e[1].kind==='note').forEach(e=>remove(e[0]));syncNow()"); pg_.wait_for_timeout(900)
+    pa.evaluate("syncNow()"); pa.wait_for_timeout(700)
+    check('conflit : aucune erreur', not ea and not eb)
+
     # 5. Déconnexion : les données restent sur l'appareil
     open_account(pb); pb.click('[data-act="ac-out"]'); pb.wait_for_timeout(500)
     check('déconnecté, données gardées', 'Déconnecté' in pb.inner_text('#sheet') and len(items(pb)) == 2)
@@ -229,6 +247,50 @@ with sync_playwright() as p:
     heads = pg.eval_on_selector_all('#l-jour .sh', "els=>els.map(e=>e.innerText)")
     nums = sum(int(''.join(ch for ch in h.split('\n')[-1] if ch.isdigit()) or 0) for h in heads if h.startswith(('Reste','Habitudes')))
     check('carte noire = Reste à faire + Habitudes du jour (%d = %d)' % (hero, nums), hero == nums == 3)
+    c.close()
+
+    # 7 quinquies. Tâches et devoirs dans un seul onglet, menu « Trier et ranger », points de l'agenda
+    c, pg, errs = device(cfg=False)
+    pg.evaluate("""()=>{const t=new Date(),z=n=>String(n).padStart(2,'0'),d=t.getFullYear()+'-'+z(t.getMonth()+1)+'-'+z(t.getDate());
+      localStorage.setItem('cap-items-v1',JSON.stringify([
+        ['a',{kind:'task',title:'Appeler',cat:'Perso',due:d,done:false,created:1}],
+        ['b',{kind:'task',title:'Dossier finance',cat:'Devoir',subject:'Finance',due:d,done:false,created:2}],
+        ['n',{kind:'note',title:'Budget',text:'Revoir le budget.\\nLe BUDGÉT final.',folder:'',pinned:false,created:1,updated:2}]]));}""")
+    pg.reload(); pg.wait_for_timeout(500); pg.evaluate("location.hash='#devoirs'"); pg.wait_for_timeout(400)
+    check('4 onglets, Devoirs devenu un filtre', pg.eval_on_selector_all('nav.tabs a', 'e=>e.length') == 4 and pg.evaluate('location.hash') == '#taches' and pg.get_attribute('#chips [data-id="Devoirs"]', 'aria-pressed') == 'true')
+    check('filtre Devoirs : seulement le devoir', pg.eval_on_selector_all('#l-tasks .row .title', 'e=>e.map(x=>x.textContent)') == ['Dossier finance'])
+    pg.click('#tsort'); pg.wait_for_timeout(200)
+    check('menu « Trier et ranger » ouvert', pg.is_visible('#tmenu') and 'Par matière' in pg.inner_text('#tmenu'))
+    pg.click('h1'); pg.wait_for_timeout(200)
+    check('le menu se ferme en touchant ailleurs', pg.is_hidden('#tmenu'))
+    pg.click('#chips [data-id="Tout"]'); pg.wait_for_timeout(200)
+    pg.click('#tsort'); pg.click('#tmenu [data-v="group"]'); pg.wait_for_timeout(300)
+    check('Tout, par catégorie : groupe « Devoirs »', 'Devoirs' in pg.eval_on_selector_all('#l-tasks .sh h2', 'e=>e.map(x=>x.textContent)'))
+    pg.evaluate("document.getElementById('fab').click()"); pg.wait_for_timeout(300)
+    check('+ sur Tout : nouvelle tâche', 'Nouvelle tâche' in pg.inner_text('#sh-h'))
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.evaluate("location.hash='#jour'"); pg.wait_for_timeout(300)
+    check('carte du jour : « 2 tâches »', '2 tâches' in pg.inner_text('#hero'))
+    check('agenda : des points au lieu des chiffres', pg.eval_on_selector_all('#week .day[aria-pressed="true"] .ct i', 'e=>e.length') == 2)
+    # recherche surlignée dans le Brouillon
+    pg.evaluate("location.hash='#brouillon'"); pg.wait_for_timeout(300)
+    pg.fill('#nb-q', 'budget'); pg.wait_for_timeout(200)
+    check('recherche : mot surligné dans la liste', pg.eval_on_selector_all('#l-notes mark', 'e=>e.length') >= 2)
+    pg.click('#l-notes .nrow'); pg.wait_for_timeout(400)
+    check('recherche : passages surlignés dans la note', pg.inner_text('#nf-count') == '1 sur 3')
+    pg.click('[data-act="nf-next"]'); pg.wait_for_timeout(200)
+    check('recherche : flèche suivante', pg.inner_text('#nf-count') == '2 sur 3')
+    pg.click('[data-act="nf-edit"].nfdone'); pg.wait_for_timeout(300)
+    check('recherche : « Écrire » repasse en écriture, mot sélectionné', pg.evaluate("[document.activeElement.id,document.activeElement.value.slice(document.activeElement.selectionStart,document.activeElement.selectionEnd)]") == ['ne-body', 'budget'])
+    check('onglets, menu, recherche : aucune erreur', not errs)
+    c.close()
+
+    # 7 sexies. Mode sombre : suit le réglage du téléphone
+    c, pg, errs = device(cfg=False)
+    pg.emulate_media(color_scheme='dark'); pg.wait_for_timeout(200)
+    check('mode sombre : fond noir', pg.evaluate("getComputedStyle(document.body).backgroundColor") == 'rgb(0, 0, 0)')
+    pg.emulate_media(color_scheme='light'); pg.wait_for_timeout(200)
+    check('mode clair : fond gris clair', pg.evaluate("getComputedStyle(document.body).backgroundColor") == 'rgb(239, 240, 242)')
     c.close()
 
     # 7 quater. Brouillon : liste repliée, éditeur, dossiers, épingle, recherche, ligne -> tâche

@@ -1,0 +1,167 @@
+/* Closer · Constantes, état de l'appli, petits outils (dates, échappement HTML), journal des erreurs, stockage local, catégories, lignes de liste. */
+"use strict";
+var DEFAULT_CATS=["Perso","Job","Courses","Achats","RDV","Autre"];
+var TABS=["jour","taches","objectifs","brouillon"];
+var MONTHS=["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+var CHECK='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+var LS_KEY="cap-items-v1";
+var KIND_NAME={task:"tâche",hw:"devoir",daily:"habitude",goal:"objectif",step:"étape"};
+var KIND_NEW={task:"Nouvelle tâche",hw:"Nouveau devoir",daily:"Nouvelle habitude",goal:"Nouvel objectif"};
+var KIND_HINT={
+  task:"Une chose à faire une fois, avec ou sans date.",
+  hw:"Un travail à rendre pour un cours, classé par matière.",
+  daily:"Une habitude à tenir chaque jour, ou un certain nombre de fois par semaine.",
+  goal:"Un cap sur plusieurs semaines ou mois, que tu découpes en étapes."
+};
+
+var state={items:new Map(),filter:"Tout",tmenu:false,day:"",showDone:{taches:false,devoirs:false},arr:{taches:false,devoirs:false},mode:"loading",note:"",nfolder:"Toutes",nq:"",noteOpen:null};
+var dirty={}, noteTimers={}, lastNoteIds=null;
+var lastDeleted=null, toastTimer=null, focusAfter=null;
+var sheet=null, sheetOpener=null, orderGroups={};
+var prevPct={}, prevDone=null, curView=null, EASE="cubic-bezier(0.23,1,0.32,1)";
+var reduce=window.matchMedia?window.matchMedia("(prefers-reduced-motion: reduce)"):{matches:false};
+
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function cap(s){s=String(s==null?"":s);return s?s.charAt(0).toLocaleUpperCase("fr-FR")+s.slice(1):s;}
+function pad(n){return n<10?"0"+n:""+n;}
+function iso(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
+function parse(s){var p=String(s).split("-");return new Date(+p[0],+p[1]-1,+p[2]);}
+function today(){return iso(new Date());}
+function shift(s,n){var d=parse(s);d.setDate(d.getDate()+n);return iso(d);}
+function diffDays(a,b){return Math.round((parse(a)-parse(b))/864e5);}
+function isDate(s){return typeof s==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(s);}
+function fmt(s,opt){return parse(s).toLocaleDateString("fr-FR",opt||{weekday:"short",day:"numeric",month:"short"});}
+
+/* ---------- erreurs : gardées sur l'appareil au lieu d'être avalées ---------- */
+var ERR_KEY="closer-errors", storageWarned=false;
+function logErr(where,e){
+  var m=String((e&&(e.message||e.msg||e.code))||e||"").slice(0,200);
+  try{console.error("Closer · "+where,e);}catch(x){}
+  try{var l=JSON.parse(localStorage.getItem(ERR_KEY)||"[]");l.push({t:Date.now(),w:where,m:m,v:window.APPV||""});localStorage.setItem(ERR_KEY,JSON.stringify(l.slice(-20)));}catch(x){}
+}
+// les 5 dernières erreurs, jointes au message « Donner mon avis »
+function errReport(){
+  try{var l=JSON.parse(localStorage.getItem(ERR_KEY)||"[]").slice(-5);if(!l.length)return "";
+    return "\n\nDernières erreurs (pour aider) :\n"+l.map(function(x){return new Date(x.t).toLocaleString("fr-FR")+" · "+x.w+" · "+x.m;}).join("\n");}catch(e){return "";}
+}
+// stockage plein : on prévient une fois, au lieu de perdre en silence
+function storageWarn(){if(storageWarned)return;storageWarned=true;showToast("Mémoire de l'appareil pleine : tes dernières modifications risquent de ne pas être gardées. Exporte une sauvegarde dans Réglages.",true);}
+addEventListener("error",function(e){logErr("page",e.error||e.message);});
+addEventListener("unhandledrejection",function(e){logErr("promesse",e.reason);});
+
+/* ---------- stockage ---------- */
+function newId(){
+  return "l"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+}
+function persistLocal(){
+  if(state.mode!=="local")return;
+  try{localStorage.setItem(LS_KEY,JSON.stringify(Array.from(state.items.entries())));}
+  catch(e){logErr("stockage",e);storageWarn();}
+  schedSync(1500);
+}
+function put(id,data){
+  state.items.set(id,data);
+}
+function save(id,data){var isNew=!state.items.has(id);put(id,data);persistLocal();render();if(isNew&&data&&data.kind&&data.kind!=="prefs")stat1("first_item");}
+function remove(id){
+  clearTimeout(noteTimers[id]);delete dirty[id];
+  state.items.delete(id);persistLocal();render();
+}
+function get(id){var d=state.items.get(id);if(!d)return null;var c=Object.assign({},d);if(Array.isArray(d.steps))c.steps=d.steps.map(function(s){return Object.assign({},s);});return c;}
+function byKind(k){var out=[];state.items.forEach(function(d,id){if(d&&d.kind===k)out.push({id:id,d:d});});out.sort(function(a,b){return (a.d.created||0)-(b.d.created||0);});return out;}
+
+/* ---------- catégories ---------- */
+function cats(){var p=state.items.get("prefs");return p&&Array.isArray(p.cats)?p.cats.slice():DEFAULT_CATS.slice();}
+function allCats(extra){
+  var l=cats();
+  byKind("task").forEach(function(x){var c=x.d.cat;if(c&&c!=="Devoir"&&l.indexOf(c)<0)l.push(c);});
+  if(extra&&extra!=="Devoir"&&l.indexOf(extra)<0)l.push(extra);
+  return l;
+}
+function prefs(){var p=state.items.get("prefs");p=p?Object.assign({},p):{};p.kind="prefs";return p;}
+function setCats(l){var p=prefs();p.cats=l;save("prefs",p);}
+function groupMode(v){var p=state.items.get("prefs"),g=p&&p.group&&p.group[v];return g==="group"?"group":"date";}
+function cleanCat(v){var c=cap(String(v||"").trim()).slice(0,24);return (!c||c==="Tout"||c==="Devoir")?"":c;}
+
+/* ---------- lignes ---------- */
+function checkBtn(act,id,on,label,extra,cls){
+  return '<button type="button" class="check '+(cls||"")+'" role="checkbox" aria-checked="'+(on?"true":"false")+'" aria-label="'+esc(label)+'" data-act="'+act+'" data-id="'+esc(id)+'"'+(extra||"")+'>'+CHECK+'</button>';
+}
+function dueSpan(due,done){
+  if(!isDate(due))return "";
+  var n=diffDays(due,today());
+  if(done)return '<span>'+esc(fmt(due))+'</span>';
+  if(n<0)return '<span class="late">Retard de '+(-n)+' j</span>';
+  if(n===0)return '<span>Aujourd\'hui</span>';
+  if(n===1)return '<span>Demain</span>';
+  return '<span>'+esc(fmt(due))+'</span>';
+}
+function taskMeta(d,hideDate){
+  var m="";
+  if(d.prio)m+='<span class="flag">Important</span>';
+  if(!hideDate||(isDate(d.due)&&d.due<today()&&!d.done))m+=dueSpan(d.due,d.done);
+  m+='<span>'+esc(d.cat==="Devoir"?cap(d.subject||"Devoir"):(d.cat||""))+'</span>';
+  return m;
+}
+var UP='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 10L8 5.5 12.5 10"/></svg>', DOWN='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 6L8 10.5 12.5 6"/></svg>';
+function mvBtn(a,id,dir,ti){
+  var ok=dir<0?a.up:a.down;
+  return '<button type="button" class="mv" id="mv-'+esc(id)+(dir<0?"-u":"-d")+'" data-act="mv" data-k="'+a.v+'" data-g="'+a.g+'" data-dir="'+dir+'" data-id="'+esc(id)+'" aria-label="'+(dir<0?"Monter : ":"Descendre : ")+esc(ti)+'"'+(ok?"":" disabled")+'>'+(dir<0?UP:DOWN)+'</button>';
+}
+function taskRow(t,hideDate,a){
+  var d=t.d,ti=cap(d.title);
+  if(a)return '<div class="row'+(d.prio?" prio":"")+'" style="padding-left:16px"><div class="body" style="padding-right:8px"><span class="title">'+esc(ti)+'</span><span class="meta">'+taskMeta(d,hideDate)+'</span></div>'+
+    '<span class="mvs">'+mvBtn(a,t.id,-1,ti)+mvBtn(a,t.id,1,ti)+'</span></div>';
+  return '<div class="row'+(d.prio?" prio":"")+(d.done?" done":"")+'">'+
+    checkBtn("task",t.id,d.done,(d.done?"Marquer non fait : ":"Marquer fait : ")+ti)+
+    '<button type="button" class="body" data-act="edit" data-id="'+esc(t.id)+'" aria-label="Modifier : '+esc(ti)+'">'+
+    '<span class="title">'+esc(ti)+'</span><span class="meta">'+taskMeta(d,hideDate)+'</span></button></div>';
+}
+function streakOf(d){var t=today();return (d.lastDone===t||d.lastDone===shift(t,-1))?(d.streak||0):0;}
+function dailyRow(x){
+  var on=x.d.lastDone===today(), s=streakOf(x.d), ti=cap(x.d.title);
+  return '<div class="row'+(on?" done":"")+'">'+checkBtn("daily",x.id,on,(on?"Décocher : ":"Cocher : ")+ti,"","round")+
+    '<button type="button" class="body" data-act="edit" data-id="'+esc(x.id)+'" aria-label="Modifier : '+esc(ti)+'">'+
+    '<span class="title">'+esc(ti)+'</span>'+(s>1?'<span class="meta"><span class="credit">'+s+' jours de suite</span></span>':"")+'</button></div>';
+}
+function prioSort(a,b){
+  if(!!a.d.prio!==!!b.d.prio)return a.d.prio?-1:1;
+  return (a.d.created||0)-(b.d.created||0);
+}
+function dueCmp(a,b){
+  var ad=isDate(a.d.due)?a.d.due:"9999",bd=isDate(b.d.due)?b.d.due:"9999";
+  return ad===bd?0:(ad<bd?-1:1);
+}
+function plainSort(a,b){return dueCmp(a,b)||prioSort(a,b);}
+// ordre choisi à la main : les tâches rangées passent avant celles qui ne le sont pas encore
+function byOrd(f,fb){
+  return function(a,b){
+    var ka=a.d[f]!=null,kb=b.d[f]!=null;
+    if(ka||kb){var va=ka?a.d[f]:1e5+(a.d.created||0),vb=kb?b.d[f]:1e5+(b.d.created||0);if(va!==vb)return va-vb;}
+    return fb(a,b);
+  };
+}
+var ordDSort=byOrd("ordD",prioSort), ordCSort=byOrd("ordC",plainSort);
+function sortTasks(a,b){return dueCmp(a,b)||ordDSort(a,b);}
+function weekStart(t){var d=parse(t);return shift(t,-((d.getDay()+6)%7));}
+function weekCount(d){var ws=weekStart(today()),we=shift(ws,6);return (d.dones||[]).filter(function(x){return x>=ws&&x<=we;}).length;}
+function weeklyRow(x){
+  var d=x.d,n=weekCount(d),tg=d.target||1,on=(d.dones||[]).indexOf(today())>=0,ti=cap(d.title),pips="";
+  for(var i=0;i<tg;i++)pips+='<i'+(i<n?' class="on"':"")+'></i>';
+  return '<div class="row'+(n>=tg?" reached":"")+'">'+checkBtn("weekly",x.id,on,(on?"Annuler la séance d'aujourd'hui : ":"Séance faite aujourd'hui : ")+ti,"","round")+
+    '<button type="button" class="body" data-act="edit" data-id="'+esc(x.id)+'" aria-label="Modifier : '+esc(ti)+'">'+
+    '<span class="title">'+esc(ti)+'</span><span class="meta"><span class="pips" aria-hidden="true">'+pips+'</span><span'+(n>=tg?' class="credit"':"")+'>'+n+' sur '+tg+' cette semaine</span></span></button></div>';
+}
+function block(title,count,rowsHtml,cls){
+  return '<section class="block"><div class="sh"><h2 class="'+(cls||"")+'">'+esc(title)+'</h2><span class="n">'+count+'</span></div><div class="list">'+rowsHtml+'</div></section>';
+}
+
+/* ---------- pastille sur l'icône (appli ajoutée à l'écran d'accueil) ---------- */
+var badgeLast=-1;
+function badgeOk(){return "setAppBadge" in navigator;}
+function setBadge(n){
+  if(!badgeOk()||n===badgeLast)return;badgeLast=n;
+  if(badgeOff())n=0;
+  try{(n?navigator.setAppBadge(n):navigator.clearAppBadge()).catch(function(){});}catch(e){}
+}

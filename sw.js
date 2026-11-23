@@ -1,10 +1,19 @@
 /* Closer : hors ligne.
    Réseau d'abord (sans cache HTTP) pour toujours avoir la dernière version,
    copie locale en secours quand il n'y a pas de réseau. */
-const CACHE = "closer-v13";
+const CACHE = "closer-v14";
 const CORE = [
   "./",
   "index.html",
+  "css/closer.css",
+  "js/base.js",
+  "js/vues.js",
+  "js/brouillon.js",
+  "js/fiche.js",
+  "js/actions.js",
+  "js/sync.js",
+  "js/reglages.js",
+  "js/demarrage.js",
   "manifest.webmanifest",
   "fonts/schibsted-grotesk.woff2",
   "icon-192.png",
