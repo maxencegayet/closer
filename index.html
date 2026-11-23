@@ -146,14 +146,24 @@ h2.late{color:var(--late)}
 .step{display:flex;align-items:center;gap:12px}
 .step .check{width:22px;height:22px;border-radius:7px}
 .step .check svg{width:12px;height:12px}
-.step .body{padding:8px 0}
 .linked{display:flex;flex-direction:column;gap:2px;background:var(--bg);border-radius:14px;padding:10px 14px}
 .linked h3{margin:0 0 2px;font-size:13px;font-weight:600;color:var(--muted)}
 .lk{border:0;background:transparent;text-align:left;padding:5px 0;border-radius:8px;display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;font-weight:500}
 .lk span{font-size:13.5px;font-weight:400;color:var(--muted)}
 .lk span.credit{color:var(--credit);font-weight:600}
-form.addstep{display:flex;gap:8px}
-form.addstep input{flex:1;min-width:0;min-height:40px;padding:8px 14px;font-size:15px;background:var(--bg);border:0;border-radius:12px}
+.steps .step + .step{border-top:1px solid var(--line)}
+.step .body{flex:1;min-width:0;border:0;background:transparent;text-align:left;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;padding:11px 0}
+.step .body>span:not(.title){font-size:13.5px;color:var(--muted)}
+.step .body>span.late{color:var(--late);font-weight:600}
+form.addstep{margin:0}
+.check.ghostcheck{border-style:dashed;color:var(--muted);pointer-events:none}
+.check.ghostcheck svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;opacity:1;transform:none}
+form.addstep input{flex:1;min-width:0;border:0;background:transparent;outline:none;padding:11px 0;min-height:44px;font-size:16px;color:var(--ink);-webkit-appearance:none;appearance:none}
+form.addstep input::placeholder{color:var(--muted)}
+.addgo{flex:none;width:30px;height:30px;border-radius:50%;border:0;background:var(--ink);color:var(--surface);display:grid;place-items:center;padding:0;transition:transform 140ms var(--ease-out),opacity 140ms ease}
+.addgo svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.addgo:active{transform:scale(.92)}
+form.addstep input:placeholder-shown + .addgo{opacity:0;transform:scale(.6);pointer-events:none}
 .goal .btn.ghost{background:var(--bg)}
 
 /* brouillon */
@@ -719,33 +729,43 @@ function renderObjectifs(){
   var dailies=byKind("daily"), tasks=byKind("task");
   $("l-goals").innerHTML=goals.map(function(g){
     var d=g.d, steps=Array.isArray(d.steps)?d.steps:[], ti=cap(d.title);
-    var nd=steps.filter(function(s){return s.done;}).length;
-    var pct=d.reached?100:(steps.length?Math.round(nd/steps.length*100):0);
+    var lt=tasks.filter(function(x){return x.d.goal===g.id;}).sort(function(a,b){return (a.d.done?1:0)-(b.d.done?1:0)||sortTasks(a,b);});
+    // une seule liste : les étapes puis les tâches reliées ; toutes comptent dans l'avancée
+    var tot=steps.length+lt.length, nd=steps.filter(function(s){return s.done;}).length+lt.filter(function(x){return x.d.done;}).length;
+    var pct=d.reached?100:(tot?Math.round(nd/tot*100):0);
     var when="";
     if(isDate(d.target)){
       var n=diffDays(d.target,t);
       when='<div class="when">D\'ici '+esc(fmt(d.target,{month:"long",year:"numeric"}))+
         (d.reached?"":(n>=0?'<b>J-'+n+'</b>':'<b class="late">Dépassé de '+(-n)+' j</b>'))+'</div>';
     }
+    var rows=steps.map(function(s,i){
+      var st=cap(s.t);
+      return {done:!!s.done,h:'<div class="step'+(s.done?" done":"")+'">'+checkBtn("step",g.id,s.done,(s.done?"Décocher : ":"Cocher : ")+st,' data-i="'+i+'"')+
+        '<button type="button" class="body" data-act="edit-step" data-id="'+esc(g.id)+'" data-i="'+i+'" aria-label="Modifier : '+esc(st)+'"><span class="title">'+esc(st)+'</span></button></div>'};
+    }).concat(lt.map(function(x){
+      var st=cap(x.d.title);
+      return {done:!!x.d.done,h:'<div class="step'+(x.d.done?" done":"")+'">'+checkBtn("task",x.id,x.d.done,(x.d.done?"Décocher : ":"Cocher : ")+st)+
+        '<button type="button" class="body" data-act="edit" data-id="'+esc(x.id)+'" aria-label="Modifier : '+esc(st)+'"><span class="title">'+esc(st)+'</span>'+(isDate(x.d.due)&&!x.d.done?dueSpan(x.d.due,false):"")+'</button></div>'};
+    }));
+    // ce qui reste à faire d'abord, ce qui est fait en bas (ordre conservé dans chaque groupe)
+    rows=rows.filter(function(r){return !r.done;}).concat(rows.filter(function(r){return r.done;})).map(function(r){return r.h;});
     var lk=dailies.filter(function(x){return x.d.goal===g.id;}).map(function(x){
       var s=streakOf(x.d);
       return '<button type="button" class="lk" data-act="edit" data-id="'+esc(x.id)+'">'+esc(cap(x.d.title))+'<span>Chaque jour</span>'+(s>1?'<span class="credit">'+s+' jours de suite</span>':"")+'</button>';
     }).concat(byKind("weekly").filter(function(x){return x.d.goal===g.id;}).map(function(x){
       return '<button type="button" class="lk" data-act="edit" data-id="'+esc(x.id)+'">'+esc(cap(x.d.title))+'<span>'+weekCount(x.d)+' sur '+(x.d.target||1)+' cette semaine</span></button>';
-    })).concat(tasks.filter(function(x){return x.d.goal===g.id&&!x.d.done;}).sort(sortTasks).map(function(x){
-      return '<button type="button" class="lk" data-act="edit" data-id="'+esc(x.id)+'">'+esc(cap(x.d.title))+(isDate(x.d.due)?dueSpan(x.d.due,false):'<span>Sans date</span>')+'</button>';
     }));
     return '<article class="goal'+(d.reached?" reached":"")+'">'+
       '<div class="goal-head"><button type="button" class="t" data-act="edit" data-id="'+esc(g.id)+'" aria-label="Modifier : '+esc(ti)+'">'+esc(ti)+'</button><div class="pct">'+pct+' %</div></div>'+
       when+
       '<div class="track"><div class="fill" data-gid="'+esc(g.id)+'" data-p="'+pct+'" style="transform:scaleX('+(pct/100)+')"></div></div>'+
-      (steps.length?'<div class="steps">'+steps.map(function(s,i){
-        var st=cap(s.t);
-        return '<div class="step'+(s.done?" done":"")+'">'+checkBtn("step",g.id,s.done,(s.done?"Décocher : ":"Cocher : ")+st,' data-i="'+i+'"')+
-          '<button type="button" class="body" data-act="edit-step" data-id="'+esc(g.id)+'" data-i="'+i+'" aria-label="Modifier l\'étape : '+esc(st)+'"><span class="title">'+esc(st)+'</span></button></div>';
-      }).join("")+'</div>':"")+
-      (lk.length?'<div class="linked"><h3>Ce qui le fait avancer</h3>'+lk.join("")+'</div>':"")+
-      '<form class="addstep" data-goal="'+esc(g.id)+'"><input type="text" id="step-in-'+esc(g.id)+'" placeholder="Ajouter une étape" aria-label="Nouvelle étape pour '+esc(ti)+'" maxlength="200" autocapitalize="sentences"><button class="btn ghost small" type="submit">Ajouter</button></form>'+
+      '<div class="steps">'+rows.join("")+
+        '<form class="addstep step" data-goal="'+esc(g.id)+'"><span class="check ghostcheck" aria-hidden="true"><svg viewBox="0 0 12 12"><path d="M6 2v8M2 6h8"/></svg></span>'+
+        '<input type="text" id="step-in-'+esc(g.id)+'" placeholder="Ajouter une tâche" aria-label="Nouvelle tâche pour '+esc(ti)+'" maxlength="200" autocapitalize="sentences" enterkeyhint="done">'+
+        '<button class="addgo" type="submit" aria-label="Ajouter"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/></svg></button></form>'+
+      '</div>'+
+      (lk.length?'<div class="linked"><h3>Habitudes qui le font avancer</h3>'+lk.join("")+'</div>':"")+
       '<div><button type="button" class="linkbtn" data-act="reach" data-id="'+esc(g.id)+'">'+(d.reached?"Rouvrir l'objectif":"Marquer comme atteint")+'</button></div>'+
       '</article>';
   }).join("");
@@ -921,9 +941,21 @@ function dayOpts(){
   for(var i=2;i<=6;i++){var d=shift(t,i);o.push([d,fmt(d,{weekday:"short",day:"numeric"})]);}
   return o;
 }
+/* iPhone : si la page derrière défile quand le clavier s'ouvre, Safari dessine le curseur
+   des champs de la fiche (position fixe) au mauvais endroit. On fige donc la page. */
+var lockY=null;
+function lockPage(){
+  if(lockY!==null)return;lockY=window.scrollY||0;
+  var b=document.body.style;b.position="fixed";b.top=(-lockY)+"px";b.left="0";b.right="0";b.width="100%";
+}
+function unlockPage(){
+  if(lockY===null)return;var y=lockY;lockY=null;
+  var b=document.body.style;b.position=b.top=b.left=b.right=b.width="";
+  window.scrollTo(0,y);
+}
 function openSheet(s,from){
   opener=from||null;sheet=s;renderSheet();
-  document.body.classList.add("sheet-open");
+  lockPage();document.body.classList.add("sheet-open");
   $("app").inert=true;$("nav").inert=true;$("fab").inert=true;
   $("sheet").scrollTop=0;
   if(s.mode==="new")setTimeout(function(){var el=$("sh-title");if(el)el.focus();},80);else $("sheet").focus();
@@ -957,7 +989,8 @@ function closeSheet(){
   if(keepDraft())showToast("Brouillon gardé : touche + pour le reprendre",true);
   sheet=null;document.body.classList.remove("sheet-open");
   $("app").inert=false;$("nav").inert=false;$("fab").inert=false;
-  if(opener&&document.contains(opener))opener.focus();
+  unlockPage();
+  if(opener&&document.contains(opener))opener.focus({preventScroll:true});
   opener=null;
 }
 function syncDraft(){
@@ -1371,7 +1404,7 @@ function localMode(note){
 }
 
 /* ---------- version, mises à jour ---------- */
-var APPV="2026-11-17.6";
+var APPV="2026-11-23.1";
 /* 4. bouton + : se range au défilement vers le bas */
 (function(){var y=window.scrollY,f=document.getElementById("fab");
   addEventListener("scroll",function(){var n=window.scrollY,d=n-y;
@@ -1538,6 +1571,7 @@ var IC={
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["23 nov.","Objectifs : étapes et tâches reliées réunies dans une seule liste, avec un ajout directement dans la liste. Curseur de saisie de nouveau bien placé sur iPhone."],
   ["17 nov.","Une tâche fermée par erreur reste en brouillon ; petite vibration, son et coche quand tu enregistres."],
   ["17 nov.","Réglages repensés : rouage, statistiques, préférences au même endroit, guide « écran d'accueil »."],
   ["17 nov.","Brouillon façon Notes : notes repliées, dossiers, épingles, recherche, ligne → tâche."],
