@@ -125,10 +125,30 @@ function taskCat(d){return d.cat==="Devoir"?cap(d.subject||"Devoir"):(d.cat||"")
 function taskSide(d,hideDate,hideCat){
   var late=isDate(d.due)&&d.due<today()&&!d.done, dt=(!hideDate||late)?sideDue(d.due,d.done):"", c=hideCat?"":esc(taskCat(d));
   if(d.time&&isDate(d.due)&&!d.done&&!late)dt=dt?dt+" · "+esc(d.time):esc(d.time);   // heure du rappel
+  if(d.rep&&!d.done)dt=REP_ICON+(dt||"");
   if(!dt&&!c)return "";
   return '<span class="side">'+(dt?'<span class="sd">'+dt+'</span>':"")+(c?'<span class="sc">'+c+'</span>':"")+'</span>';
 }
 var LATE_BTN='<button type="button" class="btn ghost small latebtn" data-act="late-today">Tout reporter à aujourd\'hui</button>';
+/* tâches qui se répètent : rep = "day" | "wdays" (lundi-vendredi) | "week" | "month" */
+var REPS=[["","Non"],["day","Tous les jours"],["wdays","Du lundi au vendredi"],["week","Toutes les semaines"],["month","Tous les mois"]];
+function repLabel(r){for(var i=0;i<REPS.length;i++)if(REPS[i][0]===r)return REPS[i][1];return "";}
+function stepRep(d,rep,anchor){
+  var p=parse(d);
+  if(rep==="day")p.setDate(p.getDate()+1);
+  else if(rep==="week")p.setDate(p.getDate()+7);
+  else if(rep==="wdays"){do{p.setDate(p.getDate()+1);}while(p.getDay()===0||p.getDay()===6);}
+  else if(rep==="month"){var day=anchor||p.getDate();p.setDate(1);p.setMonth(p.getMonth()+1);var last=new Date(p.getFullYear(),p.getMonth()+1,0).getDate();p.setDate(Math.min(day,last));}
+  else p.setDate(p.getDate()+1);
+  return iso(p);
+}
+// prochaine échéance : au moins une fois après la date prévue, et toujours après aujourd'hui
+function nextDue(d,rep,anchor){var t=today(),n=stepRep(d,rep,anchor),g=0;while(n<=t&&g++<1500)n=stepRep(n,rep,anchor);return n;}
+var REP_ICON='<svg class="repi" viewBox="0 0 24 24" aria-label="se répète" role="img"><path d="M17 3l3 3-3 3M20 6H8a4 4 0 0 0-4 4v1M7 21l-3-3 3-3M4 18h12a4 4 0 0 0 4-4v-1"/></svg>';
+/* écran vide : ce que c'est, à quoi ça sert, et un bouton pour commencer */
+function emptyState(title,text,label){
+  return '<div class="emptyst"><b>'+esc(title)+'</b><p>'+esc(text)+'</p>'+(label?'<button type="button" class="btn small" data-act="add">'+esc(label)+'</button>':"")+'</div>';
+}
 var BANG='<i class="bang" aria-hidden="true">!</i>';
 var UP='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 10L8 5.5 12.5 10"/></svg>', DOWN='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 6L8 10.5 12.5 6"/></svg>';
 function mvBtn(a,id,dir,ti){

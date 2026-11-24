@@ -1,6 +1,7 @@
 // Closer · fonction « closer-push » (Supabase Edge Function).
 // Appelée chaque minute par pg_cron. Envoie :
 //   - les rappels des tâches qui ont une heure (le jour J, à l'heure dite, une seule fois) ;
+//   - les rappels des habitudes qui ont une heure (chaque jour où elles ne sont pas encore faites) ;
 //   - le récap du matin, à l'heure choisie dans les Réglages de Closer.
 // GET  -> renvoie la clé publique (et crée les clés au tout premier appel).
 // POST {"test": "<endpoint>"} -> envoie une notification d'essai à cet appareil.
@@ -50,6 +51,12 @@ function local(tz: string) {
 }
 const mins = (hm: string) => +hm.slice(0, 2) * 60 + +hm.slice(3, 5);
 const isHM = (s: unknown) => typeof s === "string" && /^\d\d:\d\d$/.test(s);
+// lundi de la semaine d'une date « AAAA-MM-JJ »
+function monday(date: string) {
+  const d = new Date(date + "T12:00:00Z"), k = (d.getUTCDay() + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - k);
+  return d.toISOString().slice(0, 10);
+}
 
 type Sub = { endpoint: string; user_id: string; p256dh: string; auth: string; tz: string; morning: string | null; last_morning: string | null };
 type Msg = { title: string; body: string; tag: string; url: string };
@@ -96,8 +103,10 @@ Deno.serve(async (req) => {
   for (const [uid, list] of byUser) {
     const L = local(list[0].tz || "Europe/Paris"), now = mins(L.hm);
     const { data: rows } = await sb.from("closer_items").select("id,data")
-      .eq("user_id", uid).eq("deleted", false).eq("data->>kind", "task");
-    const open = (rows || []).filter((r) => r.data && !r.data.done);
+      .eq("user_id", uid).eq("deleted", false).in("data->>kind", ["task", "daily", "weekly"]);
+    const all = (rows || []).filter((r) => r.data);
+    const open = all.filter((r) => r.data.kind === "task" && !r.data.done);
+    const habits = all.filter((r) => r.data.kind === "daily" || r.data.kind === "weekly");
     const msgs: Msg[] = [];
 
     // Rappels à l'heure : le jour J, dans l'heure qui suit l'heure prévue (rattrape un appel manqué)
@@ -109,6 +118,29 @@ Deno.serve(async (req) => {
       if (!(await claim(uid, r.id, `${d.due} ${d.time}`))) continue;
       const t = String(d.title || "Tâche");
       msgs.push({ title: t.charAt(0).toUpperCase() + t.slice(1), body: `Rappel de ${d.time}${d.cat === "Devoir" && d.subject ? " · " + d.subject : ""}`, tag: "t-" + r.id, url: "./#taches" });
+    }
+
+    // Rappels des habitudes : chaque jour à l'heure dite, tant que ce n'est pas fait
+    const mon = monday(L.date);
+    for (const r of habits) {
+      const d = r.data;
+      if (!isHM(d.time)) continue;
+      const late = now - mins(d.time);
+      if (late < 0 || late > 60) continue;
+      const dones: string[] = Array.isArray(d.dones) ? d.dones : [];
+      let body = "À faire aujourd'hui";
+      if (d.kind === "daily") {
+        if (d.lastDone === L.date || dones.includes(L.date)) continue;
+        if ((d.streak || 0) > 1 && d.lastDone) body = `Garde ta série de ${d.streak} jours`;
+      } else {
+        if (dones.includes(L.date)) continue;
+        const n = dones.filter((x) => x >= mon && x <= L.date).length, target = d.target || 1;
+        if (n >= target) continue;
+        body = `${n} sur ${target} cette semaine`;
+      }
+      if (!(await claim(uid, r.id, `${L.date} ${d.time}`))) continue;
+      const t = String(d.title || "Habitude");
+      msgs.push({ title: t.charAt(0).toUpperCase() + t.slice(1), body, tag: "h-" + r.id, url: "./#jour" });
     }
 
     // Récap du matin : une fois par jour, à l'heure choisie (ou jusqu'à 2 h après)

@@ -47,12 +47,13 @@ function renderJour(){
 
   var html="";
   if(state.day===t){
+    html+=onboardCard();
     var wk=byKind("weekly").sort(function(a,b){return (weekCount(a.d)>=(a.d.target||1)?1:0)-(weekCount(b.d)>=(b.d.target||1)?1:0);});
     var hasHab=dRest.length||wk.length;
     // les retards à part, repliables, avec un geste pour tout reporter ; la journée reste lisible en dessous
     var tLate=tRest.filter(function(x){return x.d.due<t;}), tToday=tRest.filter(function(x){return x.d.due===t;});
     if(tLate.length)html+=foldBlock("jour:late","En retard",tLate.length,tLate.map(function(x){return taskRow(x,true);}).join(""),"late",LATE_BTN);
-    if(tToday.length||(!hasHab&&!tLate.length))html+=block("Aujourd'hui",tToday.length||"",tToday.length
+    if(tToday.length||(!hasHab&&!tLate.length&&total))html+=block("Aujourd'hui",tToday.length||"",tToday.length
       ? tToday.map(function(x){return taskRow(x,true);}).join("")
       : '<div class="empty">'+(state.mode==="loading"?"Chargement…":(total?"Tout est fait pour aujourd'hui.":"Rien pour l'instant."))+'</div>');
     if(hasHab){
@@ -69,6 +70,23 @@ function renderJour(){
       day.length?day.map(function(x){return taskRow(x,true);}).join(""):'<div class="empty">Rien de prévu ce jour-là. Touche + pour y ajouter quelque chose.</div>');
   }
   $("l-jour").innerHTML=html;
+}
+
+/* ---------- premiers pas : 3 étapes, puis la carte disparaît ---------- */
+var ONB_KEY="closer-onboard-off";
+function onboardSteps(){
+  var st=[{done:byKind("task").length>0,txt:"Ajoute ta première tâche",act:"add",btn:"Ajouter"},
+          {done:standalone(),txt:"Ajoute Closer à l'écran d'accueil",act:"ac-open",btn:"Comment"}];
+  if(acOn())st.push({done:pushOn(),txt:SU?"Active les rappels":"Crée ton compte, puis active les rappels",act:"ac-open",btn:"Réglages"});
+  return st;
+}
+function onboardCard(){
+  try{if(localStorage.getItem(ONB_KEY)==="1")return "";}catch(e){}
+  if(state.mode==="loading")return "";
+  var st=onboardSteps(), n=st.filter(function(x){return x.done;}).length;
+  if(n===st.length)return "";
+  return '<section class="onb" aria-label="Premiers pas"><div class="onb-h"><b>Premiers pas</b><span>'+n+' sur '+st.length+'</span><button type="button" class="linkbtn" data-act="onb-off">Masquer</button></div>'+
+    st.map(function(x){return '<div class="onb-r'+(x.done?" ok":"")+'"><span class="onb-c" aria-hidden="true">'+(x.done?'<svg viewBox="0 0 12 12"><path d="M2.5 6.2l2.3 2.3L9.5 3.8"/></svg>':"")+'</span><span class="onb-t">'+esc(x.txt)+(x.done?'<span class="sr"> (fait)</span>':"")+'</span>'+(x.done?"":'<button type="button" class="btn ghost small" data-act="'+x.act+'">'+x.btn+'</button>')+'</div>';}).join("")+'</section>';
 }
 
 /* ---------- Devoirs et Tâches ---------- */
@@ -153,7 +171,12 @@ function renderTaskView(v,target,emptyTxt){
     if(g[5]==="late")html+=arr?block(g[0],g[2].length,rows,g[1]):foldBlock(v+":late",g[0],g[2].length,rows,g[1],LATE_BTN);
     else html+=arr?block(g[0],g[2].length,rows,g[1]):foldBlock(v+":"+g[5],g[0],g[2].length,rows,g[1]);
   });
-  if(!open.length)html+='<div class="list"><div class="empty">'+(state.mode==="loading"?"Chargement…":esc(emptyTxt))+'</div></div>';
+  if(!open.length){
+    if(state.mode==="loading")html+='<div class="list"><div class="empty">Chargement…</div></div>';
+    else if(isHw&&!all.length)html+=emptyState("Aucun devoir en cours","Note chaque devoir avec sa matière et sa date de rendu : il apparaîtra le bon jour, et tu peux te faire rappeler à l'heure de ton choix.","Ajouter un devoir");
+    else if(!isHw&&state.filter==="Tout"&&!all.length)html+=emptyState("Aucune tâche pour l'instant","Note tout ce que tu as à faire. Avec une date, elle s'affiche le bon jour ; avec une heure, Closer te le rappelle.","Ajouter une tâche");
+    else html+='<div class="list"><div class="empty">'+esc(emptyTxt)+'</div></div>';
+  }
   var done=all.filter(function(x){return x.d.done;}).sort(function(a,b){return (b.d.doneAt||0)-(a.d.doneAt||0);});
   if(done.length&&!arr){
     html+=foldBlock(v+":done","Terminées",done.length,done.slice(0,50).map(function(x){return taskRow(x,false,null,!catShown);}).join(""),"",
@@ -171,7 +194,7 @@ function goalOpen(id){return goalsOpen().indexOf(id)>=0;}
 function setGoalOpen(id,on){var l=goalsOpen().filter(function(x){return x!==id;});if(on)l.push(id);try{localStorage.setItem(GOALS_OPEN_KEY,JSON.stringify(l));}catch(e){}}
 function renderObjectifs(){
   var t=today(), goals=byKind("goal");
-  if(!goals.length){$("l-goals").innerHTML='<div class="list"><div class="empty">'+(state.mode==="loading"?"Chargement…":"Aucun objectif pour l'instant. Touche + pour en créer un, puis découpe-le en étapes.")+'</div></div>';return;}
+  if(!goals.length){$("l-goals").innerHTML=state.mode==="loading"?'<div class="list"><div class="empty">Chargement…</div></div>':emptyState("Aucun objectif pour l'instant","Un objectif, c'est un cap à quelques mois : un stage, un examen, un niveau en anglais. Découpe-le en étapes et relie-lui tes tâches pour voir où tu en es.","Créer un objectif");return;}
   var dailies=byKind("daily"), tasks=byKind("task");
   $("l-goals").innerHTML=goals.map(function(g){
     var d=g.d, steps=Array.isArray(d.steps)?d.steps:[], ti=cap(d.title);

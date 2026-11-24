@@ -1,7 +1,7 @@
 /* Closer · Fiche d'ajout et de modification (tâche, devoir, habitude, objectif), brouillon de fiche. */
 "use strict";
 /* ---------- fiche d'ajout et de modification ---------- */
-function blankDraft(){return {title:"",cat:(cats()[0]||"Perso"),newCat:false,newCatName:"",freq:0,subject:"",due:"",time:"",other:false,prio:false,goal:"",tm:"",ty:String(new Date().getFullYear())};}
+function blankDraft(){return {title:"",cat:(cats()[0]||"Perso"),newCat:false,newCatName:"",freq:0,subject:"",due:"",time:"",rep:"",other:false,prio:false,goal:"",tm:"",ty:String(new Date().getFullYear())};}
 function dayOpts(){
   var t=today(),o=[["","Sans date"],[t,"Aujourd'hui"],[shift(t,1),"Demain"]];
   for(var i=2;i<=6;i++){var d=shift(t,i);o.push([d,fmt(d,{weekday:"short",day:"numeric"})]);}
@@ -67,10 +67,17 @@ function syncDraft(){
   if((el=$("sh-newcat")))dr.newCatName=el.value;
   if((el=$("sh-due"))&&dr.other)dr.due=el.value;
   if((el=$("sh-time")))dr.time=el.value;
+  if((el=$("sh-rep")))dr.rep=el.value;
   if((el=$("sh-prio")))dr.prio=el.checked;
   if((el=$("sh-goal")))dr.goal=el.value;
   if((el=$("sh-tm")))dr.tm=el.value;
   if((el=$("sh-ty")))dr.ty=el.value;
+}
+// « Rappel à » : heure facultative, avec un avertissement si l'appareil ne reçoit pas les notifications
+function timeField(dr){
+  return '<div class="field timefield"><label for="sh-time">Rappel à</label><div class="trow"><input type="time" id="sh-time" value="'+esc(dr.time||"")+'">'+
+    (dr.time?'<button type="button" class="linkbtn" data-act="stime-clear">Sans rappel</button>':'<span class="thint">Facultatif</span>')+'</div>'+
+    (dr.time&&!pushOn()?'<div class="pushwarn" role="note">Les notifications ne sont pas activées sur cet appareil : ce rappel n\'arrivera pas. Active-les dans Réglages › Notifications.</div>':"")+'</div>';
 }
 function sChip(act,val,label,on){return '<button type="button" class="chip" aria-pressed="'+on+'" data-act="'+act+'" data-v="'+esc(val)+'">'+esc(label)+'</button>';}
 function renderSheet(){
@@ -113,6 +120,7 @@ function renderSheet(){
   if(k==="daily"){
     h+='<div class="field"><span class="lab">Rythme</span><div class="chips scroll" role="group" aria-label="Rythme">'+
       sChip("sfreq","0","Chaque jour",!dr.freq)+[1,2,3,4,5,6].map(function(n){return sChip("sfreq",String(n),n+" fois par semaine",dr.freq===n);}).join("")+'</div></div>';
+    h+=timeField(dr);   // rappel de l'habitude, chaque jour où elle n'est pas encore faite
   }
   if(k==="hw"){
     h+='<div class="field"><label for="sh-subj">Matière</label><input type="text" id="sh-subj" value="'+esc(dr.subject)+'" placeholder="Ex. Finance" maxlength="40" list="sh-subjects" autocapitalize="sentences">'+
@@ -130,11 +138,11 @@ function renderSheet(){
       opts.map(function(o){return sChip("sdate",o[0],o[1],!dr.other&&o[0]===dr.due);}).join("")+
       sChip("sdate","other",dr.other&&isDate(dr.due)?fmt(dr.due,{day:"numeric",month:"short",year:"numeric"}):"Autre date",dr.other)+'</div>'+
       (dr.other?'<input type="date" id="sh-due" value="'+esc(dr.due)+'" aria-label="Autre date">':"")+'</div>';
-    // heure du rappel : seulement quand il y a une date
-    if(isDate(dr.due))h+='<div class="field timefield"><label for="sh-time">Rappel à</label><div class="trow"><input type="time" id="sh-time" value="'+esc(dr.time||"")+'">'+
-      (dr.time?'<button type="button" class="linkbtn" data-act="stime-clear">Sans rappel</button>':'<span class="thint">Facultatif</span>')+'</div>'+
-      // sans abonnement sur cet appareil, le rappel ne peut pas arriver : on le dit tout de suite
-      (dr.time&&!pushOn()?'<div class="pushwarn" role="note">Les notifications ne sont pas activées sur cet appareil : ce rappel n\'arrivera pas. Active-les dans Réglages › Notifications.</div>':"")+'</div>';
+    // heure du rappel et répétition : seulement quand il y a une date
+    if(isDate(dr.due)){
+      h+=timeField(dr);
+      h+='<div class="field"><label for="sh-rep">Répéter</label><select id="sh-rep">'+REPS.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===(dr.rep||"")?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select></div>';
+    }
     more+='<label class="tick" for="sh-prio"><input type="checkbox" id="sh-prio"'+(dr.prio?" checked":"")+'> Important</label>'+
       '<div class="hint">Passe en tête de sa date et s\'affiche en gras avec une pastille « ! ».</div>';
   }
@@ -186,13 +194,16 @@ function saveSheet(){
     dr.cat=nc;dr.newCat=false;
   }
   var target=dr.tm?iso(new Date(+dr.ty,+dr.tm,0)):"";
-  var tm=isDate(dr.due)&&/^\d\d:\d\d$/.test(dr.time||"")?dr.time:"";   // heure du rappel (dr.tm, lui, est le mois d'un objectif)
+  var tm=isDate(dr.due)&&/^\d\d:\d\d$/.test(dr.time||"")?dr.time:"";
+  var htm=/^\d\d:\d\d$/.test(dr.time||"")?dr.time:"";                       // heure de rappel d'une habitude
+  var rep=isDate(dr.due)&&repLabel(dr.rep||"")&&dr.rep?dr.rep:"";   // heure du rappel (dr.tm, lui, est le mois d'un objectif)
   if(s.mode==="new"){
     var data;
-    if(k==="task")data={kind:"task",title:title,cat:dr.cat,due:dr.due||"",time:tm,prio:!!dr.prio,done:false,goal:dr.goal||"",created:now};
-    else if(k==="hw")data={kind:"task",title:title,cat:"Devoir",subject:cap(dr.subject.trim()),due:dr.due||"",time:tm,prio:!!dr.prio,done:false,goal:dr.goal||"",created:now};
-    else if(k==="daily")data=dr.freq>0?{kind:"weekly",title:title,target:dr.freq,dones:[],goal:dr.goal||"",created:now}:{kind:"daily",title:title,lastDone:"",streak:0,goal:dr.goal||"",created:now};
+    if(k==="task")data={kind:"task",title:title,cat:dr.cat,due:dr.due||"",time:tm,rep:rep,prio:!!dr.prio,done:false,goal:dr.goal||"",created:now};
+    else if(k==="hw")data={kind:"task",title:title,cat:"Devoir",subject:cap(dr.subject.trim()),due:dr.due||"",time:tm,rep:rep,prio:!!dr.prio,done:false,goal:dr.goal||"",created:now};
+    else if(k==="daily")data=dr.freq>0?{kind:"weekly",title:title,target:dr.freq,dones:[],time:htm,goal:dr.goal||"",created:now}:{kind:"daily",title:title,lastDone:"",streak:0,time:htm,goal:dr.goal||"",created:now};
     else data={kind:"goal",title:title,target:target,steps:[],reached:false,created:now};
+    if(data.rep==="month")data.repDay=parse(data.due).getDate();
     s.saved=true;dropDraft();
     var nid=newId();if(k==="goal")setGoalOpen(nid,true);closeSheet();save(nid,data);
     var what={task:"Tâche ajoutée",hw:"Devoir ajouté",daily:"Habitude ajoutée",goal:"Objectif ajouté"}[k]||"Ajouté";
@@ -203,9 +214,9 @@ function saveSheet(){
   if(k==="step"){if(d.steps&&d.steps[s.i])d.steps[s.i].t=title;}
   else{
     d.title=title;
-    if(k==="task"||k==="hw"){d.due=dr.due||"";d.time=tm;d.prio=!!dr.prio;d.goal=dr.goal||"";if(k==="hw")d.subject=cap(dr.subject.trim());else d.cat=dr.cat;}
+    if(k==="task"||k==="hw"){d.due=dr.due||"";d.time=tm;d.rep=rep;if(rep==="month")d.repDay=parse(d.due).getDate();else delete d.repDay;d.prio=!!dr.prio;d.goal=dr.goal||"";if(k==="hw")d.subject=cap(dr.subject.trim());else d.cat=dr.cat;}
     if(k==="daily"){
-      d.goal=dr.goal||"";
+      d.goal=dr.goal||"";d.time=htm;
       if(dr.freq>0){if(d.kind!=="weekly"){d.kind="weekly";d.dones=[];}d.target=dr.freq;}
       else if(d.kind==="weekly"){d.kind="daily";d.lastDone="";d.streak=0;}
     }

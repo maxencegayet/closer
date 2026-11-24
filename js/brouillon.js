@@ -58,7 +58,9 @@ function renderNoteList(){
   $("nb-count").textContent=all.length?all.length+(all.length>1?" notes":" note"):"";
   if(state.mode==="loading"){$("l-notes").innerHTML='<div class="list"><div class="empty">Chargement…</div></div>';return;}
   if(!notes.length){
-    $("l-notes").innerHTML='<div class="list"><div class="empty">'+(q?"Aucune note ne contient « "+esc(state.nq.trim())+" ».":state.nfolder!=="Toutes"?"Ce dossier est vide. Touche + pour y écrire une note.":"Aucune note pour l'instant. Touche + pour en écrire une.")+'</div></div>';return;
+    $("l-notes").innerHTML='<div class="list"><div class="empty">'+(q?"Aucune note ne contient « "+esc(state.nq.trim())+" ».":state.nfolder!=="Toutes"?"Ce dossier est vide. Touche + pour y écrire une note.":"")+'</div></div>';
+    if(!q&&state.nfolder==="Toutes")$("l-notes").innerHTML=emptyState("Ton brouillon est vide","Cours, idées, listes : écris ce que tu veux, c'est enregistré tout seul. Une ligne peut ensuite devenir une tâche.","Écrire une note");
+    return;
   }
   if(q){$("l-notes").innerHTML=block("Résultats",notes.length,notes.map(function(x){return noteRow(x,true,state.nq.trim());}).join(""));return;}
   var h="", pins=notes.filter(function(x){return x.d.pinned;}), rest=notes.filter(function(x){return !x.d.pinned;});
