@@ -161,7 +161,7 @@ document.addEventListener("click",function(ev){
     if(act==="note-folder"){nd2.folder=b.dataset.v;save(nid,nd2);return;}
     if(act==="note-del"){state.noteOpen=null;try{history.replaceState(null,"","#brouillon");}catch(e){}delItem(nid,nd2);return;}
     if(act==="note-task"){
-      var ta=$("ne-body"),v0=ta?ta.value:"",a0=ta?ta.selectionStart:0,b0=ta?ta.selectionEnd:0,line="";
+      var ta=$("ne-body"),v0=ta?rteText(ta):"",so=ta?rteOffsets(ta):[0,0],a0=so[0],b0=so[1],line="";
       if(b0>a0)line=(v0.slice(a0,b0).split("\n").map(function(x){return x.trim();}).filter(Boolean)[0])||"";
       else{var s0=v0.lastIndexOf("\n",a0-1)+1,e0=v0.indexOf("\n",a0);if(e0<0)e0=v0.length;line=v0.slice(s0,e0);}
       line=line.replace(/^\s*([-*•–]|\d+[.)]|\[[ xX]?\])\s*/,"").trim();
@@ -217,6 +217,9 @@ document.addEventListener("click",function(ev){
   if(act==="recap-off"){try{localStorage.setItem(RECAP_KEY,today());}catch(e){}render();return;}
   if(act==="onb-off"){try{localStorage.setItem(ONB_KEY,"1");}catch(e){}render();return;}
   if(act==="sheet-more"){syncDraft();sheet.draft.more=true;renderSheet();var fm=$("sh-prio")||$("sh-goal");if(fm)fm.focus();return;}
+  if(act==="fmt"){rteCmd(b.dataset.v);return;}
+  if(act==="hl-open"){var hp=$("hl-pop");if(hp){hp.hidden=!hp.hidden;b.setAttribute("aria-expanded",String(!hp.hidden));}return;}
+  if(act==="hl"){rteHl(b.dataset.v);var hp2=$("hl-pop");if(hp2)hp2.hidden=true;var ho=document.querySelector('[data-act="hl-open"]');if(ho)ho.setAttribute("aria-expanded","false");return;}
   if(act==="note-del-row"){var dn=get(id);if(dn)delItem(id,dn);return;}
   if(act==="sheet-again"&&sheet){sheet.again=true;saveSheet();if(sheet)sheet.again=false;return;}
   if(act==="nlp-off"&&sheet){syncDraft();sheet.draft.nlpOff=true;var nl=$("sh-nlp");if(nl)nl.innerHTML="";var tt=$("sh-title");if(tt)tt.focus();return;}
@@ -328,6 +331,7 @@ document.addEventListener("input",function(ev){
     });
     return;
   }
+  if(ta.id==="ne-body"&&ta.isContentEditable){rteSave(ta);return;}
   if(ta.id!=="ne-title"&&ta.id!=="ne-body")return;
   var id=state.noteOpen,d=get(id);if(!d)return;
   if(ta.id==="ne-title"){if(/\n/.test(ta.value))ta.value=ta.value.replace(/\n/g," ");d.title=ta.value;}else d.text=ta.value;
@@ -339,7 +343,7 @@ document.addEventListener("input",function(ev){
 });
 document.addEventListener("keydown",function(ev){
   // Entrée dans le titre : on passe au texte, comme dans Notion
-  if(ev.target&&ev.target.id==="ne-title"&&ev.key==="Enter"){ev.preventDefault();var bd=$("ne-body");if(bd){bd.focus();bd.setSelectionRange(0,0);}}
+  if(ev.target&&ev.target.id==="ne-title"&&ev.key==="Enter"){ev.preventDefault();var bd=$("ne-body");if(bd){bd.focus();if(bd.isContentEditable)rteSelect(bd,0,0);else bd.setSelectionRange(0,0);}}
   if(ev.key==="Escape"&&!sheet&&state.noteOpen)closeNote();
 });
 // garder le curseur dans la note quand on touche la barre d'outils

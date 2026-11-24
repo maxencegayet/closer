@@ -317,7 +317,7 @@ with sync_playwright() as p:
     pg.click('[data-act="nf-next"]'); pg.wait_for_timeout(200)
     check('recherche : flèche suivante', pg.inner_text('#nf-count') == '2 sur 3')
     pg.click('[data-act="nf-edit"].nfdone'); pg.wait_for_timeout(300)
-    check('recherche : « Écrire » repasse en écriture, mot sélectionné', pg.evaluate("[document.activeElement.id,document.activeElement.value.slice(document.activeElement.selectionStart,document.activeElement.selectionEnd)]") == ['ne-body', 'budget'])
+    check('recherche : « Écrire » repasse en écriture, mot sélectionné', pg.evaluate("[document.activeElement.id,String(getSelection())]") == ['ne-body', 'budget'])
     pg.evaluate("location.hash='#taches'"); pg.wait_for_timeout(300)
     check('Tâches : résumé « 2 à faire »', pg.inner_text('#tsum').startswith('2 à faire'))
     n0 = len(pg.query_selector_all('#l-tasks .row'))
@@ -533,7 +533,8 @@ with sync_playwright() as p:
     pg.fill('#sh-nfname', 'Cours'); pg.press('#sh-nfname', 'Enter'); pg.wait_for_timeout(450)
     check('nouveau dossier créé et note rangée dedans', pg.evaluate("[...document.querySelectorAll('#ne-folders [aria-pressed=true]')].map(e=>e.textContent).join()") == 'Cours')
     # ligne -> tâche : curseur sur « appeler le tuteur »
-    pg.evaluate("(()=>{const t=document.getElementById('ne-body');t.focus();const i=t.value.indexOf('appeler');t.setSelectionRange(i+3,i+3);})()")
+    check('texte enrichi : le texte brut est gardé ligne à ligne', pg.evaluate("state.items.get(state.noteOpen).text") == 'Idées :\n- comparer deux banques\n- appeler le tuteur')
+    pg.evaluate("(()=>{const t=document.getElementById('ne-body');t.focus();const i=rteText(t).indexOf('appeler');rteSelect(t,i+3,i+3);})()")
     pg.click('[data-act="note-task"]'); pg.wait_for_timeout(400)
     check('ligne -> tâche : fiche préremplie sans le tiret', pg.input_value('#sh-title') == 'Appeler le tuteur')
     pg.press('#sh-title', 'Enter'); pg.wait_for_timeout(450)
@@ -556,6 +557,48 @@ with sync_playwright() as p:
     pg.go_back(); pg.wait_for_timeout(350)
     check('bouton précédent du navigateur : retour à la liste', pg.is_visible('#nb-list') and pg.is_hidden('#nb-ed'))
     check('Brouillon : aucune erreur', not errs)
+    c.close()
+
+    # 7 quater bis. Brouillon : texte enrichi (gras, italique, souligné, barré, surligné), raccourcis, ancienne version
+    c, pg, errs = device(cfg=False)
+    pg.goto(URL + '#brouillon'); pg.wait_for_timeout(400)
+    pg.click('#fab'); pg.wait_for_timeout(350)
+    pg.keyboard.type('Cours'); pg.keyboard.press('Enter')
+    pg.keyboard.type('Le bilan comptable\nActif et passif')
+    def sel_word(w):
+        pg.evaluate("(w=>{const t=document.getElementById('ne-body');t.focus();const i=rteText(t).indexOf(w);rteSelect(t,i,i+w.length);})", w)
+    def note():
+        return pg.evaluate("(()=>{const d=state.items.get(state.noteOpen);return {text:d.text,html:d.html||'',hk:d.hk}})()")
+    sel_word('bilan'); pg.click('#ne-fmt [data-v="bold"]'); pg.wait_for_timeout(150)
+    check('bouton Gras : mot en gras, enregistré', '<b>bilan</b>' in note()['html'] and pg.get_attribute('#ne-fmt [data-v="bold"]', 'aria-pressed') == 'true')
+    sel_word('comptable'); pg.keyboard.press('Control+i'); pg.wait_for_timeout(150)
+    check('Ctrl+I : italique', '<i>comptable</i>' in note()['html'])
+    sel_word('Actif'); pg.keyboard.press('Control+u'); pg.wait_for_timeout(150)
+    check('Ctrl+U : souligné', '<u>Actif</u>' in note()['html'])
+    sel_word('passif'); pg.keyboard.press('Control+Shift+x'); pg.wait_for_timeout(150)
+    check('Ctrl+Maj+X : barré', '<s>passif</s>' in note()['html'])
+    sel_word('Le'); pg.click('#ne-fmt [data-act="hl-open"]'); pg.wait_for_timeout(100)
+    check('surligneur : 5 couleurs et « sans »', len(pg.query_selector_all('#hl-pop .hlc')) == 6 and pg.is_visible('#hl-pop'))
+    pg.click('#hl-pop [data-v="g"]'); pg.wait_for_timeout(150)
+    h = note()['html']
+    check('surligné en vert, palette fermée', 'background-color: rgb(200, 241, 197)' in h and 'Le</span>' in h and pg.is_hidden('#hl-pop'))
+    sel_word('Le'); pg.keyboard.press('Control+Shift+h'); pg.wait_for_timeout(150)
+    check('Ctrl+Maj+H sur un passage surligné : surlignage enlevé', 'background' not in note()['html'])
+    pg.keyboard.press('Control+Shift+h'); pg.wait_for_timeout(150)
+    check('Ctrl+Maj+H : surligné en jaune', 'rgb(255, 240, 163)' in note()['html'])
+    n = note()
+    check('le texte brut reste propre (recherche, aperçu, tâches)', n['text'] == 'Le bilan comptable\nActif et passif' and n['hk'] == pg.evaluate("hsh(%s)" % json.dumps(n['text'])))
+    # rouvrir : la mise en forme revient
+    pg.click('[data-act="note-close"]'); pg.wait_for_timeout(350)
+    pg.click('#l-notes .nrow'); pg.wait_for_timeout(350)
+    check('note rouverte : gras, italique, souligné, barré, surligné affichés', pg.evaluate("(()=>{const b=document.getElementById('ne-body');return !!(b.querySelector('b')&&b.querySelector('i')&&b.querySelector('u')&&b.querySelector('s')&&b.querySelector('span[style*=background]'))})()"))
+    # coller : texte seul ; contenu dangereux nettoyé
+    check('nettoyage : script, image et styles inconnus retirés', pg.evaluate("rteClean('<div onclick=\"x()\">a<script>alert(1)</script><img src=x onerror=y><span style=\"color:red;background-color:#123456\">b</span><strong>c</strong></div>')") == '<div>ab<b>c</b></div>')
+    # ancienne version de Closer sur un autre appareil : le texte a changé, la mise en forme périmée est ignorée
+    pg.evaluate("(()=>{const id=state.noteOpen,d=get(id);d.text='Texte modifié ailleurs';state.items.set(id,d);persistLocal();document.getElementById('nb-ed').dataset.id='';document.activeElement.blur();render();})()")
+    pg.wait_for_timeout(200)
+    check('texte modifié par une ancienne version : on affiche le texte, sans mise en forme périmée', pg.inner_text('#ne-body').strip() == 'Texte modifié ailleurs' and not pg.query_selector('#ne-body b'))
+    check('texte enrichi : aucune erreur', not errs)
     c.close()
 
     # 7 quinquies. Brouillon de fiche : fermée par erreur, la tâche est gardée ; effet à l'enregistrement

@@ -571,3 +571,23 @@ body.arr-drag .list{overflow:visible}
   .nwrap:hover .ndel,.ndel:focus-visible{opacity:1}
   .ndel:hover{color:var(--late)}
 }
+
+/* Brouillon : texte enrichi */
+.ne-body.rte{white-space:pre-wrap;overflow-wrap:anywhere;-webkit-user-modify:read-write;cursor:text;padding-bottom:96px}
+.ne-body.rte:empty::before{content:attr(data-ph);color:var(--faint);pointer-events:none}
+.ne-body.rte b,.ne-body.rte strong{font-weight:700}
+.ne-body.rte span[style*="background"]{border-radius:3px;padding:0 1px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+:root[data-theme="dark"] .ne-body.rte span[style*="background"]{color:#141414}
+@media (prefers-color-scheme:dark){:root[data-theme="auto"] .ne-body.rte span[style*="background"]{color:#141414}}
+.ne-tools{flex-direction:column;align-items:stretch;padding:5px;border-radius:22px}
+.ne-fmt{position:relative;display:flex;align-items:center;gap:2px}
+.ne-tools .fb{flex:1 1 0;min-width:0;padding:10px 6px;border-radius:16px;font-size:17px;font-weight:600;font-family:var(--font)}
+.ne-tools .fb[aria-pressed="true"]{background:var(--solid-press)}
+.ne-tools .fb b{font-weight:800}.ne-tools .fb i{font-style:italic;font-family:Georgia,serif}
+.ne-tools .ftask{flex:1.6 1 0;gap:6px;font-size:14px}
+.ne-tools .hlb .hlbar{stroke:var(--hl,transparent);stroke-width:3}
+.fsep{width:1px;align-self:stretch;margin:8px 2px;background:var(--solid-press)}
+.hlpop{position:absolute;left:0;right:0;bottom:calc(100% + 10px);display:flex;justify-content:center;gap:10px;padding:10px;background:var(--ink);border-radius:18px}
+.hlpop[hidden]{display:none}
+.ne-tools .hlc{flex:none;width:34px;height:34px;padding:0;border-radius:50%;border:2px solid rgba(255,255,255,.25)}
+.ne-tools .hlc.none{background:transparent;color:var(--surface)}
