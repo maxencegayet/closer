@@ -527,3 +527,27 @@ body.arr-drag .list{overflow:visible}
 .timefield .tquick{margin-top:8px}
 .tquick .chip{padding:6px 14px;font-size:13px;font-variant-numeric:tabular-nums}
 .two.eq select{width:100%;min-width:0;max-width:100%;box-sizing:border-box;height:50px}
+/* n° 20 : date comprise dans le titre */
+.nlp{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:-6px 4px 0;font-size:13px;color:var(--muted)}
+.nlp:empty{display:none}
+.nlp b{color:var(--ink);font-weight:600}
+/* n° 15 : note d'une tâche */
+.sheet textarea#sh-note{width:100%;background:var(--surface);border:0;border-radius:16px;padding:12px 16px;min-height:84px;resize:vertical;font:inherit;line-height:1.4}
+.nlinks{display:flex;flex-wrap:wrap;gap:6px 14px;padding-left:4px}
+.nlinks a{font-size:14px;font-weight:600;color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.notei{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round;vertical-align:-1px;margin-right:4px;color:var(--muted)}
+/* n° 21 : ajouter et continuer */
+.btn.again{width:100%}
+.again-n{margin-top:-4px;text-align:center}
+/* n° 20 : date comprise dans le titre */
+.nlp{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:-6px 4px 0;font-size:13px;color:var(--muted)}
+.nlp:empty{display:none}
+.nlp b{color:var(--ink);font-weight:600}
+/* n° 15 : note d'une tâche */
+.sheet textarea#sh-note{width:100%;background:var(--surface);border:0;border-radius:16px;padding:12px 16px;min-height:84px;resize:vertical;font:inherit;line-height:1.4}
+.nlinks{display:flex;flex-wrap:wrap;gap:6px 14px;padding-left:4px}
+.nlinks a{font-size:14px;font-weight:600;color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.notei{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round;vertical-align:-1px;margin-right:4px;color:var(--muted)}
+/* n° 21 : ajouter et continuer */
+.btn.again{width:100%}
+.again-n{margin-top:-4px;text-align:center}

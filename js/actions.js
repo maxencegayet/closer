@@ -186,7 +186,7 @@ document.addEventListener("click",function(ev){
     var k=d.kind==="task"?(d.cat==="Devoir"?"hw":"task"):(d.kind==="weekly"?"daily":d.kind);
     if(d.kind==="weekly")dr.freq=d.target||1;
     if(d.kind==="daily"&&hasDays(d)){dr.freq=-1;dr.days=d.days.slice();}
-    if(d.kind==="task"){dr.cat=(d.cat&&d.cat!=="Devoir")?d.cat:(cats()[0]||"Perso");dr.subject=cap(d.subject||"");dr.due=isDate(d.due)?d.due:"";dr.time=isDate(d.due)&&d.time?d.time:"";dr.rep=isDate(d.due)&&d.rep?d.rep:"";dr.prio=!!d.prio;}
+    if(d.kind==="task"){dr.cat=(d.cat&&d.cat!=="Devoir")?d.cat:(cats()[0]||"Perso");dr.subject=cap(d.subject||"");dr.due=isDate(d.due)?d.due:"";dr.time=isDate(d.due)&&d.time?d.time:"";dr.rep=isDate(d.due)&&d.rep?d.rep:"";dr.prio=!!d.prio;dr.note=d.note||"";}
     if(d.kind==="daily"||d.kind==="weekly")dr.time=d.time||"";
     if(d.kind==="goal"&&isDate(d.target)){var p=parse(d.target);dr.tm=String(p.getMonth()+1);dr.ty=String(p.getFullYear());}
     dr.goal=d.goal&&state.items.has(d.goal)?d.goal:"";
@@ -217,6 +217,8 @@ document.addEventListener("click",function(ev){
   if(act==="recap-off"){try{localStorage.setItem(RECAP_KEY,today());}catch(e){}render();return;}
   if(act==="onb-off"){try{localStorage.setItem(ONB_KEY,"1");}catch(e){}render();return;}
   if(act==="sheet-more"){syncDraft();sheet.draft.more=true;renderSheet();var fm=$("sh-prio")||$("sh-goal");if(fm)fm.focus();return;}
+  if(act==="sheet-again"&&sheet){sheet.again=true;saveSheet();if(sheet)sheet.again=false;return;}
+  if(act==="nlp-off"&&sheet){syncDraft();sheet.draft.nlpOff=true;var nl=$("sh-nlp");if(nl)nl.innerHTML="";var tt=$("sh-title");if(tt)tt.focus();return;}
   if(act==="stime-clear"){syncDraft();sheet.draft.time="";renderSheet();return;}
   if(act==="set-push"){if(pushOn())pushDisable();else pushEnable();return;}
   if(act==="set-morning"){pushSetMorning(b.dataset.v);renderSheet();return;}
@@ -277,7 +279,7 @@ document.addEventListener("click",function(ev){
 document.addEventListener("submit",function(ev){
   ev.preventDefault();
   var f=ev.target;
-  if(f.id==="sheet"){if(sheet)saveSheet();return;}
+  if(f.id==="sheet"){if(sheet){if(sheet.streak&&sheet.mode==="new"){sheet.again=true;saveSheet();if(sheet)sheet.again=false;}else saveSheet();}return;}
   if(f.classList.contains("addstep")){
     var gid=f.dataset.goal,inp=f.querySelector("input"),s=cap(inp.value.trim()),d=get(gid);if(!s||!d)return;
     inp.value="";d.steps=(d.steps||[]).concat([{t:s,done:false}]);focusAfter="step-in-"+gid;save(gid,d);
@@ -314,6 +316,15 @@ setInterval(function(){if(!document.hidden&&shownToday&&today()!==shownToday)ren
 document.addEventListener("input",function(ev){
   var ta=ev.target;if(!ta)return;
   if(ta.id==="nb-q"){state.nq=ta.value;renderNoteList();return;}
+  if(ta.id==="sh-title"&&sheet&&$("sh-nlp")){
+    var sd=sheet.draft;sd.title=ta.value;$("sh-nlp").innerHTML=nlpHTML(sd);
+    // les pastilles de date suivent ce qui est compris (sans redessiner la fiche, pour garder le clavier)
+    var pw=!sd.nlpOff&&parseWhen(sd.title), want=pw&&pw.rest?pw.due:null;
+    $("sheet").querySelectorAll('[data-act="sdate"]').forEach(function(c){
+      var v=c.dataset.v,on=want!==null?v===want:(v==="other"?!!sd.other:!sd.other&&v===sd.due);c.setAttribute("aria-pressed",String(on));
+    });
+    return;
+  }
   if(ta.id!=="ne-title"&&ta.id!=="ne-body")return;
   var id=state.noteOpen,d=get(id);if(!d)return;
   if(ta.id==="ne-title"){if(/\n/.test(ta.value))ta.value=ta.value.replace(/\n/g," ");d.title=ta.value;}else d.text=ta.value;

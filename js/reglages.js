@@ -24,6 +24,7 @@ var IC={
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["24 nov.","Écris la date dans le titre : « Appeler la banque demain 14h », « Rendre le dossier lundi », « le 12 », « 3 déc. ». Closer la comprend et l'enlève du titre (touche « Ignorer » si ce n'était pas une date). Nouveau bouton « Ajouter et en saisir une autre » pour enchaîner plusieurs tâches. Et une note libre sur chaque tâche (détails, lien, adresse), dans « Plus d'options »."],
   ["24 nov.","Toucher un rappel ouvre simplement Closer sur le Jour."],
   ["24 nov.","Correction sur iPhone : dans la fiche, « Rappel à » et « Répéter » ne se chevauchent plus."],
   ["24 nov.","Correction : si Closer restait ouvert pendant la nuit, le Jour affichait encore la veille au réveil. Il passe maintenant tout seul au nouveau jour."],

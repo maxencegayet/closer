@@ -127,11 +127,13 @@ function taskSide(d,hideDate,hideCat){
   if(d.time&&isDate(d.due)&&!d.done&&!late)dt=dt?dt+" · "+esc(d.time):esc(d.time);   // heure du rappel
   if(d.rep&&!d.done)dt=REP_ICON+(dt||"");
   if(goalOf(d)&&!d.done)c=GOAL_ICON+c;                                          // repère : fait avancer un objectif
+  if(d.note&&!d.done)c=NOTE_ICON+c;                                             // repère : la tâche a une note
   if(!dt&&!c)return "";
   return '<span class="side">'+(dt?'<span class="sd">'+dt+'</span>':"")+(c?'<span class="sc">'+c+'</span>':"")+'</span>';
 }
 /* objectif relié à une tâche (s'il existe encore) */
 function goalOf(d){var g=d&&d.goal&&state.items.get(d.goal);return g&&g.kind==="goal"?g:null;}
+var NOTE_ICON='<svg class="notei" viewBox="0 0 24 24" aria-label="a une note" role="img"><path d="M5 4h14v11l-5 5H5z"/><path d="M14 20v-5h5M8 9h8M8 13h5"/></svg>';
 var GOAL_ICON='<svg class="goali" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".6"/></svg>';
 var LATE_BTN='<button type="button" class="btn ghost small latebtn" data-act="late-today">Tout reporter à aujourd\'hui</button>';
 /* tâches qui se répètent : rep = "day" | "wdays" (lundi-vendredi) | "week" | "month" */
@@ -253,4 +255,80 @@ function setBadge(n){
   if(!badgeOk()||n===badgeLast)return;badgeLast=n;
   if(badgeOff())n=0;
   try{(n?navigator.setAppBadge(n):navigator.clearAppBadge()).catch(function(){});}catch(e){}
+}
+
+/* ---------- dates et heures tapées dans le titre (piste n° 20) ----------
+   « Appeler Marie demain 14h » → date demain, rappel 14:00, titre « Appeler Marie ».
+   Reconnu : aujourd'hui, ce soir, demain, après-demain, un jour de la semaine (« lundi », « lundi prochain »),
+   « le 12 », « 12 déc. », « 12/12 », « dans 3 jours », « dans une semaine », « la semaine prochaine » ;
+   heures « 14h », « 14 h 30 », « 14:30 », « à 9h ». Une heure seule : aujourd'hui si elle n'est pas passée, sinon demain.
+   Une heure sans « à » devant n'est prise qu'entre 6 h et 23 h et pas suivie de « de » (« 2h de sport » reste une durée). */
+var NLP_MONTHS=[["janvier","janv","jan"],["février","fevrier","févr","fevr","fév","fev"],["mars"],["avril","avr"],["mai"],["juin"],["juillet","juil"],["août","aout"],["septembre","sept","sep"],["octobre","oct"],["novembre","nov"],["décembre","decembre","déc","dec"]];
+function parseWhen(text,nowDate){
+  var s=String(text||""), t=today(), now=nowDate||new Date(), due="", time="", cuts=[];
+  var W="(?:^|\\s)", E="(?=$|[\\s,.;!?])";   // limites de mot (\b ne connaît pas les accents)
+  function take(re,fn){
+    if(due&&fn.isDate)return;
+    var m=re.exec(s);if(!m)return;
+    var r=fn(m);if(r===false)return;
+    cuts.push([m.index,m.index+m[0].length]);
+  }
+  function grab(re,isDate,fn){fn.isDate=isDate;take(re,fn);}
+  function dayFrom(d){due=d;}
+  // dates
+  grab(new RegExp(W+"(?:pour\\s+)?(?:après|apres)[-\\s]demain"+E,"i"),true,function(){dayFrom(shift(t,2));});
+  grab(new RegExp(W+"(?:pour\\s+)?demain"+E,"i"),true,function(){dayFrom(shift(t,1));});
+  grab(new RegExp(W+"(?:pour\\s+)?(?:aujourd['’]hui|ce\\s+soir)"+E,"i"),true,function(){dayFrom(t);});
+  grab(new RegExp(W+"(?:pour\\s+)?la\\s+semaine\\s+prochaine"+E,"i"),true,function(){dayFrom(shift(t,7));});
+  grab(new RegExp(W+"dans\\s+(\\d{1,3}|un|une|deux|trois)\\s+(jours?|semaines?)"+E,"i"),true,function(m){
+    var n={un:1,une:1,deux:2,trois:3}[m[1].toLowerCase()]||+m[1];if(!n)return false;
+    dayFrom(shift(t,n*(/^s/i.test(m[2])?7:1)));
+  });
+  grab(new RegExp(W+"(?:(?:pour|ce|le)\\s+)?(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)(\\s+prochain)?"+E,"i"),true,function(m){
+    var want=DOW_LONG.indexOf(m[1].toLowerCase())+1, cur=isoDow(t), n=(want-cur+7)%7;if(n===0)n=7;
+    dayFrom(shift(t,n));
+  });
+  var mon=NLP_MONTHS.map(function(a){return a.join("|");}).join("|");
+  grab(new RegExp(W+"(?:(?:pour\\s+)?le\\s+)?(\\d{1,2})(?:er)?\\s+("+mon+")\\.?(?:\\s+(\\d{4}))?"+E,"i"),true,function(m){
+    var mi=-1,w=m[2].toLowerCase();NLP_MONTHS.forEach(function(a,i){if(a.indexOf(w)>=0)mi=i;});
+    return setDM(+m[1],mi,m[3]?+m[3]:0);
+  });
+  grab(new RegExp(W+"(?:(?:pour\\s+)?le\\s+)?(\\d{1,2})/(\\d{1,2})(?:/(\\d{2,4}))?"+E,"i"),true,function(m){
+    var y=m[3]?(+m[3]<100?2000+(+m[3]):+m[3]):0;return setDM(+m[1],+m[2]-1,y);
+  });
+  grab(new RegExp(W+"(?:pour\\s+)?le\\s+(\\d{1,2})(?:er)?"+E,"i"),true,function(m){
+    var dd=+m[1];if(dd<1||dd>31)return false;var p=parse(t),y=p.getFullYear(),mo=p.getMonth();
+    if(dd<p.getDate()){mo++;if(mo>11){mo=0;y++;}}
+    var last=new Date(y,mo+1,0).getDate();if(dd>last)return false;
+    dayFrom(iso(new Date(y,mo,dd)));
+  });
+  function setDM(dd,mi,y){
+    if(mi<0||mi>11||dd<1||dd>31)return false;
+    var py=parse(t).getFullYear(), yy=y||py;
+    if(new Date(yy,mi+1,0).getDate()<dd)return false;
+    var d=iso(new Date(yy,mi,dd));if(!y&&d<t)d=iso(new Date(py+1,mi,dd));
+    dayFrom(d);
+  }
+  // heure
+  var hm=null;
+  var re1=new RegExp(W+"(?:à|a|vers)\\s+(\\d{1,2})(?:\\s?h\\s?(\\d{2})?|:(\\d{2}))"+E,"i").exec(s);
+  var re2=new RegExp(W+"(\\d{1,2})(?:\\s?h\\s?(\\d{2})?|:(\\d{2}))(?!\\s+(?:de|d['’]))"+E,"i").exec(s);
+  if(re1&&+re1[1]<24)hm=[re1,+re1[1],+(re1[2]||re1[3]||0)];
+  else if(re2&&+re2[1]>=6&&+re2[1]<24)hm=[re2,+re2[1],+(re2[2]||re2[3]||0)];
+  if(hm&&hm[2]<60){
+    time=(hm[1]<10?"0":"")+hm[1]+":"+(hm[2]<10?"0":"")+hm[2];
+    cuts.push([hm[0].index,hm[0].index+hm[0][0].length]);
+    if(!due){var past=now.getHours()*60+now.getMinutes()>=hm[1]*60+hm[2];due=past?shift(t,1):t;}
+  }
+  if(!due)return null;
+  // titre sans les mots repérés
+  cuts.sort(function(a,b){return b[0]-a[0];});
+  var rest=s;cuts.forEach(function(c){rest=rest.slice(0,c[0])+" "+rest.slice(c[1]);});
+  rest=rest.replace(/\s+/g," ").replace(/\s+([,.;!?])/g,"$1").replace(/^[\s,;:-]+|[\s,;:-]+$/g,"").trim();
+  return {due:due,time:time,rest:rest};
+}
+function whenLabel(p){
+  var n=diffDays(p.due,today()), d=n===0?"aujourd'hui":n===1?"demain":n===2?"après-demain":n<7?fmt(p.due,{weekday:"long"}):fmt(p.due,parse(p.due).getFullYear()===parse(today()).getFullYear()?{weekday:"long",day:"numeric",month:"long"}:{day:"numeric",month:"long",year:"numeric"});
+  if(p.time){var hh=+p.time.slice(0,2),mm=p.time.slice(3);d+=" à "+hh+" h"+(mm==="00"?"":" "+mm);}
+  return d;
 }

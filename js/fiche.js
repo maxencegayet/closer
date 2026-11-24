@@ -3,7 +3,7 @@
 /* ---------- fiche d'ajout et de modification ---------- */
 // jours choisis, rangés ; les 7 jours = chaque jour
 function normDays(l){l=(l||[]).filter(function(n){return n>=1&&n<=7;}).sort();l=l.filter(function(n,i){return l.indexOf(n)===i;});return l.length===7?[]:l;}
-function blankDraft(){return {title:"",cat:(cats()[0]||"Perso"),newCat:false,newCatName:"",freq:0,days:[],subject:"",due:"",time:"",rep:"",other:false,prio:false,goal:"",tm:"",ty:String(new Date().getFullYear())};}
+function blankDraft(){return {title:"",cat:(cats()[0]||"Perso"),newCat:false,newCatName:"",freq:0,days:[],subject:"",due:"",time:"",rep:"",other:false,prio:false,goal:"",note:"",nlpOff:false,tm:"",ty:String(new Date().getFullYear())};}
 function dayOpts(){
   var t=today(),o=[["","Sans date"],[t,"Aujourd'hui"],[shift(t,1),"Demain"]];
   for(var i=2;i<=6;i++){var d=shift(t,i);o.push([d,fmt(d,{weekday:"short",day:"numeric"})]);}
@@ -72,6 +72,7 @@ function syncDraft(){
   if((el=$("sh-rep")))dr.rep=el.value;
   if((el=$("sh-prio")))dr.prio=el.checked;
   if((el=$("sh-goal")))dr.goal=el.value;
+  if((el=$("sh-note")))dr.note=el.value;
   if((el=$("sh-tm")))dr.tm=el.value;
   if((el=$("sh-ty")))dr.ty=el.value;
 }
@@ -86,6 +87,18 @@ function timeField(dr,compact){
     '<input type="time" id="sh-time" value="'+esc(dr.time||"")+'"></div>';
   return '<div class="field timefield"><label for="sh-time">Rappel à</label><div class="trow"><input type="time" id="sh-time" value="'+esc(dr.time||"")+'">'+
     (dr.time?'<button type="button" class="linkbtn" data-act="stime-clear">Sans rappel</button>':'<span class="thint">Facultatif</span>')+'</div>'+timeQuick(dr)+pushWarn(dr)+'</div>';
+}
+// aperçu de la date comprise dans le titre, avec « Ignorer »
+function nlpHTML(dr){
+  if(dr.nlpOff)return "";
+  var p=parseWhen(dr.title);if(!p||!p.rest)return "";
+  return '<span>Prévu <b>'+esc(whenLabel(p))+'</b></span><button type="button" class="linkbtn tiny" data-act="nlp-off">Ignorer</button>';
+}
+// liens trouvés dans la note : un toucher les ouvre
+function noteLinks(note){
+  var urls=String(note||"").match(/https?:\/\/[^\s<>"]+/g);if(!urls)return "";
+  return '<div class="nlinks">'+urls.slice(0,5).map(function(u){u=u.replace(/[).,;!?]+$/,"");var host=u.replace(/^https?:\/\/(www\.)?/,"").split(/[\/?#]/)[0];
+    return '<a href="'+esc(u)+'" target="_blank" rel="noopener">Ouvrir '+esc(host)+'</a>';}).join("")+'</div>';
 }
 function sChip(act,val,label,on){return '<button type="button" class="chip" aria-pressed="'+on+'" data-act="'+act+'" data-v="'+esc(val)+'">'+esc(label)+'</button>';}
 function renderSheet(){
@@ -116,7 +129,7 @@ function renderSheet(){
       '<div class="hint" style="margin-top:0">Retirer une catégorie ne supprime pas ses tâches : elles gardent leur étiquette.</div>';
     $("sheet").innerHTML=h;return;
   }
-  h+='<div class="sh-head"><button type="button" class="btn ghost small" data-act="close-sheet">Annuler</button>'+
+  h+='<div class="sh-head"><button type="button" class="btn ghost small" data-act="close-sheet">'+(sheet.streak?"Terminé":"Annuler")+'</button>'+
     '<h2 id="sh-h">'+(isNew?KIND_NEW[k]:"Modifier")+'</h2>'+
     '<button type="submit" class="btn small">'+(isNew?"Ajouter":"Enregistrer")+'</button></div>';
   if(isNew){
@@ -124,8 +137,9 @@ function renderSheet(){
     h+='<div class="segc segt" role="radiogroup" aria-label="Type">'+["task","hw","daily","goal"].map(function(t){return '<button type="button" role="radio" aria-checked="'+(k===t)+'" data-act="stype" data-v="'+t+'">'+esc(cap(KIND_NAME[t]))+'</button>';}).join("")+'</div>'+
       '<div class="hint">'+KIND_HINT[k]+'</div>';
   }
-  var ph={task:"Ex. Prendre rendez-vous",hw:"Ex. Rendre le dossier",daily:"Ex. Lire 20 pages",goal:"Ex. Décrocher un stage",step:"Étape"}[k];
-  h+='<div class="field"><label for="sh-title">Titre</label><input type="text" id="sh-title" value="'+esc(dr.title)+'" placeholder="'+ph+'" maxlength="200" autocapitalize="sentences" enterkeyhint="done"></div>';
+  var ph={task:isNew?"Ex. Appeler la banque demain 14h":"Ex. Prendre rendez-vous",hw:isNew?"Ex. Rendre le dossier lundi":"Ex. Rendre le dossier",daily:"Ex. Lire 20 pages",goal:"Ex. Décrocher un stage",step:"Étape"}[k];
+  h+='<div class="field"><label for="sh-title">Titre</label><input type="text" id="sh-title" value="'+esc(dr.title)+'" placeholder="'+ph+'" maxlength="200" autocapitalize="sentences" enterkeyhint="'+(sheet.streak?"next":"done")+'"></div>';
+  if(isNew&&(k==="task"||k==="hw"))h+='<div class="nlp" id="sh-nlp" role="status" aria-live="polite">'+nlpHTML(dr)+'</div>';
   if(k==="daily"){
     h+='<div class="field"><span class="lab">Rythme</span><div class="chips scroll" role="group" aria-label="Rythme">'+
       sChip("sfreq","0","Chaque jour",!dr.freq)+sChip("sfreq","-1","Certains jours",dr.freq<0)+[1,2,3,4,5,6].map(function(n){return sChip("sfreq",String(n),n+" fois par semaine",dr.freq===n);}).join("")+'</div>'+
@@ -155,6 +169,7 @@ function renderSheet(){
       h+='<div class="two eq">'+timeField(dr,true)+
         '<div class="field"><label for="sh-rep">Répéter</label><select id="sh-rep">'+REPS.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===(dr.rep||"")?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select></div></div>'+timeQuick(dr)+pushWarn(dr);
     }
+    more+='<div class="field"><label for="sh-note">Note</label><textarea id="sh-note" rows="3" maxlength="2000" placeholder="Détails, lien, adresse…" autocapitalize="sentences">'+esc(dr.note||"")+'</textarea>'+noteLinks(isNew?"":dr.note)+'</div>';
     more+='<label class="tick" for="sh-prio"><input type="checkbox" id="sh-prio"'+(dr.prio?" checked":"")+'> Important</label>'+
       '<div class="hint">Passe en tête de sa date et s\'affiche en gras avec une pastille « ! ».</div>';
   }
@@ -175,7 +190,9 @@ function renderSheet(){
     }
   }
   // options rares repliées, sauf si elles servent déjà
-  if(more)h+=(dr.more||dr.prio||dr.goal)?more:'<button type="button" class="linkbtn moreopt" data-act="sheet-more" aria-expanded="false">Plus d\'options</button>';
+  if(more)h+=(dr.more||dr.prio||dr.goal||dr.note)?more:'<button type="button" class="linkbtn moreopt" data-act="sheet-more" aria-expanded="false">Plus d\'options</button>';
+  if(isNew&&(k==="task"||k==="hw"||k==="daily"))h+='<button type="button" class="btn ghost again" data-act="sheet-again">Ajouter et en saisir '+(k==="daily"?"une autre":k==="hw"?"un autre":"une autre")+'</button>'+
+    (sheet.streak?'<div class="hint again-n" role="status">'+sheet.streak+(sheet.streak>1?" ajoutés":" ajouté")+' à la suite. Touche « Terminé » quand tu as fini.</div>':"");
   if(!isNew)h+='<div><button type="button" class="btn danger small" data-act="sheet-del">Supprimer '+(k==="daily"||k==="step"?"cette ":k==="goal"?"cet ":k==="hw"?"ce ":"cette ")+KIND_NAME[k]+'</button></div>';
   if(sheet.restored&&sheet.mode==="new"&&h.indexOf("sh-restored")<0)h=h.replace(/(<\/div>)/,'$1<div class="restored" id="sh-restored" role="status"><span><b>Brouillon repris</b> là où tu l\'avais laissé.</span><button type="button" class="linkbtn" data-act="draft-clear">Effacer</button></div>');
   $("sheet").innerHTML=h;
@@ -197,8 +214,14 @@ function saveSheet(){
     renderSheet();$("sh-catname").focus();return;
   }
   syncDraft();
-  var s=sheet, dr=s.draft, k=s.kind, title=cap(dr.title.trim()), now=Date.now();
+  var s=sheet, dr=s.draft, k=s.kind, title=cap(dr.title.trim()), now=Date.now(), chipDue=dr.due;
   if(!title){$("sh-title").focus();return;}
+  // date et heure tapées dans le titre (nouvelle tâche ou nouveau devoir)
+  if(s.mode==="new"&&(k==="task"||k==="hw")&&!dr.nlpOff){
+    var pw=parseWhen(title);
+    if(pw&&pw.rest){dr.due=pw.due;if(pw.time)dr.time=pw.time;title=cap(pw.rest);}
+  }
+  var note=String(dr.note||"").trim().slice(0,2000);
   if(k==="task"&&dr.newCat){
     var nc=cleanCat(dr.newCatName);
     if(!nc){$("sh-newcat").focus();return;}
@@ -211,11 +234,22 @@ function saveSheet(){
   var rep=isDate(dr.due)&&repLabel(dr.rep||"")&&dr.rep?dr.rep:"";   // heure du rappel (dr.tm, lui, est le mois d'un objectif)
   if(s.mode==="new"){
     var data;
-    if(k==="task")data={kind:"task",title:title,cat:dr.cat,due:dr.due||"",time:tm,rep:rep,prio:!!dr.prio,done:false,goal:dr.goal||"",created:now};
-    else if(k==="hw")data={kind:"task",title:title,cat:"Devoir",subject:cap(dr.subject.trim()),due:dr.due||"",time:tm,rep:rep,prio:!!dr.prio,done:false,goal:dr.goal||"",created:now};
+    if(k==="task")data={kind:"task",title:title,cat:dr.cat,due:dr.due||"",time:tm,rep:rep,prio:!!dr.prio,done:false,goal:dr.goal||"",note:note,created:now};
+    else if(k==="hw")data={kind:"task",title:title,cat:"Devoir",subject:cap(dr.subject.trim()),due:dr.due||"",time:tm,rep:rep,prio:!!dr.prio,done:false,goal:dr.goal||"",note:note,created:now};
     else if(k==="daily"){data=dr.freq>0?{kind:"weekly",title:title,target:dr.freq,dones:[],time:htm,goal:dr.goal||"",created:now}:{kind:"daily",title:title,lastDone:"",streak:0,time:htm,goal:dr.goal||"",created:now};if(dr.freq<0&&normDays(dr.days).length)data.days=normDays(dr.days);}
     else data={kind:"goal",title:title,target:target,steps:[],reached:false,created:now};
     if(data.rep==="month")data.repDay=parse(data.due).getDate();
+    if(data.kind==="task"&&!data.note)delete data.note;
+    // « Ajouter et continuer » : on enregistre et la fiche se vide pour la suivante (même type, catégorie, date et matière)
+    if(s.again){
+      var aid=newId();save(aid,data);dropDraft();
+      var nd=blankDraft();nd.cat=dr.cat;nd.due=chipDue;nd.other=dr.other;nd.subject=dr.subject;nd.freq=dr.freq;nd.days=(dr.days||[]).slice();
+      sheet={mode:"new",kind:k,draft:nd,streak:(s.streak||0)+1};
+      renderSheet();if(!fxOff())haptic();
+      showToast({task:"Tâche ajoutée",hw:"Devoir ajouté",daily:"Habitude ajoutée"}[k]+" : « "+shortT(title)+" »",true);
+      var te=$("sh-title");if(te)te.focus();
+      return;
+    }
     s.saved=true;dropDraft();
     var nid=newId();if(k==="goal")setGoalOpen(nid,true);closeSheet();save(nid,data);
     var what={task:"Tâche ajoutée",hw:"Devoir ajouté",daily:"Habitude ajoutée",goal:"Objectif ajouté"}[k]||"Ajouté";
@@ -226,7 +260,7 @@ function saveSheet(){
   if(k==="step"){if(d.steps&&d.steps[s.i])d.steps[s.i].t=title;}
   else{
     d.title=title;
-    if(k==="task"||k==="hw"){d.due=dr.due||"";d.time=tm;d.rep=rep;if(rep==="month")d.repDay=parse(d.due).getDate();else delete d.repDay;d.prio=!!dr.prio;d.goal=dr.goal||"";if(k==="hw")d.subject=cap(dr.subject.trim());else d.cat=dr.cat;}
+    if(k==="task"||k==="hw"){if(note)d.note=note;else delete d.note;d.due=dr.due||"";d.time=tm;d.rep=rep;if(rep==="month")d.repDay=parse(d.due).getDate();else delete d.repDay;d.prio=!!dr.prio;d.goal=dr.goal||"";if(k==="hw")d.subject=cap(dr.subject.trim());else d.cat=dr.cat;}
     if(k==="daily"){
       d.goal=dr.goal||"";d.time=htm;
       if(dr.freq>0){if(d.kind!=="weekly"){d.kind="weekly";d.dones=[];}d.target=dr.freq;delete d.days;}
