@@ -14,8 +14,9 @@ Les applications existantes (to-do, agenda, suivi d'habitudes) séparaient ce qu
 
 - **Jour** : ce qui reste aujourd'hui (tâches et habitudes), une barre d'avancement et une bande des 7 prochains jours.
 - **Tâches** : un seul onglet pour les tâches et les devoirs (filtre « Devoirs »), sections par période (aujourd'hui, demain, cette semaine, plus tard) repliables, date et catégorie alignées à droite comme sur un relevé, tri par catégorie ou matière, rangement manuel.
-- **Habitudes** : quotidiennes (avec série de jours consécutifs) ou hebdomadaires (par exemple 3 séances par semaine).
-- **Objectifs** : repliables, avec échéance, compte à rebours et une seule liste pour les étapes et les tâches reliées.
+- **Habitudes** : chaque jour, certains jours de la semaine (ex. lundi, mercredi, vendredi) ou un nombre de fois par semaine (ex. 3 séances), avec série en cours, record et bilan des 4 dernières semaines.
+- **Objectifs** : repliables, avec échéance, compte à rebours et une seule liste pour les étapes et les tâches reliées ; les objectifs atteints sont rangés à part.
+- **Bilan de la semaine** : tâches faites (comparées à la semaine précédente), habitudes tenues, retards ; dans les Réglages, et sur le Jour le dimanche.
 - **Brouillon** : notes façon Notes d'iPhone (dossiers, épingles), recherche avec le mot surligné dans la liste et dans la note.
 - **Compte facultatif** : connexion par e-mail et mot de passe, synchronisation automatique entre téléphone et ordinateur, suppression du compte en un geste.
 - **Sauvegarde** : export et import des données dans un fichier.

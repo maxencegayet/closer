@@ -202,6 +202,7 @@ document.addEventListener("click",function(ev){
     dr=blankDraft();dr.title=cap(d.title||"");
     var k=d.kind==="task"?(d.cat==="Devoir"?"hw":"task"):(d.kind==="weekly"?"daily":d.kind);
     if(d.kind==="weekly")dr.freq=d.target||1;
+    if(d.kind==="daily"&&hasDays(d)){dr.freq=-1;dr.days=d.days.slice();}
     if(d.kind==="task"){dr.cat=(d.cat&&d.cat!=="Devoir")?d.cat:(cats()[0]||"Perso");dr.subject=cap(d.subject||"");dr.due=isDate(d.due)?d.due:"";dr.time=isDate(d.due)&&d.time?d.time:"";dr.rep=isDate(d.due)&&d.rep?d.rep:"";dr.prio=!!d.prio;}
     if(d.kind==="daily"||d.kind==="weekly")dr.time=d.time||"";
     if(d.kind==="goal"&&isDate(d.target)){var p=parse(d.target);dr.tm=String(p.getMonth()+1);dr.ty=String(p.getFullYear());}
@@ -213,11 +214,12 @@ document.addEventListener("click",function(ev){
     dr=blankDraft();dr.title=cap(d.steps[i].t);
     openSheet({mode:"edit",kind:"step",id:id,i:i,draft:dr},b);return;
   }
-  if(sheet&&(act==="stype"||act==="scat"||act==="sdate"||act==="sfreq"||act==="stime")){
+  if(sheet&&(act==="stype"||act==="scat"||act==="sdate"||act==="sfreq"||act==="sday"||act==="stime")){
     syncDraft();var v=b.dataset.v;
     if(act==="stype")sheet.kind=v;
     else if(act==="scat"){if(v==="__new")sheet.draft.newCat=true;else{sheet.draft.newCat=false;sheet.draft.cat=v;}}
-    else if(act==="sfreq"){sheet.draft.freq=+v;}
+    else if(act==="sfreq"){sheet.draft.freq=+v;if(+v<0&&!(sheet.draft.days||[]).length)sheet.draft.days=[1,3,5];}
+    else if(act==="sday"){var dl=(sheet.draft.days||[]).slice(),di0=dl.indexOf(+v);if(di0>=0)dl.splice(di0,1);else dl.push(+v);sheet.draft.days=dl;}
     else if(act==="stime"){sheet.draft.time=sheet.draft.time===v?"":v;}
     else if(v==="other"){sheet.draft.other=true;}
     else{sheet.draft.other=false;sheet.draft.due=v;}
@@ -229,6 +231,7 @@ document.addEventListener("click",function(ev){
   }
   if(act==="backup"){if(sheet){sheet={mode:"edit",kind:"backup",draft:blankDraft()};renderSheet();$("sheet").scrollTop=0;$("sheet").focus();}else openSheet({mode:"edit",kind:"backup",draft:blankDraft()},b);return;}
   if(act==="late-today"){lateToToday();return;}
+  if(act==="recap-off"){try{localStorage.setItem(RECAP_KEY,today());}catch(e){}render();return;}
   if(act==="onb-off"){try{localStorage.setItem(ONB_KEY,"1");}catch(e){}render();return;}
   if(act==="sheet-more"){syncDraft();sheet.draft.more=true;renderSheet();var fm=$("sh-prio")||$("sh-goal");if(fm)fm.focus();return;}
   if(act==="stime-clear"){syncDraft();sheet.draft.time="";renderSheet();return;}
@@ -269,7 +272,9 @@ document.addEventListener("click",function(ev){
   if(act==="arr"){state.tmenu=false;state.arr[b.dataset.k]=!state.arr[b.dataset.k];render();var ab=state.arr[b.dataset.k]?$("arr-"+b.dataset.k):$("tsort");if(ab)ab.focus({preventScroll:true});return;}
   if(act==="day"){state.day=id;render();var nd=$("week").querySelector('[data-id="'+id+'"]');if(nd)nd.focus();return;}
   if(act==="filter"){state.filter=id;state.tmenu=false;render();return;}
-  if(act==="fold"){var sh0=isFolded(id),inJour=!!b.closest("#l-jour");setFold(id,!sh0);if(inJour)renderJour();else renderTaches();var fb=document.querySelector((inJour?'#l-jour':'#l-tasks')+' [data-act="fold"][data-id="'+(window.CSS&&CSS.escape?CSS.escape(id):id)+'"]');if(fb)fb.focus({preventScroll:true});return;}
+  if(act==="fold"){var sh0=isFolded(id),fv=b.closest("[id^='v-']"),vid=fv?fv.id:"v-"+curView;setFold(id,!sh0);
+    if(vid==="v-jour")renderJour();else if(vid==="v-objectifs")renderObjectifs();else renderTaches();
+    var fb=document.querySelector('#'+vid+' [data-act="fold"][data-id="'+(window.CSS&&CSS.escape?CSS.escape(id):id)+'"]');if(fb)fb.focus({preventScroll:true});return;}
   if(act==="toggle-done"){state.showDone[id]=!state.showDone[id];render();return;}
   if(act==="clear-done"){viewTasks(id).forEach(function(x){if(x.d.done)remove(x.id);});lastDeleted=null;return;}
   if(act==="undo"){if(lastDeleted){(Array.isArray(lastDeleted)?lastDeleted:[lastDeleted]).forEach(function(u){if(u.data)save(u.id,u.data);else remove(u.id);});lastDeleted=null;}clearTimeout(toastTimer);$("toast").classList.remove("open");return;}
@@ -278,7 +283,7 @@ document.addEventListener("click",function(ev){
   else if(act==="task"){if(!d.done)taskDone(id);else{d.done=false;d.doneOn="";d.doneAt=0;save(id,d);}}
   else if(act==="daily"){
     if(d.lastDone===t){d.lastDone=d.prevDone||"";d.streak=d.prevStreak||0;}
-    else{d.prevDone=d.lastDone||"";d.prevStreak=d.streak||0;d.streak=(d.lastDone===shift(t,-1)?(d.streak||0):0)+1;d.lastDone=t;}
+    else{d.prevDone=d.lastDone||"";d.prevStreak=d.streak||0;d.streak=(d.lastDone===prevDue(d,t)?(d.streak||0):0)+1;d.lastDone=t;}
     var hd=histOf(d).filter(function(x){return x!==t||d.lastDone===t;});if(d.lastDone===t&&hd.indexOf(t)<0)hd.push(t);d.dones=hd.sort().slice(-120);
     save(id,d);
   }

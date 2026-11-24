@@ -65,6 +65,15 @@ function nextDay(date: string) {
   d.setUTCDate(d.getUTCDate() + 1);
   return d.toISOString().slice(0, 10);
 }
+// habitudes « certains jours » : d.days = jours prévus (1 = lundi … 7 = dimanche) ; absent = chaque jour
+const isoDow = (date: string) => ((new Date(date + "T12:00:00Z").getUTCDay() + 6) % 7) + 1;
+const hasDays = (d: { days?: unknown }) => Array.isArray(d.days) && d.days.length > 0 && d.days.length < 7;
+const habDue = (d: { days?: number[] }, date: string) => !hasDays(d) || d.days!.includes(isoDow(date));
+function prevDue(d: { days?: number[] }, date: string) {
+  let x = date;
+  for (let i = 0; i < 7; i++) { const t = new Date(x + "T12:00:00Z"); t.setUTCDate(t.getUTCDate() - 1); x = t.toISOString().slice(0, 10); if (habDue(d, x)) return x; }
+  return x;
+}
 const capFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const short = (s: string) => (s.length > 28 ? s.slice(0, 27).trimEnd() + "…" : s);
 type Msg = { title: string; body: string; tag: string; url: string };
@@ -138,8 +147,10 @@ Deno.serve(async (req) => {
       const dones: string[] = Array.isArray(d.dones) ? d.dones : [];
       let body = "À faire aujourd'hui";
       if (d.kind === "daily") {
+        if (!habDue(d, L.date)) continue; // pas prévue aujourd'hui
         if (d.lastDone === L.date || dones.includes(L.date)) continue;
-        if ((d.streak || 0) > 1 && d.lastDone) body = `Garde ta série de ${d.streak} jours`;
+        // la série ne compte que si la dernière fois était le jour prévu précédent
+        if ((d.streak || 0) > 1 && d.lastDone === prevDue(d, L.date)) body = hasDays(d) ? `Garde ta série : ${d.streak} fois de suite` : `Garde ta série de ${d.streak} jours`;
       } else {
         if (dones.includes(L.date)) continue;
         const n = dones.filter((x) => x >= mon && x <= L.date).length, target = d.target || 1;

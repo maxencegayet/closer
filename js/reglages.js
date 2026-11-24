@@ -1,4 +1,4 @@
-/* Closer · Page Réglages, statistiques personnelles, statistiques anonymes. */
+/* Closer · Page Réglages, bilan de la semaine, statistiques anonymes. */
 "use strict";
 /* ---------- Réglages ---------- */
 var IC={
@@ -24,6 +24,7 @@ var IC={
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["24 nov.","Habitudes sur des jours précis (ex. lundi, mercredi, vendredi) : elles n'apparaissent que ces jours-là, sans casser ta série. Grille des habitudes plus lisible, une case par semaine, et ton record sur chaque habitude. Objectifs atteints rangés dans une section repliée. Dans les Réglages, le bilan de ta semaine remplace les statistiques ; le dimanche, il s'affiche aussi sur le Jour."],
   ["24 nov.","Toucher une notification ouvre directement la tâche ou l'habitude concernée. Heures rapides (9 h, 12 h, 18 h) sous « Rappel à ». Nouveau récap du soir, avec ce qui est prévu demain (Réglages › Notifications). Barre de la journée continue quand il y a plus de 10 choses à faire, et écran de lancement aux couleurs de Closer sur iPhone."],
   ["24 nov.","Sur le Jour, « Sans date, à caser » est repliée par défaut : touche le titre pour l'ouvrir. Closer est maintenant testé aussi dans le moteur de Safari, et les rappels sont vérifiés automatiquement à chaque mise en ligne."],
   ["24 nov.","Fais glisser la bande des jours vers la droite pour revoir la semaine passée. Une tâche répétée chaque jour qu'on a manquée revient d'elle-même à aujourd'hui. « Ranger à la main » se fait en faisant glisser la poignée. Petit repère sur les tâches qui font avancer un objectif. Fiche plus compacte : le type en une barre, « Rappel à » et « Répéter » côte à côte."],
@@ -58,17 +59,43 @@ function sGroup(label,rows,note){return '<section class="sgroup">'+(label?'<h3 c
 function standalone(){try{return navigator.standalone===true||matchMedia("(display-mode: standalone)").matches;}catch(e){return false;}}
 function isIOS(){return /iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);}
 function badgeOff(){try{return localStorage.getItem("closer-badge-off")==="1";}catch(e){return false;}}
-function longestRun(days){
-  var l=days.slice().sort(),best=0,run=0,prev="";
-  l.forEach(function(d){run=(prev&&shift(prev,1)===d)?run+1:(prev===d?run:1);prev=d;if(run>best)best=run;});
-  return best;
+/* ---------- bilan de la semaine (lundi → dimanche) : dans les Réglages, et sur le Jour le dimanche ---------- */
+function weekRecap(ws){
+  var t=today(), we=shift(ws,6), end=we<t?we:t, tasks=byKind("task");
+  var inW=function(x,a,b){return isDate(x)&&x>=a&&x<=b;};
+  var done=tasks.filter(function(x){return x.d.done&&inW(x.d.doneOn,ws,we);});
+  var before=tasks.filter(function(x){return x.d.done&&inW(x.d.doneOn,shift(ws,-7),shift(ws,-1));}).length;
+  // habitudes : fait / prévu jusqu'à aujourd'hui (le dimanche : toute la semaine)
+  var habs=byKind("daily").concat(byKind("weekly")).map(function(x){
+    var d=x.d, h=histOf(d), n=h.filter(function(y){return inW(y,ws,end);}).length, tg=0;
+    if(d.kind==="weekly")tg=d.target||1;else for(var i=0;shift(ws,i)<=end;i++)if(habDue(d,shift(ws,i)))tg++;
+    return {t:cap(d.title),n:Math.min(n,tg||n),tg:tg};
+  }).filter(function(x){return x.tg>0;});
+  var hn=habs.reduce(function(a,x){return a+x.n;},0), ht=habs.reduce(function(a,x){return a+x.tg;},0);
+  return {ws:ws,we:we,done:done.length,before:before,goal:done.filter(function(x){return x.d.goal;}).length,habs:habs,hn:hn,ht:ht,
+    late:tasks.filter(function(x){return !x.d.done&&isDate(x.d.due)&&x.d.due<t;}).length};
 }
-function myStats(){
-  var t=today(),m=t.slice(0,7),tasks=byKind("task"),goals=byKind("goal");
-  var done=tasks.filter(function(x){return x.d.done&&String(x.d.doneOn||"").slice(0,7)===m;}).length;
-  var best=0;byKind("daily").forEach(function(x){best=Math.max(best,longestRun(histOf(x.d)));});
-  var seances=byKind("weekly").reduce(function(n,x){return n+weekCount(x.d);},0);
-  return {done:done,month:new Date().toLocaleDateString("fr-FR",{month:"long"}),best:best,goalsOk:goals.filter(function(x){return x.d.reached;}).length,goals:goals.length,notes:byKind("note").length,seances:seances};
+function recapHTML(R,onJour){
+  var diff=R.done-R.before, cmp=!R.before&&!R.done?"":diff>0?"+"+diff+" par rapport à la semaine dernière":diff<0?diff+" par rapport à la semaine dernière":"autant que la semaine dernière";
+  var h='<div class="rec-top"><b>'+R.done+'</b><span>'+(R.done>1?"tâches faites":"tâche faite")+(cmp?'<small>'+esc(cmp)+'</small>':"")+'</span></div>';
+  if(R.ht)h+='<div class="rec-row"><span>Habitudes</span><b>'+R.hn+' sur '+R.ht+'</b></div>'+
+    '<div class="rec-habs">'+R.habs.map(function(x){return '<span class="'+(x.n>=x.tg?"ok":"")+'">'+esc(x.t)+' '+x.n+'/'+x.tg+'</span>';}).join("")+'</div>';
+  if(R.goal)h+='<div class="rec-row"><span>Pour tes objectifs</span><b>'+R.goal+(R.goal>1?" tâches":" tâche")+'</b></div>';
+  if(R.late)h+='<div class="rec-row late"><span>Encore en retard</span><b>'+R.late+(R.late>1?" tâches":" tâche")+'</b></div>';
+  var per='Du '+fmt(R.ws,{weekday:"short",day:"numeric"})+' au '+fmt(R.we,{weekday:"short",day:"numeric",month:"long"});
+  return onJour
+    ? '<section class="rec onj" aria-label="Bilan de ta semaine"><div class="rec-h"><b>Ta semaine</b><span>'+esc(per)+'</span><button type="button" class="linkbtn" data-act="recap-off">Masquer</button></div>'+h+'</section>'
+    : '<section class="sgroup"><h3 class="slab">Ta semaine</h3><div class="rec"><div class="rec-h"><span>'+esc(per)+'</span></div>'+h+'</div></section>';
+}
+// le dimanche, le bilan s'affiche aussi en haut du Jour (masquable jusqu'au dimanche suivant)
+var RECAP_KEY="closer-recap-off";
+function recapCard(){
+  var t=today();
+  if(isoDow(t)!==7||state.mode==="loading")return "";
+  try{if(localStorage.getItem(RECAP_KEY)===t)return "";}catch(e){}
+  var R=weekRecap(weekStart(t));
+  if(!R.done&&!R.hn)return "";
+  return recapHTML(R,true);
 }
 function acHTML(){
   var h='<div class="sh-head"><button type="button" class="btn ghost small" data-act="close-sheet">Fermer</button><h2 id="sh-h">Réglages</h2><span style="width:78px"></span></div>';
@@ -95,14 +122,8 @@ function acHTML(){
   if(AS.msg)h+='<div class="acbox" role="status">'+esc(AS.msg)+'</div>';
   if(AS.unconf&&!SU)h+='<div><button type="button" class="btn ghost small" data-act="ac-resend">Renvoyer l\'e-mail de confirmation</button></div>';
 
-  /* 2. Statistiques */
-  var S=myStats();
-  h+='<section class="sgroup"><h3 class="slab">Tes statistiques</h3><div class="stats">'+
-    '<div class="stat hl"><b>'+S.done+'</b><span>'+(S.done>1?"tâches faites":"tâche faite")+' en '+esc(S.month)+'</span></div>'+
-    '<div class="stat"><b>'+(S.best||"–")+'</b><span>'+(S.best>1?"jours d'affilée, ta meilleure série":"meilleure série d'habitude")+'</span></div>'+
-    '<div class="stat"><b>'+S.goalsOk+'<small> / '+S.goals+'</small></b><span>objectifs atteints</span></div>'+
-    '<div class="stat"><b>'+S.seances+'</b><span>'+(S.seances>1?"séances":"séance")+' cette semaine</span></div>'+
-    '</div></section>';
+  /* 2. Bilan de la semaine en cours (à la place des anciennes tuiles de statistiques) */
+  h+=recapHTML(weekRecap(weekStart(today())),false);
 
   /* 3. Préférences */
   var perm=("Notification" in window)?Notification.permission:"", rows="";

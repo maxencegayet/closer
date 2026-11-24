@@ -221,3 +221,23 @@ Deno.test("récap du soir : fin de mois et colonne absente de la base", async ()
   const r = await cron();
   eq([r.status, sent.length], [200, 0], "sans la colonne « evening », la fonction marche quand même");
 });
+
+Deno.test("habitude « certains jours » : rappel seulement les jours prévus, série entre deux jours prévus", async () => {
+  // mardi 24 nov. 2026 : jour 2 ; jeudi 26 : jour 4
+  base(); at("2026-11-24T18:00");
+  item({ kind: "daily", title: "piscine", time: "18:00", days: [2, 4], lastDone: "2026-11-19", streak: 3, dones: ["2026-11-19"] });
+  item({ kind: "daily", title: "yoga", time: "18:00", days: [1, 3, 5] });
+  await cron();
+  eq(titles(), ["Piscine | Garde ta série : 3 fois de suite"], "mardi : piscine (jeudi 19 était le jour prévu précédent), pas le yoga");
+  base(); at("2026-11-25T18:00");
+  item({ kind: "daily", title: "piscine", time: "18:00", days: [2, 4] });
+  await cron();
+  eq(sent.length, 0, "mercredi : piscine pas prévue");
+});
+
+Deno.test("habitude du jour : une série interrompue n'est plus annoncée", async () => {
+  base(); at("2026-11-24T18:00");
+  item({ kind: "daily", title: "muscu", time: "18:00", lastDone: "2026-11-20", streak: 6, dones: ["2026-11-20"] });
+  await cron();
+  eq(titles(), ["Muscu | À faire aujourd'hui"], "dernière fois il y a 4 jours : pas de « série de 6 jours »");
+});

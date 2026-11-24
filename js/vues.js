@@ -6,7 +6,8 @@ function renderJour(){
   if(!state.day||state.day<shift(t,-PAST_DAYS)||state.day>shift(t,6))state.day=t;
   var dateTxt=new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
   var dailies=byKind("daily"), tasks=byKind("task");
-  var dRest=dailies.filter(function(x){return x.d.lastDone!==t;}), dDone=dailies.filter(function(x){return x.d.lastDone===t;});
+  // habitudes « certains jours » : seulement les jours prévus (une case cochée un autre jour reste comptée comme faite)
+  var dRest=dailies.filter(function(x){return x.d.lastDone!==t&&habDue(x.d,t);}), dDone=dailies.filter(function(x){return x.d.lastDone===t;});
   var tRest=tasks.filter(function(x){return !x.d.done&&isDate(x.d.due)&&x.d.due<=t;}).sort(sortTasks);
   var tDone=tasks.filter(function(x){return x.d.done&&x.d.doneOn===t;});
   var rest=dRest.length+tRest.length, done=dDone.length+tDone.length, total=rest+done;
@@ -62,7 +63,7 @@ function renderJour(){
 
   var html="";
   if(state.day===t){
-    html+=onboardCard();
+    html+=onboardCard()+recapCard();
     var wk=byKind("weekly").sort(function(a,b){return (weekCount(a.d)>=(a.d.target||1)?1:0)-(weekCount(b.d)>=(b.d.target||1)?1:0);});
     var hasHab=dRest.length||wk.length;
     // les retards à part, repliables, avec un geste pour tout reporter ; la journée reste lisible en dessous
@@ -74,7 +75,7 @@ function renderJour(){
     if(hasHab){
       // même compte que la carte noire : les habitudes du jour ; les hebdomadaires affichent leur propre « n sur x cette semaine »
       var hLeft=dRest.length;
-      html+=block("Habitudes",hLeft?hLeft+" aujourd'hui":(dailies.length?"Faites aujourd'hui":""),dRest.map(dailyRow).concat(wk.map(weeklyRow)).join(""));
+      html+=block("Habitudes",hLeft?hLeft+" aujourd'hui":(dDone.length?"Faites aujourd'hui":""),dRest.map(dailyRow).concat(wk.map(weeklyRow)).join(""));
     }
     var und=tasks.filter(function(x){return !x.d.done&&!isDate(x.d.due);}).sort(sortTasks);
     // repliée par défaut : ce n'est pas pour aujourd'hui, la journée reste courte
@@ -234,7 +235,9 @@ function renderObjectifs(){
   var t=today(), goals=byKind("goal");
   if(!goals.length){$("l-goals").innerHTML=state.mode==="loading"?'<div class="list"><div class="empty">Chargement…</div></div>':emptyState("Aucun objectif pour l'instant","Un objectif, c'est un cap à quelques mois : un stage, un examen, un niveau en anglais. Découpe-le en étapes et relie-lui tes tâches pour voir où tu en es.","Créer un objectif");return;}
   var dailies=byKind("daily"), tasks=byKind("task");
-  $("l-goals").innerHTML=goals.map(function(g){
+  // objectifs en cours en haut ; les atteints rangés dans une section repliée (repliée par défaut)
+  var cur=goals.filter(function(g){return !g.d.reached;}), won=goals.filter(function(g){return g.d.reached;});
+  function goalCard(g){
     var d=g.d, steps=Array.isArray(d.steps)?d.steps:[], ti=cap(d.title);
     var lt=tasks.filter(function(x){return x.d.goal===g.id;}).sort(function(a,b){return (a.d.done?1:0)-(b.d.done?1:0)||sortTasks(a,b);});
     // une seule liste : les étapes puis les tâches reliées ; toutes comptent dans l'avancée
@@ -259,7 +262,7 @@ function renderObjectifs(){
     rows=rows.filter(function(r){return !r.done;}).concat(rows.filter(function(r){return r.done;}));
     var lk=dailies.filter(function(x){return x.d.goal===g.id;}).map(function(x){
       var s=streakOf(x.d);
-      return '<button type="button" class="lk" data-act="edit" data-id="'+esc(x.id)+'">'+esc(cap(x.d.title))+'<span>Chaque jour</span>'+(s>1?'<span class="credit">'+s+' jours de suite</span>':"")+'</button>';
+      return '<button type="button" class="lk" data-act="edit" data-id="'+esc(x.id)+'">'+esc(cap(x.d.title))+'<span>'+esc(rhythmLabel(x.d))+'</span>'+(s>1?'<span class="credit">'+streakTxt(x.d,s)+'</span>':"")+'</button>';
     }).concat(byKind("weekly").filter(function(x){return x.d.goal===g.id;}).map(function(x){
       return '<button type="button" class="lk" data-act="edit" data-id="'+esc(x.id)+'">'+esc(cap(x.d.title))+'<span>'+weekCount(x.d)+' sur '+(x.d.target||1)+' cette semaine</span></button>';
     }));
@@ -282,32 +285,43 @@ function renderObjectifs(){
       '<div class="gfoot"><button type="button" class="linkbtn" data-act="edit" data-id="'+esc(g.id)+'">Modifier l\'objectif</button><button type="button" class="linkbtn" data-act="reach" data-id="'+esc(g.id)+'">'+(d.reached?"Rouvrir l'objectif":"Marquer comme atteint")+'</button></div>'+
       '</div>'+
       '</article>';
-  }).join("");
+  }
+  $("l-goals").innerHTML=(cur.length?cur.map(goalCard).join(""):'<div class="list"><div class="empty">Tous tes objectifs sont atteints. Touche + pour t\'en fixer un nouveau.</div></div>')+
+    (won.length?'<div class="gfold">'+foldBlock("obj:reached","Atteints",won.length,won.map(goalCard).join(""))+'</div>':"");
 }
 
 /* ---------- Habitudes : 4 dernières semaines ---------- */
 function histOf(d){
   var l=(d.dones||[]).slice();
   // anciennes habitudes sans historique : on reconstitue la série en cours
-  if(d.kind==="daily"&&isDate(d.lastDone)){for(var i=0;i<(d.streak||1);i++){var x=shift(d.lastDone,-i);if(l.indexOf(x)<0)l.push(x);}}
+  if(d.kind==="daily"&&!hasDays(d)&&isDate(d.lastDone)){for(var i=0;i<(d.streak||1);i++){var x=shift(d.lastDone,-i);if(l.indexOf(x)<0)l.push(x);}}
   return l;
 }
 function renderHabits(){
   var hs=byKind("daily").concat(byKind("weekly")), el=$("l-habits");
   if(!hs.length){el.innerHTML="";return;}
-  var t=today(), ws=weekStart(t), first=shift(ws,-21);
+  var t=today(), ws=weekStart(t);
+  // une case par semaine (les 3 précédentes, puis celle-ci) : « fait / prévu », pleine quand c'est réussi
   el.innerHTML='<section class="block"><div class="sh"><h2>Habitudes</h2><span class="n">4 dernières semaines</span></div><div class="list">'+hs.map(function(x){
-    var d=x.d, h=histOf(d), cells="", n=0;
-    for(var i=0;i<28;i++){var day=shift(first,i), on=h.indexOf(day)>=0, fut=day>t;if(on&&!fut)n++;
-      if(i%7===0)cells+=(i?'</span>':'')+'<span class="wk">';
-      cells+='<i class="'+(on?"on":"")+(fut?" fut":"")+(day===t?" now":"")+'"></i>';}
-    cells+='</span>';
-    var meta=d.kind==="daily"
-      ? (streakOf(d)>1?'<span class="credit">'+streakOf(d)+' jours de suite</span>':'<span>Chaque jour</span>')+'<span>'+n+' jours sur 28</span>'
-      : '<span>'+(d.target||1)+' fois par semaine</span><span>'+weekCount(d)+' sur '+(d.target||1)+' cette semaine</span>';
+    var d=x.d, h=histOf(d), cells="", lab=[];
+    for(var w=3;w>=0;w--){
+      var s0=shift(ws,-7*w), s1=shift(s0,6), n=h.filter(function(y){return y>=s0&&y<=s1;}).length, tg=weekTarget(d,s0), cur=w===0;
+      var ok=n>=tg, cls=ok?"ok":n?"part":"";
+      cells+='<span class="wkc '+cls+(cur?" cur":"")+'">'+n+'/'+tg+'</span>';
+      lab.push((cur?"cette semaine":"semaine du "+fmt(s0,{day:"numeric",month:"short"}))+" : "+n+" sur "+tg);
+    }
+    var s=streakOf(d), rec=bestRun(d);
+    var meta='<span>'+esc(rhythmLabel(d))+'</span>'+
+      (d.kind==="daily"&&s>1?'<span class="credit">'+streakTxt(d,s)+'</span>':"")+
+      (rec>1?'<span>Record : '+rec+(d.kind==="weekly"?" semaines":hasDays(d)?" fois":" jours")+'</span>':"");
     return '<div class="hab"><button type="button" class="body" data-act="edit" data-id="'+esc(x.id)+'" aria-label="Modifier : '+esc(cap(d.title))+'"><span class="title">'+esc(cap(d.title))+'</span><span class="meta">'+meta+'</span></button>'+
-      '<div class="grid" role="img" aria-label="'+n+' fois sur les 4 dernières semaines">'+cells+'</div></div>';
+      '<div class="wkg" role="img" aria-label="'+esc(lab.join(", "))+'">'+cells+'</div></div>';
   }).join("")+'</div></section>';
+}
+// objectif d'une semaine : jours prévus (habitude du jour) ou nombre de fois (hebdomadaire)
+function weekTarget(d,s0){
+  if(d.kind==="weekly")return d.target||1;
+  var n=0;for(var i=0;i<7;i++)if(habDue(d,shift(s0,i)))n++;return n;
 }
 function animateFills(){
   document.querySelectorAll(".fill[data-gid]").forEach(function(el){

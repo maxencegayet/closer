@@ -149,6 +149,10 @@ h2.late{color:var(--late)}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chips.scroll{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:4px;margin:-4px}
 .chips.scroll::-webkit-scrollbar{display:none}
+.dows{display:flex;gap:6px;margin-top:8px}
+.dow{flex:1;min-width:0;height:42px;border:0;border-radius:999px;background:var(--surface);color:var(--muted);font-size:15px;font-weight:700;transition:background-color 150ms ease,color 150ms ease,transform 160ms var(--ease-out)}
+.dow[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.dow:active{transform:scale(.94)}
 .chip{flex:none;border:0;background:var(--surface);border-radius:999px;padding:8px 16px;font-size:14px;font-weight:600;color:var(--muted);white-space:nowrap;transition:background-color 150ms ease,color 150ms ease,transform 160ms var(--ease-out)}
 .chip[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
 .chip:active{transform:scale(.97)}
@@ -348,12 +352,12 @@ input,textarea,select{font-size:16px}
 .hab{display:flex;flex-direction:column;gap:10px;padding:14px 16px;border-top:1px solid var(--line)}
 .hab:first-child{border-top:0}
 .hab .body{padding:0;text-align:left}
-.hab .grid{display:flex;gap:8px}
-.hab .grid .wk{flex:1;display:flex;gap:3px}
-.hab .grid i{flex:1;height:14px;border-radius:3px;background:var(--line)}
-.hab .grid i.on{background:var(--ink)}
-.hab .grid i.fut{opacity:.35}
-.hab .grid i.now{box-shadow:inset 0 0 0 1.5px var(--ink)}
+.wkg{display:flex;gap:6px}
+.wkc{flex:1;text-align:center;padding:6px 0;border-radius:10px;background:var(--line);color:var(--muted);font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.wkc.part{background:var(--bg);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.wkc.ok{background:var(--ink);color:var(--surface)}
+.wkc.cur{outline:2px solid var(--ink);outline-offset:-2px}
+.wkc.cur.ok{outline:0}
 
 /* Réglages */
 .gear{width:46px;height:46px;padding:0;border-radius:50%;display:grid;place-items:center;position:relative}
@@ -394,13 +398,20 @@ ol.sdetail,ul.sdetail{padding-left:74px;display:flex;flex-direction:column;gap:6
 .prof .icon{background:var(--bg)}
 .spin{animation:spin 900ms linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.stat{background:var(--surface);border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
-.stat b{font-size:30px;font-weight:800;letter-spacing:-.04em;line-height:1}
-.stat b small{font-size:16px;color:var(--muted);letter-spacing:0}
-.stat span{font-size:13px;color:var(--muted);line-height:1.3}
-.stat.hl{background:var(--ink);color:var(--surface)}
-.stat.hl span{color:var(--hero-soft)}
+.rec{background:var(--surface);border-radius:20px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.rec-h{display:flex;align-items:baseline;gap:10px;font-size:13px;color:var(--muted)}
+.rec-h b{font-size:16px;color:var(--ink)}
+.rec-h .linkbtn{margin-left:auto}
+.rec-top{display:flex;align-items:center;gap:12px}
+.rec-top b{font-size:40px;font-weight:800;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+.rec-top span{display:flex;flex-direction:column;font-weight:600;font-size:15px}
+.rec-top small{font-weight:500;font-size:13px;color:var(--muted)}
+.rec-row{display:flex;justify-content:space-between;gap:12px;font-size:15px;padding-top:10px;border-top:1px solid var(--line)}
+.rec-row b{font-variant-numeric:tabular-nums}
+.rec-row.late b{color:var(--late)}
+.rec-habs{display:flex;flex-wrap:wrap;gap:6px;margin-top:-2px}
+.rec-habs span{font-size:13px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--bg);color:var(--muted);font-variant-numeric:tabular-nums}
+.rec-habs span.ok{background:var(--ink);color:var(--surface)}
 @media (prefers-reduced-motion:reduce){.spin{animation:none}}
 
 /* brouillon repris */
@@ -440,6 +451,7 @@ ol.sdetail,ul.sdetail{padding-left:74px;display:flex;flex-direction:column;gap:6
 .fchev{flex:none;width:18px;height:18px;fill:none;stroke:var(--muted);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:transform 200ms var(--ease-out);margin-left:-4px}
 .fold.shut .fchev{transform:rotate(-90deg)}
 .fold.shut{gap:0}
+.gfold .list{background:none;border-radius:0;padding:0;display:flex;flex-direction:column;gap:12px}
 /* fiche : heure du rappel */
 .timefield .trow{display:flex;align-items:center;gap:12px}
 .timefield input[type="time"]{flex:none;width:auto;min-width:120px;font-variant-numeric:tabular-nums}

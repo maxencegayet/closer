@@ -10,7 +10,7 @@ var KIND_NEW={task:"Nouvelle tâche",hw:"Nouveau devoir",daily:"Nouvelle habitud
 var KIND_HINT={
   task:"Une chose à faire une fois, avec ou sans date.",
   hw:"Un travail à rendre pour un cours, classé par matière.",
-  daily:"Une habitude à tenir chaque jour, ou un certain nombre de fois par semaine.",
+  daily:"Une habitude à tenir chaque jour, certains jours de la semaine, ou un nombre de fois par semaine.",
   goal:"Un cap sur plusieurs semaines ou mois, que tu découpes en étapes."
 };
 
@@ -168,7 +168,7 @@ function taskRow(t,hideDate,a,hideCat){
     '<button type="button" class="body tline" data-act="edit" data-id="'+esc(t.id)+'" aria-label="'+esc(lab)+'Modifier : '+esc(ti)+(goalOf(d)&&!d.done?". Fait avancer « "+esc(cap(goalOf(d).title))+" »":"")+'">'+tl+taskSide(d,hideDate,hideCat)+'</button></div>';
 }
 /* section repliable (Tâches) : l'état est gardé sur l'appareil */
-var FOLD_KEY="closer-fold", FOLD_DEF={"jour:undated":true,"taches:later":true,"taches:done":true,"devoirs:later":true,"devoirs:done":true};
+var FOLD_KEY="closer-fold", FOLD_DEF={"obj:reached":true,"jour:undated":true,"taches:later":true,"taches:done":true,"devoirs:later":true,"devoirs:done":true};
 function folds(){try{return Object.assign({},FOLD_DEF,JSON.parse(localStorage.getItem(FOLD_KEY)||"{}"));}catch(e){return Object.assign({},FOLD_DEF);}}
 function isFolded(k){return !!folds()[k];}
 function setFold(k,on){var f=folds();f[k]=!!on;try{localStorage.setItem(FOLD_KEY,JSON.stringify(f));}catch(e){}}
@@ -178,12 +178,41 @@ function foldBlock(key,title,count,rowsHtml,cls,extra){
     '<h2 class="'+(cls||"")+'">'+esc(title)+'</h2><span class="n">'+count+'</span><svg class="fchev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>'+
     (shut?"":'<div class="list">'+rowsHtml+'</div>'+(extra||""))+'</section>';
 }
-function streakOf(d){var t=today();return (d.lastDone===t||d.lastDone===shift(t,-1))?(d.streak||0):0;}
+/* habitudes « certains jours » : d.days = jours de la semaine (1 = lundi … 7 = dimanche) ; absent = chaque jour */
+var DOW_SHORT=["lun.","mar.","mer.","jeu.","ven.","sam.","dim."], DOW_LETTER=["L","M","M","J","V","S","D"], DOW_LONG=["lundi","mardi","mercredi","jeudi","vendredi","samedi","dimanche"];
+function isoDow(day){return (parse(day).getDay()+6)%7+1;}
+function hasDays(d){return Array.isArray(d.days)&&d.days.length>0&&d.days.length<7;}
+function habDue(d,day){return !hasDays(d)||d.days.indexOf(isoDow(day))>=0;}
+// le jour prévu précédent (hier pour une habitude de chaque jour)
+function prevDue(d,day){for(var i=1;i<=7;i++){var x=shift(day,-i);if(habDue(d,x))return x;}return shift(day,-1);}
+function daysLabel(days){
+  var l=days.slice().sort();
+  if(l.join()==="1,2,3,4,5")return "Du lundi au vendredi";
+  if(l.join()==="6,7")return "Le week-end";
+  if(l.length===1)return "Le "+DOW_LONG[l[0]-1];
+  return cap(l.map(function(n){return DOW_SHORT[n-1];}).join(" "));
+}
+function rhythmLabel(d){return d.kind==="weekly"?(d.target||1)+" fois par semaine":hasDays(d)?daysLabel(d.days):"Chaque jour";}
+// série en cours : jours prévus cochés d'affilée (une habitude « certains jours » ne casse pas les jours où elle n'est pas prévue)
+function streakOf(d){var t=today();return (d.lastDone===t||d.lastDone===prevDue(d,t))?(d.streak||0):0;}
+function streakTxt(d,n){return n+(hasDays(d)?" fois de suite":" jours de suite");}
+// meilleure série de l'historique : jours prévus d'affilée (habitude du jour), semaines réussies d'affilée (hebdomadaire)
+function bestRun(d){
+  var h=histOf(d).slice().sort(), best=0, run=0, prev="";
+  if(d.kind==="weekly"){
+    var tg=d.target||1, cnt={};
+    h.forEach(function(x){var w=weekStart(x);cnt[w]=(cnt[w]||0)+1;});
+    Object.keys(cnt).sort().forEach(function(w){if(cnt[w]<tg)return;run=(prev&&shift(prev,7)===w)?run+1:1;prev=w;if(run>best)best=run;});
+    return best;
+  }
+  h.forEach(function(x){if(x===prev)return;run=(prev&&prevDue(d,x)===prev)?run+1:1;prev=x;if(run>best)best=run;});
+  return best;
+}
 function dailyRow(x){
   var on=x.d.lastDone===today(), s=streakOf(x.d), ti=cap(x.d.title);
   return '<div class="row'+(on?" done":"")+'">'+checkBtn("daily",x.id,on,(on?"Décocher : ":"Cocher : ")+ti,"","round")+
     '<button type="button" class="body" data-act="edit" data-id="'+esc(x.id)+'" aria-label="Modifier : '+esc(ti)+'">'+
-    '<span class="title">'+esc(ti)+'</span>'+(s>1?'<span class="meta"><span class="credit">'+s+' jours de suite</span></span>':"")+'</button></div>';
+    '<span class="title">'+esc(ti)+'</span>'+(s>1?'<span class="meta"><span class="credit">'+streakTxt(x.d,s)+'</span></span>':"")+'</button></div>';
 }
 function prioSort(a,b){
   if(!!a.d.prio!==!!b.d.prio)return a.d.prio?-1:1;

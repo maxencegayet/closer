@@ -1,7 +1,9 @@
 /* Closer · Fiche d'ajout et de modification (tâche, devoir, habitude, objectif), brouillon de fiche. */
 "use strict";
 /* ---------- fiche d'ajout et de modification ---------- */
-function blankDraft(){return {title:"",cat:(cats()[0]||"Perso"),newCat:false,newCatName:"",freq:0,subject:"",due:"",time:"",rep:"",other:false,prio:false,goal:"",tm:"",ty:String(new Date().getFullYear())};}
+// jours choisis, rangés ; les 7 jours = chaque jour
+function normDays(l){l=(l||[]).filter(function(n){return n>=1&&n<=7;}).sort();l=l.filter(function(n,i){return l.indexOf(n)===i;});return l.length===7?[]:l;}
+function blankDraft(){return {title:"",cat:(cats()[0]||"Perso"),newCat:false,newCatName:"",freq:0,days:[],subject:"",due:"",time:"",rep:"",other:false,prio:false,goal:"",tm:"",ty:String(new Date().getFullYear())};}
 function dayOpts(){
   var t=today(),o=[["","Sans date"],[t,"Aujourd'hui"],[shift(t,1),"Demain"]];
   for(var i=2;i<=6;i++){var d=shift(t,i);o.push([d,fmt(d,{weekday:"short",day:"numeric"})]);}
@@ -126,7 +128,10 @@ function renderSheet(){
   h+='<div class="field"><label for="sh-title">Titre</label><input type="text" id="sh-title" value="'+esc(dr.title)+'" placeholder="'+ph+'" maxlength="200" autocapitalize="sentences" enterkeyhint="done"></div>';
   if(k==="daily"){
     h+='<div class="field"><span class="lab">Rythme</span><div class="chips scroll" role="group" aria-label="Rythme">'+
-      sChip("sfreq","0","Chaque jour",!dr.freq)+[1,2,3,4,5,6].map(function(n){return sChip("sfreq",String(n),n+" fois par semaine",dr.freq===n);}).join("")+'</div></div>';
+      sChip("sfreq","0","Chaque jour",!dr.freq)+sChip("sfreq","-1","Certains jours",dr.freq<0)+[1,2,3,4,5,6].map(function(n){return sChip("sfreq",String(n),n+" fois par semaine",dr.freq===n);}).join("")+'</div>'+
+      // « certains jours » : les jours où l'habitude est prévue (elle n'apparaît que ces jours-là)
+      (dr.freq<0?'<div class="dows" role="group" aria-label="Jours prévus">'+DOW_LETTER.map(function(l,i){var on=(dr.days||[]).indexOf(i+1)>=0;return '<button type="button" class="dow" aria-pressed="'+on+'" data-act="sday" data-v="'+(i+1)+'" aria-label="'+DOW_LONG[i]+'">'+l+'</button>';}).join("")+'</div>'+
+        (normDays(dr.days).length?"":'<div class="hint" style="margin-top:4px">Aucun jour choisi : l\'habitude sera prévue chaque jour.</div>'):"")+'</div>';
     h+=timeField(dr);   // rappel de l'habitude, chaque jour où elle n'est pas encore faite
   }
   if(k==="hw"){
@@ -208,7 +213,7 @@ function saveSheet(){
     var data;
     if(k==="task")data={kind:"task",title:title,cat:dr.cat,due:dr.due||"",time:tm,rep:rep,prio:!!dr.prio,done:false,goal:dr.goal||"",created:now};
     else if(k==="hw")data={kind:"task",title:title,cat:"Devoir",subject:cap(dr.subject.trim()),due:dr.due||"",time:tm,rep:rep,prio:!!dr.prio,done:false,goal:dr.goal||"",created:now};
-    else if(k==="daily")data=dr.freq>0?{kind:"weekly",title:title,target:dr.freq,dones:[],time:htm,goal:dr.goal||"",created:now}:{kind:"daily",title:title,lastDone:"",streak:0,time:htm,goal:dr.goal||"",created:now};
+    else if(k==="daily"){data=dr.freq>0?{kind:"weekly",title:title,target:dr.freq,dones:[],time:htm,goal:dr.goal||"",created:now}:{kind:"daily",title:title,lastDone:"",streak:0,time:htm,goal:dr.goal||"",created:now};if(dr.freq<0&&normDays(dr.days).length)data.days=normDays(dr.days);}
     else data={kind:"goal",title:title,target:target,steps:[],reached:false,created:now};
     if(data.rep==="month")data.repDay=parse(data.due).getDate();
     s.saved=true;dropDraft();
@@ -224,8 +229,12 @@ function saveSheet(){
     if(k==="task"||k==="hw"){d.due=dr.due||"";d.time=tm;d.rep=rep;if(rep==="month")d.repDay=parse(d.due).getDate();else delete d.repDay;d.prio=!!dr.prio;d.goal=dr.goal||"";if(k==="hw")d.subject=cap(dr.subject.trim());else d.cat=dr.cat;}
     if(k==="daily"){
       d.goal=dr.goal||"";d.time=htm;
-      if(dr.freq>0){if(d.kind!=="weekly"){d.kind="weekly";d.dones=[];}d.target=dr.freq;}
-      else if(d.kind==="weekly"){d.kind="daily";d.lastDone="";d.streak=0;}
+      if(dr.freq>0){if(d.kind!=="weekly"){d.kind="weekly";d.dones=[];}d.target=dr.freq;delete d.days;}
+      else{
+        if(d.kind==="weekly"){d.kind="daily";d.lastDone="";d.streak=0;}
+        var nd=dr.freq<0?normDays(dr.days):[];
+        if(nd.length)d.days=nd;else delete d.days;
+      }
     }
     if(k==="goal")d.target=target;
   }

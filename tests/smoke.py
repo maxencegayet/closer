@@ -248,7 +248,7 @@ with sync_playwright() as p:
 
     # 6 quater. Réglages : statistiques, préférences, Quoi de neuf, Catégories avec retour
     open_account(pa)
-    check('Réglages : statistiques affichées', 'Tes statistiques' in pa.inner_text('#sheet') and 'objectifs atteints' in pa.inner_text('#sheet'))
+    check('Réglages : bilan de la semaine affiché (à la place des 4 tuiles)', 'Ta semaine' in pa.inner_text('#sheet') and not pa.query_selector('#sheet .stats') and pa.query_selector('#sheet .rec-top'))
     pa.click('#sheet [data-act="set-news"]'); pa.wait_for_timeout(150)
     check('Réglages : « Quoi de neuf » se déplie', 'Brouillon façon Notes' in pa.inner_text('#sheet'))
     pa.click('#sheet [data-act="set-cats"]'); pa.wait_for_timeout(200)
@@ -730,6 +730,81 @@ with sync_playwright() as p:
           and pg.evaluate("localStorage.getItem('closer-evening')") == '21:00' and pg.evaluate("(window.__upd||[]).some(v=>v.evening==='21:00')"))
     check('le focus reste sur l\'heure choisie', pg.evaluate("document.activeElement.dataset.v") == '21:00')
     check('aucune erreur (récap du soir)', not errs)
+    c.close()
+
+    # 7 terdecies. Lot 5 : habitudes « certains jours », grille par semaine, record, objectifs atteints repliés, bilan de la semaine
+    c, pg, errs = device(cfg=False)
+    T0 = pg.evaluate("today()"); DOW = pg.evaluate("isoDow(today())")
+    pg.click('#fab'); pg.wait_for_timeout(300)
+    pg.click('#sheet [data-act="stype"][data-v="daily"]'); pg.wait_for_timeout(150)
+    pg.click('#sheet [data-act="sfreq"][data-v="-1"]'); pg.wait_for_timeout(150)
+    check('« Certains jours » : 7 jours à choisir, lundi, mercredi, vendredi proposés',
+          pg.eval_on_selector_all('#sheet .dow', 'n=>n.map(e=>e.getAttribute("aria-pressed")==="true"?e.dataset.v:"").join("")') == '135' and pg.eval_on_selector_all('#sheet .dow', 'n=>n.length') == 7)
+    for v in ('1', '3', '5'):
+        pg.click('#sheet .dow[data-v="%s"]' % v); pg.wait_for_timeout(80)
+    check('aucun jour choisi : la fiche prévient', 'Aucun jour choisi' in pg.inner_text('#sheet'))
+    pg.click('#sheet .dow[data-v="%d"]' % DOW); pg.wait_for_timeout(80)
+    check('le focus reste sur le jour touché', pg.evaluate("document.activeElement.dataset.v") == str(DOW))
+    pg.fill('#sh-title', 'Piscine'); pg.press('#sh-title', 'Enter'); pg.wait_for_timeout(350)
+    hid = pg.evaluate("[...state.items].find(([k,d])=>d.title&&d.title.toLowerCase()==='piscine')[0]")
+    check('habitude enregistrée avec ses jours', pg.evaluate("JSON.stringify(state.items.get('%s').days)" % hid) == '[%d]' % DOW)
+    check('prévue aujourd\'hui : elle est sur le Jour et dans la carte noire', 'Piscine' in pg.inner_text('#v-jour') and '1 habitude' in pg.inner_text('#hero'))
+    pg.click('#v-jour [data-act="edit"][data-id="%s"]' % hid); pg.wait_for_timeout(350)
+    check('en modification, « Certains jours » et le bon jour sont repris', pg.get_attribute('#sheet [data-act="sfreq"][data-v="-1"]', 'aria-pressed') == 'true'
+          and pg.get_attribute('#sheet .dow[data-v="%d"]' % DOW, 'aria-pressed') == 'true')
+    other = DOW % 7 + 1
+    pg.click('#sheet .dow[data-v="%d"]' % DOW); pg.click('#sheet .dow[data-v="%d"]' % other); pg.click('#sheet [type="submit"], #sheet [data-act="sheet-save"]'); pg.wait_for_timeout(400)
+    check('pas prévue aujourd\'hui : absente du Jour et de la carte noire', 'Piscine' not in pg.inner_text('#v-jour') and pg.evaluate("state.items.get('%s').days[0]" % hid) == other)
+    # série : un jour prévu sur deux ne casse pas la série
+    pg.evaluate("""(t)=>{const a=isoDow(t),b=isoDow(shift(t,-3));state.items.set('hs',{kind:'daily',title:'Lecture',days:[a,b],lastDone:shift(t,-3),streak:2,dones:[shift(t,-10),shift(t,-3)],created:1});
+      localStorage.setItem(LS_KEY,JSON.stringify([...state.items]));render();}""", T0)
+    check('série gardée entre deux jours prévus', pg.evaluate("streakOf(state.items.get('hs'))") == 2)
+    pg.click('#v-jour .check[data-id="hs"]'); pg.wait_for_timeout(300)
+    check('cocher prolonge la série : « 3 fois de suite »', pg.evaluate("state.items.get('hs').streak") == 3 and '3 fois de suite' in pg.inner_text('#v-jour'))
+    # grille par semaine et record (n° 22, 26)
+    pg.evaluate("""(t)=>{const ws=weekStart(t);state.items=new Map();
+      state.items.set('w1',{kind:'weekly',title:'Muscu',target:3,dones:[shift(ws,-14),shift(ws,-7),shift(ws,-6),shift(ws,-5),t],created:1});
+      const ds=[];for(let i=12;i<17;i++)ds.push(shift(t,-i));
+      state.items.set('d1',{kind:'daily',title:'Méditer',lastDone:shift(t,-12),streak:5,dones:ds,created:1});
+      state.items.set('d2',{kind:'daily',title:'Courir',days:[1,3,5],dones:[],created:1});
+      localStorage.setItem(LS_KEY,JSON.stringify([...state.items]));}""", T0)
+    pg.goto(URL + '#objectifs'); pg.wait_for_timeout(500)
+    cells = dict(pg.eval_on_selector_all('#l-habits .hab', 'n=>n.map(h=>[h.querySelector(".title").textContent,[...h.querySelectorAll(".wkc")].map(c=>c.textContent+(c.classList.contains("ok")?"+":"")).join(" ")])'))
+    check('grille : une case par semaine, « fait / prévu » (%s)' % cells, cells['Muscu'] == '0/3 1/3 3/3+ 1/3' and cells['Courir'] == '0/3 0/3 0/3 0/3' and cells['Méditer'].count('/7') == 4)
+    check('grille lisible par VoiceOver', 'cette semaine : 1 sur 3' in pg.evaluate("[...document.querySelectorAll('#l-habits .wkg')].map(e=>e.getAttribute('aria-label')).join('|')"))
+    txt = pg.inner_text('#l-habits')
+    check('record visible sur chaque habitude', 'Record : 5 jours' in txt and 'Muscu' in txt and 'Lun. mer. ven.' in txt)
+    pg.evaluate("""()=>{const w=state.items.get('w1');w.dones=w.dones.concat([shift(weekStart(today()),-13),shift(weekStart(today()),-12)]);save('w1',w);}""")
+    pg.wait_for_timeout(200)
+    check('record d\'une habitude hebdomadaire : semaines réussies d\'affilée', 'Record : 2 semaines' in pg.inner_text('#l-habits'))
+    # objectifs atteints repliés (n° 23)
+    pg.evaluate("""()=>{state.items.set('g1',{kind:'goal',title:'Stage',steps:[],created:1});state.items.set('g2',{kind:'goal',title:'Permis',reached:true,steps:[],created:2});render();}""")
+    pg.wait_for_timeout(200)
+    fb = '#v-objectifs [data-act="fold"][data-id="obj:reached"]'
+    check('objectif atteint rangé dans « Atteints », replié', 'Stage' in pg.inner_text('#l-goals') and 'Permis' not in pg.inner_text('#l-goals')
+          and pg.get_attribute(fb, 'aria-expanded') == 'false' and pg.inner_text(fb + ' .n') == '1')
+    pg.click(fb); pg.wait_for_timeout(250)
+    check('toucher « Atteints » le déplie, le focus reste dessus', 'Permis' in pg.inner_text('#l-goals') and pg.evaluate("document.activeElement.dataset.id") == 'obj:reached')
+    # bilan de la semaine (n° 33)
+    pg.evaluate("""(t)=>{const ws=weekStart(t);
+      state.items.set('k1',{kind:'task',title:'A',done:true,doneOn:t,due:t,cat:'Perso',created:1,goal:'g1'});
+      state.items.set('k2',{kind:'task',title:'B',done:true,doneOn:ws,due:ws,cat:'Perso',created:1});
+      state.items.set('k3',{kind:'task',title:'C',done:true,doneOn:shift(ws,-2),due:shift(ws,-2),cat:'Perso',created:1});
+      state.items.set('k4',{kind:'task',title:'D',done:false,due:shift(t,-9),cat:'Perso',created:1});render();}""", T0)
+    pg.click('#ac-btn'); pg.wait_for_timeout(400)
+    rt = pg.inner_text('#sheet .rec')
+    check('Réglages › « Ta semaine » : tâches faites et comparaison', '2\n' in rt and '+1 par rapport à la semaine dernière' in rt)
+    check('« Ta semaine » : habitudes, objectifs, retards', 'Muscu 1/3' in rt and 'Pour tes objectifs' in rt and 'Encore en retard' in rt)
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(400)
+    pg.goto(URL + '#jour'); pg.wait_for_timeout(400)
+    check('pas de bilan sur le Jour en semaine', (DOW == 7) == bool(pg.query_selector('#v-jour .rec.onj')))
+    SUN = pg.evaluate("shift(today(),7-isoDow(today()))")
+    pg.evaluate("(s)=>{window.__realToday=today;today=function(){return s;};state.day=s;render();}", SUN)
+    check('le dimanche, le bilan s\'affiche en haut du Jour', pg.is_visible('#v-jour .rec.onj') and 'Ta semaine' in pg.inner_text('#v-jour .rec.onj'))
+    pg.click('#v-jour [data-act="recap-off"]'); pg.wait_for_timeout(200)
+    check('« Masquer » le retire jusqu\'au dimanche suivant', not pg.query_selector('#v-jour .rec.onj') and pg.evaluate("localStorage.getItem('closer-recap-off')") == SUN)
+    pg.evaluate("()=>{today=window.__realToday;state.day=today();render();}")
+    check('aucune erreur (lot 5)', not errs)
     c.close()
 
     # 8. Bandeau de mise à jour quand une nouvelle version est en ligne
