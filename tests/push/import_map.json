@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "npm:web-push@3.6.7": "./faux-webpush.ts",
+    "npm:@supabase/supabase-js@2": "./faux-supabase.ts"
+  }
+}

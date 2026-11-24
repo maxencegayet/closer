@@ -71,7 +71,8 @@ function renderJour(){
       html+=block("Habitudes",hLeft?hLeft+" aujourd'hui":(dailies.length?"Faites aujourd'hui":""),dRest.map(dailyRow).concat(wk.map(weeklyRow)).join(""));
     }
     var und=tasks.filter(function(x){return !x.d.done&&!isDate(x.d.due);}).sort(sortTasks);
-    if(und.length)html+=block("Sans date, à caser",und.length,und.map(function(x){return taskRow(x,true);}).join(""));
+    // repliée par défaut : ce n'est pas pour aujourd'hui, la journée reste courte
+    if(und.length)html+=foldBlock("jour:undated","Sans date, à caser",und.length,und.map(function(x){return taskRow(x,true);}).join(""));
     if(done)html+=block("Fait aujourd'hui",done,dDone.map(dailyRow).concat(tDone.map(function(x){return taskRow(x,true);})).join(""));
   }else if(state.day<t){
     // un jour passé : ce qui a été fait ce jour-là, et ce qui était prévu sans être fait

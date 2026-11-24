@@ -1,4 +1,6 @@
 # Lance les tests de Closer à chaque envoi sur GitHub et à chaque demande de fusion.
+# - smoke : l'appli dans Chromium et dans WebKit (le moteur de Safari, donc de l'iPhone)
+# - push : la fonction de notifications « closer-push », avec un faux Supabase
 name: Tests
 on:
   push:
@@ -7,16 +9,21 @@ on:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [chromium, webkit]
+    name: smoke (${{ matrix.engine }})
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-      - name: Installer Playwright et Chromium
+      - name: Installer Playwright et ${{ matrix.engine }}
         run: |
           pip install playwright
-          python -m playwright install --with-deps chromium
+          python -m playwright install --with-deps ${{ matrix.engine }}
       - name: Servir l'appli
         run: |
           python -m http.server 8766 >/dev/null 2>&1 &
@@ -25,4 +32,15 @@ jobs:
         env:
           TZ: Europe/Paris
           CHROME: ''
+          ENGINE: ${{ matrix.engine }}
         run: python tests/smoke.py
+  push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Tests de la fonction closer-push
+        run: deno test --no-check --import-map=tests/push/import_map.json --allow-env tests/push/

@@ -5,10 +5,36 @@ import json, os, sys, itertools
 from playwright.sync_api import sync_playwright
 
 URL = os.environ.get('CLOSER_URL', 'http://localhost:8766/index.html')
+# Moteur : chromium (par défaut) ou webkit, celui de Safari :  ENGINE=webkit python3 tests/smoke.py
+ENGINE = os.environ.get('ENGINE', 'chromium')
 CHROME = os.environ.get('CHROME', '/usr/bin/google-chrome')
-LAUNCH = {'args': ['--no-sandbox']}
-if CHROME and os.path.exists(CHROME):
+LAUNCH = {'args': ['--no-sandbox']} if ENGINE == 'chromium' else {}
+if ENGINE == 'chromium' and CHROME and os.path.exists(CHROME):
     LAUNCH['executable_path'] = CHROME
+
+# Gestes au doigt. Chromium : vrais événements tactiles (protocole du navigateur).
+# WebKit n'a pas ce protocole : on envoie les mêmes touchstart / touchmove / touchend depuis la page,
+# sur l'élément touché au départ, comme le fait Safari.
+TOUCH_JS = r"""(a)=>{
+  const ty={touchStart:'touchstart',touchMove:'touchmove',touchEnd:'touchend'}[a.type];
+  const p=a.pts[0]||window.__tlast;
+  if(ty==='touchstart')window.__tt=document.elementFromPoint(p.x,p.y);
+  const tg=window.__tt||document.body;
+  const mk=q=>({identifier:1,target:tg,clientX:q.x,clientY:q.y,pageX:q.x+scrollX,pageY:q.y+scrollY,screenX:q.x,screenY:q.y});
+  const list=a.pts.map(mk), ch=[mk(p)];
+  const ev=new Event(ty,{bubbles:true,cancelable:ty!=='touchend'});
+  for(const [k,v] of [['touches',list],['targetTouches',list],['changedTouches',ch]])Object.defineProperty(ev,k,{value:v});
+  tg.dispatchEvent(ev);window.__tlast=p;
+}"""
+class Touch:
+    def __init__(self, c, pg):
+        self.pg = pg
+        self.cdp = c.new_cdp_session(pg) if ENGINE == 'chromium' and not os.environ.get('JS_TOUCH') else None
+    def send(self, type_, pts):
+        if self.cdp:
+            self.cdp.send('Input.dispatchTouchEvent', {'type': type_, 'touchPoints': pts})
+        else:
+            self.pg.evaluate(TOUCH_JS, {'type': type_, 'pts': pts})
 SB = 'https://test.supabase.co'
 CFG = {'url': SB, 'key': 'sb_publishable_test', 'contact': 'test@exemple.fr'}
 
@@ -76,7 +102,8 @@ def check(name, cond):
     ok = ok and bool(cond)
 
 with sync_playwright() as p:
-    b = p.chromium.launch(**LAUNCH)
+    b = getattr(p, ENGINE).launch(**LAUNCH)
+    print('Moteur :', ENGINE)
 
     def device(cfg=True, appv_online=None):
         c = b.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True, locale='fr-FR', timezone_id='Europe/Paris')
@@ -325,14 +352,14 @@ with sync_playwright() as p:
     check('cocher : message avec « Annuler »', 'Fait' in pg.inner_text('#toast-txt') and pg.is_visible('#toast-undo'))
     pg.click('#toast-undo'); pg.wait_for_timeout(300)
     check('« Annuler » décoche la tâche', pg.evaluate("!state.items.get('a').done"))
-    cdp = c.new_cdp_session(pg)
+    cdp = Touch(c, pg)
     def swipe_row(rid, dx):
         r = pg.evaluate("(id=>{const e0=document.querySelector('#l-jour [data-act=\"task\"][data-id=\"'+id+'\"]').closest('.row');e0.scrollIntoView({block:'center'});const e=e0.getBoundingClientRect();return [e.left+e.width/2,e.top+e.height/2]})('%s')" % rid)
-        cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [{'x': r[0], 'y': r[1]}]})
+        cdp.send('touchStart', [{'x': r[0], 'y': r[1]}])
         for i in range(1, 7):
             pg.wait_for_timeout(16)
-            cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove', 'touchPoints': [{'x': r[0] + dx * i / 6, 'y': r[1] + 2}]})
-        cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
+            cdp.send('touchMove', [{'x': r[0] + dx * i / 6, 'y': r[1] + 2}])
+        cdp.send('touchEnd', [])
         pg.wait_for_timeout(450)
     swipe_row('b', 40)
     check('petit glissement : rien ne change', pg.evaluate("!state.items.get('b').done"))
@@ -521,13 +548,13 @@ with sync_playwright() as p:
 
     # 7 bis. Geste iOS : glisser la fiche vers le bas la ferme ; un petit glissement lent la laisse ouverte
     c, pg, errs = device(cfg=False)
-    cdp = c.new_cdp_session(pg)
+    cdp = Touch(c, pg)
     def swipe(y_from, y_to, steps, pause):
-        cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [{'x': 200, 'y': y_from}]})
+        cdp.send('touchStart', [{'x': 200, 'y': y_from}])
         for i in range(1, steps + 1):
             pg.wait_for_timeout(pause)
-            cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove', 'touchPoints': [{'x': 200, 'y': y_from + (y_to - y_from) * i / steps}]})
-        cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
+            cdp.send('touchMove', [{'x': 200, 'y': y_from + (y_to - y_from) * i / steps}])
+        cdp.send('touchEnd', [])
         pg.wait_for_timeout(450)
     pg.click('#ac-btn'); pg.wait_for_timeout(450)
     pg.click('#sheet [data-act="backup"]'); pg.wait_for_timeout(300)
@@ -543,11 +570,11 @@ with sync_playwright() as p:
     r = pg.evaluate("(()=>{const e=document.querySelector('#sheet [data-act=\"sdate\"]').parentElement.getBoundingClientRect();return [e.left,e.top,e.width,e.height]})()")
     x0, y0 = r[0] + r[2] - 30, r[1] + r[3] / 2
     def swipe2(dx, dy, steps=5, pause=16):
-        cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [{'x': x0, 'y': y0}]})
+        cdp.send('touchStart', [{'x': x0, 'y': y0}])
         for i in range(1, steps + 1):
             pg.wait_for_timeout(pause)
-            cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove', 'touchPoints': [{'x': x0 + dx * i / steps, 'y': y0 + dy * i / steps}]})
-        cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
+            cdp.send('touchMove', [{'x': x0 + dx * i / steps, 'y': y0 + dy * i / steps}])
+        cdp.send('touchEnd', [])
         pg.wait_for_timeout(450)
     swipe2(-160, 25)
     check('glissement de côté sur les dates : la fiche reste ouverte', pg.evaluate("document.body.classList.contains('sheet-open')"))
@@ -557,6 +584,86 @@ with sync_playwright() as p:
     check('glissement vers le bas sur le haut de la fiche : elle se ferme', not pg.evaluate("document.body.classList.contains('sheet-open')"))
     check('pas de débordement horizontal sur iPhone', pg.evaluate("document.documentElement.scrollWidth<=window.innerWidth"))
     check('aucune erreur pendant les gestes', not errs)
+    c.close()
+
+    # 7 decies. Jour : « Sans date, à caser » repliée par défaut ; replier / déplier sur le Jour
+    c, pg, errs = device(cfg=False)
+    pg.evaluate("""(()=>{const t=today(),add=(id,d)=>state.items.set(id,Object.assign({created:Date.now(),cat:'Perso',done:false,kind:'task'},d));
+      add('u1',{title:'Trier les photos',due:''});add('u2',{title:'Lire un livre',due:''});
+      add('l1',{title:'Appeler la banque',due:shift(t,-2)});add('t1',{title:'Courses',due:t});
+      localStorage.setItem(LS_KEY,JSON.stringify([...state.items]));})()""")
+    pg.reload(); pg.wait_for_timeout(600)
+    J = '#l-jour [data-act="fold"][data-id="%s"]'
+    check('Jour : « Sans date, à caser » repliée par défaut, avec son nombre',
+          pg.get_attribute(J % 'jour:undated', 'aria-expanded') == 'false' and pg.inner_text((J % 'jour:undated') + ' .n') == '2' and 'Trier les photos' not in pg.inner_text('#l-jour'))
+    check('Jour : « Aujourd\'hui » et « En retard » restent ouverts', 'Courses' in pg.inner_text('#l-jour') and 'Appeler la banque' in pg.inner_text('#l-jour'))
+    pg.click(J % 'jour:undated'); pg.wait_for_timeout(250)
+    check('toucher le titre déplie « Sans date »', 'Trier les photos' in pg.inner_text('#l-jour') and pg.get_attribute(J % 'jour:undated', 'aria-expanded') == 'true')
+    check('le focus reste sur le titre déplié', pg.evaluate("document.activeElement&&document.activeElement.dataset.id==='jour:undated'"))
+    pg.click(J % 'jour:late'); pg.wait_for_timeout(250)
+    check('replier « En retard » sur le Jour', 'Appeler la banque' not in pg.inner_text('#l-jour'))
+    pg.reload(); pg.wait_for_timeout(500)
+    check('l\'état replié / déplié est gardé après rechargement', 'Trier les photos' in pg.inner_text('#l-jour') and 'Appeler la banque' not in pg.inner_text('#l-jour'))
+    check('aucune erreur (repli du Jour)', not errs)
+    c.close()
+
+    # 7 undecies. Fusion de la synchro, cas par cas : on appelle syncOnce() directement avec un faux serveur
+    # local = éléments de cet appareil ; known = version vue à la dernière synchro (None = supprimé) ; remote = lignes reçues
+    c, pg, errs = device(cfg=False)
+    MERGE_JS = """async (a)=>{
+      state.items=new Map(Object.entries(a.local));SU={id:'u1'};
+      SY={uid:'u1',last:a.last||0,h:{},cf:{}};
+      Object.entries(a.known||{}).forEach(([k,v])=>{SY.h[k]=v===null?'x':hOf(v);});
+      if(a.cf)Object.entries(a.cf).forEach(([k,v])=>{SY.cf[k]=hOf(v);});
+      const up=[];let asked=0;
+      SB={from(){const b={select(){return b;},gt(){return b;},order(){return b;},
+        range(x,z){asked++;return Promise.resolve({data:a.remote.slice(x,z+1),error:null});},
+        upsert(rows){if(a.failUp)return Promise.resolve({error:{message:'panne'}});up.push(...rows);return Promise.resolve({error:null});}};return b;}};
+      let err=null;try{await syncOnce();}catch(e){err=String(e.message||e);}
+      const out={items:Object.fromEntries(state.items),up:up.map(r=>[r.id,r.deleted,r.data&&r.data.title]),last:SY.last,asked,err,
+        known:Object.keys(SY.h).length,toast:document.getElementById('toast-txt').textContent};
+      SB=null;SU=null;return out;}"""
+    def merge(**a):
+        a.setdefault('local', {}); a.setdefault('remote', [])
+        return pg.evaluate(MERGE_JS, a)
+    T = lambda t, **k: dict({'kind': 'task', 'title': t, 'cat': 'Perso', 'due': '', 'done': False, 'created': 1}, **k)
+    N = lambda ti, tx: {'kind': 'note', 'title': ti, 'text': tx, 'folder': '', 'pinned': False, 'created': 1, 'updated': 1}
+    R = lambda i, d, t=10: {'id': i, 'data': d, 'deleted': d is None, 'updated_at': t}
+    v0, vl, vr = T('Courses'), T('Courses ici'), T('Courses ailleurs')
+    r = merge(remote=[R('a', vr)])
+    check('fusion : un élément créé ailleurs arrive ici, rien à renvoyer', r['items'].get('a', {}).get('title') == 'Courses ailleurs' and r['up'] == [])
+    r = merge(local={'a': v0}, known={'a': v0}, remote=[R('a', vr)])
+    check('fusion : modifié ailleurs seulement → la version d\'ailleurs remplace', r['items']['a']['title'] == 'Courses ailleurs' and r['up'] == [])
+    r = merge(local={'a': v0}, known={'a': v0}, remote=[R('a', None)])
+    check('fusion : supprimé ailleurs seulement → supprimé ici', 'a' not in r['items'] and r['up'] == [])
+    r = merge(local={'a': vl}, known={'a': v0}, remote=[R('a', v0)])
+    check('fusion : modifié ici seulement → gardé et envoyé', r['items']['a']['title'] == 'Courses ici' and r['up'] == [['a', False, 'Courses ici']])
+    r = merge(local={'a': vl}, known={'a': v0}, remote=[R('a', vr)])
+    check('fusion : tâche modifiée des deux côtés → la version de cet appareil gagne et part au serveur',
+          r['items']['a']['title'] == 'Courses ici' and r['up'] == [['a', False, 'Courses ici']] and len(r['items']) == 1)
+    n0, nl, nr = N('Idées', 'a'), N('Idées', 'a ici'), N('Idées', 'a ailleurs')
+    r = merge(local={'n': nl}, known={'n': n0}, remote=[R('n', nr)])
+    cp = [d for k, d in r['items'].items() if k != 'n']
+    check('fusion : note modifiée des deux côtés → les deux versions gardées',
+          r['items']['n']['text'] == 'a ici' and len(cp) == 1 and cp[0]['title'] == 'Idées (autre appareil)' and cp[0]['text'] == 'a ailleurs' and 'deux appareils' in r['toast'])
+    r = merge(local={'n': nl}, known={'n': n0}, cf={'n': nr}, remote=[R('n', nr)])
+    check('fusion : la même version d\'ailleurs ne recrée pas une deuxième copie', len(r['items']) == 1)
+    r = merge(local={}, known={'a': v0}, remote=[R('a', vr)])
+    check('fusion : supprimé ici, modifié ailleurs → la modification revient', r['items'].get('a', {}).get('title') == 'Courses ailleurs' and r['up'] == [])
+    r = merge(local={'a': vl}, known={'a': v0}, remote=[R('a', None)])
+    check('fusion : modifié ici, supprimé ailleurs → la modification gagne et repart', r['items']['a']['title'] == 'Courses ici' and r['up'] == [['a', False, 'Courses ici']])
+    r = merge(local={}, known={'a': v0}, remote=[])
+    check('fusion : supprimé ici → la suppression part au serveur', r['up'] == [['a', True, None]])
+    r = merge(local={'a': vl}, remote=[R('a', vr)])
+    check('fusion : première synchro, même élément des deux côtés → rien n\'est écrasé ici', r['items']['a']['title'] == 'Courses ici' and r['up'] == [['a', False, 'Courses ici']])
+    r = merge(local={'a': v0}, remote=[R('a', v0)])
+    check('fusion : déjà identique des deux côtés → rien à renvoyer', r['up'] == [] and r['known'] == 1)
+    many = [R('m%04d' % i, T('t%d' % i), 100 + i) for i in range(1203)]
+    r = merge(remote=many)
+    check('fusion : plus de 500 lignes reçues par paquets (%d demandes)' % r['asked'], len(r['items']) == 1203 and r['asked'] == 3 and r['last'] == 100 + 1202)
+    r = merge(local={'a': vl}, known={'a': v0}, remote=[], failUp=True)
+    check('fusion : envoi en échec → erreur remontée, l\'élément reste à renvoyer', r['err'] == 'panne' and r['items']['a']['title'] == 'Courses ici' and pg.evaluate("SY.h.a!==hOf(state.items.get('a'))"))
+    check('aucune erreur (fusion)', not errs)
     c.close()
 
     # 8. Bandeau de mise à jour quand une nouvelle version est en ligne

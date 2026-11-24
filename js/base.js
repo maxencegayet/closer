@@ -168,7 +168,7 @@ function taskRow(t,hideDate,a,hideCat){
     '<button type="button" class="body tline" data-act="edit" data-id="'+esc(t.id)+'" aria-label="'+esc(lab)+'Modifier : '+esc(ti)+(goalOf(d)&&!d.done?". Fait avancer « "+esc(cap(goalOf(d).title))+" »":"")+'">'+tl+taskSide(d,hideDate,hideCat)+'</button></div>';
 }
 /* section repliable (Tâches) : l'état est gardé sur l'appareil */
-var FOLD_KEY="closer-fold", FOLD_DEF={"taches:later":true,"taches:done":true,"devoirs:later":true,"devoirs:done":true};
+var FOLD_KEY="closer-fold", FOLD_DEF={"jour:undated":true,"taches:later":true,"taches:done":true,"devoirs:later":true,"devoirs:done":true};
 function folds(){try{return Object.assign({},FOLD_DEF,JSON.parse(localStorage.getItem(FOLD_KEY)||"{}"));}catch(e){return Object.assign({},FOLD_DEF);}}
 function isFolded(k){return !!folds()[k];}
 function setFold(k,on){var f=folds();f[k]=!!on;try{localStorage.setItem(FOLD_KEY,JSON.stringify(f));}catch(e){}}
