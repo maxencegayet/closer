@@ -377,6 +377,27 @@ with sync_playwright() as p:
     swipe_row('a', -170)
     tom = pg.evaluate("(()=>{const t=new Date();t.setDate(t.getDate()+1);const z=n=>String(n).padStart(2,'0');return t.getFullYear()+'-'+z(t.getMonth()+1)+'-'+z(t.getDate())})()")
     check('glisser vers la gauche : reportée à demain (%s)' % pg.evaluate("state.items.get('a').due+' '+state.items.get('a').done"), pg.evaluate("state.items.get('a').due") == tom)
+    # Brouillon : glisser une note vers la gauche = supprimer, avec « Annuler » ; vers la droite = rien
+    pg.evaluate("""()=>{state.items.set('n1',{kind:'note',title:'Copie à jeter',text:'x',folder:'',pinned:false,created:1,updated:Date.now()});
+      state.items.set('n2',{kind:'note',title:'À garder',text:'y',folder:'',pinned:false,created:1,updated:Date.now()-1000});persistLocal();location.hash='#brouillon';}""")
+    pg.wait_for_timeout(400)
+    def swipe_note(nid, dx):
+        r = pg.evaluate("(id=>{const e=document.querySelector('#l-notes .nrow[data-id=\"'+id+'\"]').getBoundingClientRect();return [e.left+e.width/2,e.top+e.height/2]})('%s')" % nid)
+        cdp.send('touchStart', [{'x': r[0], 'y': r[1]}])
+        for i in range(1, 7):
+            pg.wait_for_timeout(16)
+            cdp.send('touchMove', [{'x': r[0] + dx * i / 6, 'y': r[1] + 2}])
+        cdp.send('touchEnd', [])
+        pg.wait_for_timeout(450)
+    swipe_note('n2', 170)
+    check('note glissée vers la droite : rien ne change', pg.evaluate("state.items.has('n2')") and not pg.evaluate("state.noteOpen"))
+    swipe_note('n1', -170)
+    check('note glissée vers la gauche : supprimée', not pg.evaluate("state.items.has('n1')") and pg.evaluate("state.items.has('n2')") and not pg.evaluate("state.noteOpen"))
+    pg.click('#toast [data-act="undo"]'); pg.wait_for_timeout(300)
+    check('« Annuler » remet la note', pg.evaluate("state.items.has('n1')"))
+    check('corbeille de la ligne cachée sur écran tactile', not pg.is_visible('#l-notes .ndel'))
+    pg.evaluate("document.querySelector('#l-notes .ndel[data-id=\"n1\"]').click()"); pg.wait_for_timeout(300)
+    check('corbeille de la ligne (ordinateur) : supprime la note', not pg.evaluate("state.items.has('n1')"))
     # fiche : options rares repliées ; titre de l'onglet dans l'en-tête ; le + ne recouvre pas la liste
     pg.evaluate("location.hash='#taches'"); pg.wait_for_timeout(300)
     check('en-tête : « Tâches » à la place de « Closer »', pg.inner_text('#top .brand') == 'Tâches')
@@ -385,6 +406,11 @@ with sync_playwright() as p:
     pg.click('#sheet [data-act="sheet-more"]'); pg.wait_for_timeout(200)
     check('« Plus d\'options » déplie « Important »', pg.is_visible('#sh-prio'))
     pg.keyboard.press('Escape'); pg.wait_for_timeout(400)
+    # réglage « Toutes les options d'un coup »
+    pg.evaluate("localStorage.setItem('closer-allopts','1')")
+    pg.evaluate("document.getElementById('fab').click()"); pg.wait_for_timeout(400)
+    check('réglage « Toutes les options » : « Important » et la note visibles sans toucher « Plus d\'options »', pg.is_visible('#sh-prio') and pg.is_visible('#sh-note') and not pg.query_selector('#sheet [data-act="sheet-more"]'))
+    pg.evaluate("localStorage.removeItem('closer-allopts')")
     fab = pg.evaluate("(()=>{const f=document.getElementById('fab').getBoundingClientRect(),n=document.getElementById('nav').getBoundingClientRect();return [Math.round(f.top),Math.round(n.top),Math.round(f.left),Math.round(n.right)]})()")
     check('le + est dans la barre du bas, à côté des onglets', abs(fab[0] - fab[1]) < 6 and fab[2] >= fab[3])
     check('retards, glissements, fiche : aucune erreur', not errs)

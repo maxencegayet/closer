@@ -88,6 +88,8 @@ function timeField(dr,compact){
   return '<div class="field timefield"><label for="sh-time">Rappel à</label><div class="trow"><input type="time" id="sh-time" value="'+esc(dr.time||"")+'">'+
     (dr.time?'<button type="button" class="linkbtn" data-act="stime-clear">Sans rappel</button>':'<span class="thint">Facultatif</span>')+'</div>'+timeQuick(dr)+pushWarn(dr)+'</div>';
 }
+// réglage « Toutes les options d'un coup » (retour d'une utilisatrice, 25 nov.) : gardé sur cet appareil
+function allOpts(){try{return localStorage.getItem("closer-allopts")==="1";}catch(e){return false;}}
 // aperçu de la date comprise dans le titre, avec « Ignorer »
 function nlpHTML(dr){
   if(dr.nlpOff)return "";
@@ -190,7 +192,7 @@ function renderSheet(){
     }
   }
   // options rares repliées, sauf si elles servent déjà
-  if(more)h+=(dr.more||dr.prio||dr.goal||dr.note)?more:'<button type="button" class="linkbtn moreopt" data-act="sheet-more" aria-expanded="false">Plus d\'options</button>';
+  if(more)h+=(dr.more||dr.prio||dr.goal||dr.note||allOpts())?more:'<button type="button" class="linkbtn moreopt" data-act="sheet-more" aria-expanded="false">Plus d\'options</button>';
   if(isNew&&(k==="task"||k==="hw"||k==="daily"))h+='<button type="button" class="btn ghost again" data-act="sheet-again">Ajouter et en saisir '+(k==="daily"?"une autre":k==="hw"?"un autre":"une autre")+'</button>'+
     (sheet.streak?'<div class="hint again-n" role="status">'+sheet.streak+(sheet.streak>1?" ajoutés":" ajouté")+' à la suite. Touche « Terminé » quand tu as fini.</div>':"");
   if(!isNew)h+='<div><button type="button" class="btn danger small" data-act="sheet-del">Supprimer '+(k==="daily"||k==="step"?"cette ":k==="goal"?"cet ":k==="hw"?"ce ":"cette ")+KIND_NAME[k]+'</button></div>';

@@ -45,10 +45,12 @@ function hlSnippet(d,q){
 }
 function noteRow(x,showFolder,q){
   var d=x.d,pv=notePreview(d),sn=q?hlSnippet(d,q):null;
-  return '<button type="button" class="nrow" data-act="note-open" data-id="'+esc(x.id)+'">'+
+  // la ligne : toucher = ouvrir ; glisser vers la gauche = supprimer (iPhone) ; corbeille au survol (ordinateur)
+  return '<div class="nwrap"><button type="button" class="nrow" data-act="note-open" data-id="'+esc(x.id)+'">'+
     '<span class="nt">'+(d.pinned?PIN:"")+'<span>'+(q?hlHtml(noteTitle(d),q):esc(noteTitle(d)))+'</span></span>'+
     '<span class="np'+(sn?" hit":"")+'"><b>'+esc(noteWhen(noteTs(d)))+'</b>'+(sn||esc(pv||"Pas de texte"))+'</span>'+
-    (showFolder&&d.folder?'<span class="nf">'+esc(d.folder)+'</span>':"")+'</button>';
+    (showFolder&&d.folder?'<span class="nf">'+esc(d.folder)+'</span>':"")+'</button>'+
+    '<button type="button" class="ndel" data-act="note-del-row" data-id="'+esc(x.id)+'" aria-label="Supprimer la note « '+esc(noteTitle(d))+' »" title="Supprimer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button></div>';
 }
 function renderNoteList(){
   var all=byKind("note"), q=norm(state.nq.trim());

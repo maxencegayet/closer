@@ -22,10 +22,12 @@ var IC={
   theme:'<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>',
   cal:'<rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
   link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
-  fx:'<path d="M4 10v4h3l5 4V6L7 10z"/><path d="M16 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/>'
+  fx:'<path d="M4 10v4h3l5 4V6L7 10z"/><path d="M16 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/>',
+  opts:'<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>'
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["25 nov.","Brouillon : glisse une note vers la gauche pour la supprimer (« Annuler » la remet). Sur ordinateur, une corbeille apparaît au survol. Nouveau réglage « Toutes les options d'un coup » (Réglages › Préférences) : la fiche d'une tâche montre tout, sans passer par « Plus d'options »."],
   ["25 nov.","Correction : écrire dans le Brouillon en étant connecté ne crée plus de copies « (autre appareil) » à chaque mot. Les copies déjà créées peuvent être supprimées."],
   ["24 nov.","Tes tâches dans Calendrier Apple : Réglages › Calendrier › « Ajouter à Calendrier », puis « S’abonner ». Une tâche avec une heure y figure à son heure (30 min), les autres sur toute la journée, les tâches répétées à chaque date. En lecture seule, mis à jour par l’iPhone en général en moins d’une heure."],
   ["24 nov.","Écris la date dans le titre : « Appeler la banque demain 14h », « Rendre le dossier lundi », « le 12 », « 3 déc. ». Closer la comprend et l'enlève du titre (touche « Ignorer » si ce n'était pas une date). Nouveau bouton « Ajouter et en saisir une autre » pour enchaîner plusieurs tâches. Et une note libre sur chaque tâche (détails, lien, adresse), dans « Plus d'options »."],
@@ -142,6 +144,7 @@ function acHTML(){
   rows+='<div class="srow segrow">'+sIcon("theme")+'<span class="sl">Apparence</span><span class="segc" role="radiogroup" aria-label="Apparence">'+
     [["light","Clair"],["dark","Sombre"],["auto","Auto"]].map(function(o){return '<button type="button" role="radio" aria-checked="'+(th===o[0])+'" data-act="set-theme" data-v="'+o[0]+'"'+(o[0]==="auto"?' aria-label="Auto, comme le téléphone"':"")+'>'+o[1]+'</button>';}).join("")+'</span></div>';
   rows+=sRow("set-fx","fx","Son et vibration",{sub:"Quand tu enregistres une tâche",sw:!fxOff()});
+  rows+=sRow("set-allopts","opts","Toutes les options d'un coup",{sub:"Dans la fiche d'une tâche, sans passer par « Plus d'options »",sw:allOpts()});
   if(acOn())rows+=sRow("ac-stats","chart","Statistiques anonymes",{sub:statsOff()?"désactivées":"activées · aucun contenu envoyé",sw:!statsOff()});
   h+=sGroup("Préférences",rows);
 

@@ -217,6 +217,7 @@ document.addEventListener("click",function(ev){
   if(act==="recap-off"){try{localStorage.setItem(RECAP_KEY,today());}catch(e){}render();return;}
   if(act==="onb-off"){try{localStorage.setItem(ONB_KEY,"1");}catch(e){}render();return;}
   if(act==="sheet-more"){syncDraft();sheet.draft.more=true;renderSheet();var fm=$("sh-prio")||$("sh-goal");if(fm)fm.focus();return;}
+  if(act==="note-del-row"){var dn=get(id);if(dn)delItem(id,dn);return;}
   if(act==="sheet-again"&&sheet){sheet.again=true;saveSheet();if(sheet)sheet.again=false;return;}
   if(act==="nlp-off"&&sheet){syncDraft();sheet.draft.nlpOff=true;var nl=$("sh-nlp");if(nl)nl.innerHTML="";var tt=$("sh-title");if(tt)tt.focus();return;}
   if(act==="stime-clear"){syncDraft();sheet.draft.time="";renderSheet();return;}
@@ -233,6 +234,7 @@ document.addEventListener("click",function(ev){
     badgeLast=-1;render();renderSheet();return;
   }
   if(act==="set-theme"){setTheme(b.dataset.v);renderSheet();var tb=$("sheet").querySelector('[data-act="set-theme"][data-v="'+b.dataset.v+'"]');if(tb)tb.focus({preventScroll:true});return;}
+  if(act==="set-allopts"){try{if(allOpts())localStorage.removeItem("closer-allopts");else localStorage.setItem("closer-allopts","1");}catch(e){}renderSheet();var ob=$("sheet").querySelector('[data-act="set-allopts"]');if(ob)ob.focus({preventScroll:true});return;}
   if(act==="set-fx"){try{if(fxOff())localStorage.removeItem("closer-fx-off");else{localStorage.setItem("closer-fx-off","1");}}catch(e){}if(!fxOff()){haptic();chime();}renderSheet();return;}
   if(act==="set-a2hs"||act==="set-news"){var k2=act==="set-a2hs"?"a2hs":"news";setOpen[k2]=!setOpen[k2];renderSheet();return;}
   if(act==="set-cats"||act==="set-folders"){sheet={mode:"edit",kind:act==="set-cats"?"cats":"nfolders",draft:blankDraft(),back:true};renderSheet();$("sheet").scrollTop=0;$("sheet").focus();return;}

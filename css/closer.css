@@ -558,3 +558,16 @@ body.arr-drag .list{overflow:visible}
 #top{display:flex;justify-content:space-between;align-items:center;gap:12px}
 #l-goals{display:flex;flex-direction:column;gap:12px}
 #hap{position:fixed;left:-9999px;top:0;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none}
+
+/* Brouillon : glisser une note vers la gauche = supprimer ; corbeille au survol sur ordinateur */
+.nwrap{position:relative;touch-action:pan-y;background:var(--surface)}
+.list .nwrap:first-child .nrow{border-top:0}
+.nwrap.swiping{z-index:1;will-change:transform}
+.swbg.del{background:var(--late);color:#fff;justify-content:flex-end}
+.ndel{display:none}
+@media (hover:hover) and (pointer:fine){
+  .ndel{display:flex;position:absolute;top:50%;right:10px;transform:translateY(-50%);width:36px;height:36px;align-items:center;justify-content:center;border:0;border-radius:10px;background:var(--bg);color:var(--muted);opacity:0;transition:opacity 120ms ease,color 120ms ease}
+  .ndel svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .nwrap:hover .ndel,.ndel:focus-visible{opacity:1}
+  .ndel:hover{color:var(--late)}
+}

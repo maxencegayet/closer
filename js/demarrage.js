@@ -54,7 +54,7 @@ try{if(navigator.storage&&navigator.storage.persisted)navigator.storage.persiste
 
 /* glisser une tâche : vers la droite = fait, vers la gauche = demain (Jour et Tâches) */
 (function(){
-  var row=null,id=null,x0=0,y0=0,dx=0,mode=0,bg=null,w=0;   // mode 0 = pas encore décidé, 1 = glissement
+  var row=null,id=null,x0=0,y0=0,dx=0,mode=0,bg=null,w=0,isNote=false;   // mode 0 = pas encore décidé, 1 = glissement ; isNote : Brouillon (gauche = supprimer)
   function thr(){return Math.min(110,w*0.3);}
   function reset(){
     if(!row)return;var r=row,b=bg;row=null;bg=null;
@@ -63,15 +63,18 @@ try{if(navigator.storage&&navigator.storage.persisted)navigator.storage.persiste
   }
   function paint(){
     var right=dx>0;
+    if(isNote){bg.className="swbg del"+(-dx>=thr()?" far":"");bg.textContent="Supprimer";return;}
     bg.className="swbg "+(right?"done":"later")+(Math.abs(dx)>=thr()?" far":"");
     bg.textContent=right?"Fait":"Demain";
   }
   document.addEventListener("touchstart",function(e){
     if(row||e.touches.length!==1||sheet)return;
+    var nr=e.target.closest&&e.target.closest("#l-notes .nwrap");
+    if(nr){var nb=nr.querySelector(".nrow");row=nr;isNote=true;id=nb.dataset.id;x0=e.touches[0].clientX;y0=e.touches[0].clientY;dx=0;mode=0;w=nr.offsetWidth;return;}
     var r=e.target.closest&&e.target.closest(".row");
     if(!r||r.classList.contains("done")||!r.closest("#l-jour,#l-tasks")||r.querySelector(".mvs"))return;
     var c=r.querySelector('[data-act="task"]');if(!c)return;
-    row=r;id=c.dataset.id;x0=e.touches[0].clientX;y0=e.touches[0].clientY;dx=0;mode=0;w=r.offsetWidth;
+    row=r;isNote=false;id=c.dataset.id;x0=e.touches[0].clientX;y0=e.touches[0].clientY;dx=0;mode=0;w=r.offsetWidth;
   },{passive:true});
   document.addEventListener("touchmove",function(e){
     if(!row)return;
@@ -83,16 +86,17 @@ try{if(navigator.storage&&navigator.storage.persisted)navigator.storage.persiste
       bg.style.top=row.offsetTop+"px";bg.style.height=row.offsetHeight+"px";
       row.parentElement.insertBefore(bg,row.parentElement.firstChild);row.classList.add("swiping");
     }
-    dx=x-x0;row.style.transform="translateX("+dx+"px)";paint();
+    dx=x-x0;if(isNote&&dx>0)dx=Math.pow(dx,0.6);   // une note ne part que vers la gauche
+    row.style.transform="translateX("+dx+"px)";paint();
   },{passive:true});
   document.addEventListener("touchend",function(){
     if(!row)return;
     if(mode!==1){row=null;return;}
-    if(Math.abs(dx)<thr()){reset();return;}
-    var r=row,b=bg,i=id,d=dx;row=null;bg=null;
+    if(Math.abs(dx)<thr()||(isNote&&dx>0)){reset();return;}
+    var r=row,b=bg,i=id,d=dx,nt=isNote;row=null;bg=null;
     r.style.transition="transform 170ms var(--ease-out)";r.style.transform="translateX("+(d>0?w:-w)+"px)";
     try{haptic();}catch(e){}
-    setTimeout(function(){if(b)b.remove();if(d>0)taskDone(i);else taskTomorrow(i);},160);
+    setTimeout(function(){if(b)b.remove();if(nt){var dn=get(i);if(dn)delItem(i,dn);}else if(d>0)taskDone(i);else taskTomorrow(i);},160);
   },{passive:true});
   document.addEventListener("touchcancel",reset,{passive:true});
 })();
