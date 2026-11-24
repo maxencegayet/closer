@@ -34,7 +34,7 @@ Les applications existantes (to-do, agenda, suivi d'habitudes) séparaient ce qu
 | Synchronisation | Élément par élément : seuls les éléments modifiés sont envoyés ; les suppressions se propagent ; l'heure de modification est posée par le serveur pour ne pas dépendre de l'horloge des appareils. En cas de conflit sur une note, les deux versions sont gardées ; une modification l'emporte sur une suppression |
 | Erreurs | Gardées sur l'appareil (20 dernières) et jointes au message « Donner mon avis » ; alerte si la mémoire de l'appareil est pleine |
 | Hors ligne | Manifeste + service worker (réseau d'abord, cache en secours) |
-| Qualité | Tests automatiques dans un vrai navigateur (Playwright) à chaque envoi sur GitHub |
+| Qualité | Tests automatiques à chaque envoi sur GitHub : l'appli dans Chromium et dans WebKit, le moteur de Safari (Playwright), la fusion de la synchro cas par cas, et la fonction de notifications avec un faux Supabase (Deno) |
 | Accessibilité | Pensée d'abord pour le téléphone, utilisable au clavier, respecte « réduire les animations » |
 
 ## Structure
@@ -53,7 +53,8 @@ Les applications existantes (to-do, agenda, suivi d'habitudes) séparaient ce qu
 | `js/demarrage.js` | Geste de fermeture des fiches et lancement (chargé en dernier) |
 | `sw.js` | Mode hors ligne et mises à jour |
 | `supabase/closer.sql` | Tables, règles d'accès, suppression de compte et statistiques (à exécuter une fois dans Supabase) |
-| `tests/smoke.py` | Tests de fumée, avec un faux Supabase (aucun réseau nécessaire) |
+| `tests/smoke.py` | Tests de fumée, avec un faux Supabase (aucun réseau nécessaire) ; `ENGINE=webkit` pour le moteur de Safari |
+| `tests/push/` | Tests de la fonction de notifications `closer-push` (faux Supabase, faux service de notifications, horloge réglable) |
 | `.github/workflows/tests.yml` | Lance les tests à chaque envoi sur GitHub (onglet Actions) |
 
 À chaque mise en ligne : changer `APPV` dans `index.html` et le nom du cache `CACHE` dans `sw.js`.
@@ -63,9 +64,11 @@ Les applications existantes (to-do, agenda, suivi d'habitudes) séparaient ce qu
 ```
 python3 -m http.server 8766 &
 python3 tests/smoke.py
+ENGINE=webkit python3 tests/smoke.py          # moteur de Safari (python -m playwright install webkit)
+deno test --no-check --import-map=tests/push/import_map.json --allow-env tests/push/
 ```
 
-Vérifie notamment : fonctionnement sans compte, conflit de synchronisation sur une note, onglet Tâches avec le filtre Devoirs, recherche surlignée, mode sombre, création de compte (mot de passe trop faible refusé), envoi des éléments locaux à la première connexion, récupération sur un second appareil, propagation d'un ajout et d'une suppression, déconnexion sans perte de données, statistiques désactivables, suppression du compte, bandeau de nouvelle version.
+Vérifie notamment : fonctionnement sans compte, conflit de synchronisation sur une note, onglet Tâches avec le filtre Devoirs, recherche surlignée, mode sombre, création de compte (mot de passe trop faible refusé), envoi des éléments locaux à la première connexion, récupération sur un second appareil, propagation d'un ajout et d'une suppression, déconnexion sans perte de données, statistiques désactivables, suppression du compte, bandeau de nouvelle version ; fusion de la synchro cas par cas (modifié ici, ailleurs, des deux côtés, supprimé d'un côté, plus de 500 lignes, envoi en échec) ; rappels de tâches et d'habitudes, récap du matin, fuseau horaire, appareil désabonné.
 
 ## Données et confidentialité
 
