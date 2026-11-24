@@ -33,7 +33,29 @@ var sbMod=window.__CLOSER_SB||function(){return import("https://cdn.jsdelivr.net
 var SK="closer-sync-v1", SY=(function(){try{return JSON.parse(localStorage.getItem(SK))||{};}catch(e){return {};}})();
 function sySave(){try{localStorage.setItem(SK,JSON.stringify(SY));}catch(e){}}
 function hsh(s){var x=5381;for(var i=0;i<s.length;i++)x=((x<<5)+x+s.charCodeAt(i))|0;return (x>>>0).toString(36)+"."+s.length.toString(36);}
-function hOf(d){return hsh(JSON.stringify(d));}
+// empreinte d'un élément, indépendante de l'ordre des champs : Supabase (jsonb) renvoie les champs dans un autre
+// ordre que celui de l'envoi ; avec JSON.stringify seul, une note qu'on venait d'envoyer semblait « modifiée
+// ailleurs », et chaque synchro pendant la frappe créait une copie « (autre appareil) » (corrigé le 25 nov.)
+function canon(v){
+  if(Array.isArray(v))return v.map(canon);
+  if(v&&typeof v==="object"){var o={};Object.keys(v).sort().forEach(function(k){if(v[k]!==undefined)o[k]=canon(v[k]);});return o;}
+  return v;
+}
+function hOf(d){return hsh(JSON.stringify(canon(d)));}
+function hOld(d){return hsh(JSON.stringify(d));}
+// passage à la nouvelle empreinte : ce qui était à jour le reste ; ce qui avait changé ici reste à envoyer
+var SY_V=2;
+function syMigrate(){
+  if(SY.v===SY_V)return;
+  var h={};
+  Object.keys(SY.h||{}).forEach(function(id){
+    var k=SY.h[id], cur=state.items.get(id);
+    if(k==="x")h[id]="x";
+    else if(!cur)h[id]=k;                        // supprimé ici, pas encore envoyé : la suppression partira
+    else if(hOld(cur)===k)h[id]=hOf(cur);       // déjà à jour sur le serveur
+  });                                            // modifié ici depuis : oublié, donc gardé et renvoyé tel quel
+  SY.h=h;SY.cf={};SY.v=SY_V;
+}
 function acOn(){return !!(SB_URL&&SB_KEY);}
 function acStart(){
   if(!acOn()||sbTried||SB)return;
@@ -73,8 +95,9 @@ async function freshSession(force){
   SU=s.user;
 }
 async function syncOnce(){
-  if(SY.uid!==SU.id)SY={uid:SU.id,last:0,h:{}};
+  if(SY.uid!==SU.id)SY={uid:SU.id,last:0,h:{},v:SY_V};
   if(!SY.h)SY.h={};
+  syMigrate();
   if(!SY.cf)SY.cf={};
   var conflicts=0;
   /* 1. récupérer ce qui a changé ailleurs */

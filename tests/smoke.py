@@ -621,8 +621,8 @@ with sync_playwright() as p:
     c, pg, errs = device(cfg=False)
     MERGE_JS = """async (a)=>{
       state.items=new Map(Object.entries(a.local));SU={id:'u1'};
-      SY={uid:'u1',last:a.last||0,h:{},cf:{}};
-      Object.entries(a.known||{}).forEach(([k,v])=>{SY.h[k]=v===null?'x':hOf(v);});
+      SY={uid:'u1',last:a.last||0,h:{},cf:{},v:a.oldv?undefined:SY_V};
+      Object.entries(a.known||{}).forEach(([k,v])=>{SY.h[k]=v===null?'x':(a.oldv?hOld(v):hOf(v));});
       if(a.cf)Object.entries(a.cf).forEach(([k,v])=>{SY.cf[k]=hOf(v);});
       const up=[];let asked=0;
       SB={from(){const b={select(){return b;},gt(){return b;},order(){return b;},
@@ -645,6 +645,15 @@ with sync_playwright() as p:
     check('fusion : modifié ailleurs seulement → la version d\'ailleurs remplace', r['items']['a']['title'] == 'Courses ailleurs' and r['up'] == [])
     r = merge(local={'a': v0}, known={'a': v0}, remote=[R('a', None)])
     check('fusion : supprimé ailleurs seulement → supprimé ici', 'a' not in r['items'] and r['up'] == [])
+    # bug du 25 nov. : Supabase renvoie les champs dans un autre ordre ; pendant la frappe, ce n'est pas un conflit
+    nk = N('Liste', 'Pain'); nk_back = dict(reversed(list(nk.items())))
+    r = merge(local={'n': N('Liste', 'Pain et lait')}, known={'n': nk}, remote=[R('n', nk_back)])
+    check('fusion : notre propre envoi revenu avec les champs dans un autre ordre → pas de copie « (autre appareil) »',
+          len(r['items']) == 1 and r['items']['n']['text'] == 'Pain et lait' and r['up'] == [['n', False, 'Liste']])
+    # passage à la nouvelle empreinte : rien n'est dupliqué, ce qui avait changé ici part quand même
+    r = merge(oldv=True, local={'n': N('Liste', 'Pain et lait'), 't': v0}, known={'n': nk, 't': v0}, remote=[R('n', nk_back), R('t', dict(reversed(list(v0.items()))))])
+    check('mise à jour de Closer : aucune copie créée, la note modifiée ici est renvoyée, la tâche à jour ne l\'est pas',
+          len(r['items']) == 2 and r['up'] == [['n', False, 'Liste']])
     r = merge(local={'a': vl}, known={'a': v0}, remote=[R('a', v0)])
     check('fusion : modifié ici seulement → gardé et envoyé', r['items']['a']['title'] == 'Courses ici' and r['up'] == [['a', False, 'Courses ici']])
     r = merge(local={'a': vl}, known={'a': v0}, remote=[R('a', vr)])
