@@ -1,7 +1,7 @@
 /* Closer : hors ligne.
    Réseau d'abord (sans cache HTTP) pour toujours avoir la dernière version,
    copie locale en secours quand il n'y a pas de réseau. */
-const CACHE = "closer-v26";
+const CACHE = "closer-v27";
 const CORE = [
   "./",
   "index.html",
@@ -76,11 +76,20 @@ self.addEventListener("push", (e) => {
     data: { url: d.url || "./" }
   }));
 });
+// notification touchée : la demande « ouvre ceci » est gardée dans un petit cache jusqu'à ce que Closer la prenne.
+// Sur iPhone, l'appli en arrière-plan est souvent en pause : le message peut se perdre, et iOS peut rouvrir
+// l'adresse de départ au lieu du lien. Nom hors « closer- » pour ne pas être effacé à l'activation.
+const OPEN_CACHE = "ouvrir-closer";
+function keepOpen(hash) {
+  return caches.open(OPEN_CACHE)
+    .then((c) => c.put(new URL("__ouvrir", self.registration.scope).href, new Response(JSON.stringify({ h: hash, at: Date.now() }))))
+    .catch(() => {});
+}
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
   const url = new URL((e.notification.data && e.notification.data.url) || "./", self.registration.scope).href;
   // Closer déjà ouvert : on lui dit quoi montrer (pas de rechargement) ; sinon on l'ouvre sur ce lien
-  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+  e.waitUntil(keepOpen(new URL(url).hash).then(() => self.clients.matchAll({ type: "window", includeUncontrolled: true })).then((list) => {
     for (const c of list) {
       if ("focus" in c) { c.postMessage({ open: new URL(url).hash }); return c.focus(); }
     }

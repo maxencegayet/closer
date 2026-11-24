@@ -24,6 +24,7 @@ var IC={
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["24 nov.","Toucher une notification ouvre maintenant la fiche de la tâche ou de l'habitude, avec « Marquer comme fait » en haut. Ça marche aussi quand Closer était resté en arrière-plan sur iPhone."],
   ["24 nov.","Correction sur iPhone : dans la fiche, « Rappel à » et « Répéter » ne se chevauchent plus."],
   ["24 nov.","Correction : si Closer restait ouvert pendant la nuit, le Jour affichait encore la veille au réveil. Il passe maintenant tout seul au nouveau jour."],
   ["24 nov.","Habitudes sur des jours précis (ex. lundi, mercredi, vendredi) : elles n'apparaissent que ces jours-là, sans casser ta série. Grille des habitudes plus lisible, une case par semaine, et ton record sur chaque habitude. Objectifs atteints rangés dans une section repliée. Dans les Réglages, le bilan de ta semaine remplace les statistiques ; le dimanche, il s'affiche aussi sur le Jour."],

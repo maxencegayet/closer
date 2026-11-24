@@ -45,8 +45,27 @@ if("serviceWorker" in navigator&&location.protocol==="https:"){navigator.service
 // notification touchée alors que Closer était déjà ouvert : le service worker dit quoi montrer
 if("serviceWorker" in navigator)navigator.serviceWorker.addEventListener("message",function(e){
   var h=e.data&&e.data.open;if(typeof h!=="string"||h.charAt(0)!=="#")return;
-  if(location.hash===h)route();else location.hash=h;
+  goOpen(h);takeOpen();
 });
+// la même demande, gardée par le service worker : prise au lancement et à chaque retour dans l'appli
+// (sur iPhone, le message ci-dessus se perd souvent quand Closer était en pause)
+var OPEN_CACHE="ouvrir-closer";
+function goOpen(h){lastOpen={h:h,t:Date.now()};if(location.hash===h)route();else location.hash=h;}
+function takeOpen(){
+  if(!window.caches)return;
+  var key=new URL("__ouvrir",document.baseURI).href;
+  caches.open(OPEN_CACHE).then(function(c){return c.match(key).then(function(r){
+    if(!r)return;
+    return r.json().then(function(o){
+      c.delete(key);
+      if(!o||typeof o.h!=="string"||o.h.charAt(0)!=="#"||Date.now()-o.at>10*60000)return;
+      if(lastOpen&&lastOpen.h===o.h&&lastOpen.t>=o.at)return;   // déjà ouvert par le lien ou le message
+      goOpen(o.h);
+    });
+  });}).catch(function(e){logErr("notification",e);});
+}
+takeOpen();
+document.addEventListener("visibilitychange",function(){if(!document.hidden)takeOpen();});
 localMode();
 
 /* stockage durable : demande au navigateur de ne pas effacer les données de Closer (Safari peut le faire sinon) */
