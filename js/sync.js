@@ -43,6 +43,7 @@ function acStart(){
     return SB.auth.getSession();
   }).then(function(r){
     SU=r&&r.data&&r.data.session?r.data.session.user:null;
+    if(SU)setTimeout(pushRefresh,1500);
     SB.auth.onAuthStateChange(function(ev,s){
       if(ev==="PASSWORD_RECOVERY"){AS={step:"newpw",email:"",msg:"Choisis ton nouveau mot de passe."};setTimeout(acOpen,0);}
       var nu=s?s.user:null, ch=(nu&&nu.id)!==(SU&&SU.id);SU=nu;
@@ -161,3 +162,73 @@ function pwField(ac,ph,neu){
 }
 function emField(){return '<div class="field"><label for="ac-em">E-mail</label><input type="email" id="ac-em" inputmode="email" autocomplete="email" autocapitalize="none" value="'+esc(AS.email||"")+'" placeholder="ton@adresse.fr"></div>';}
 function hm(t){return new Date(t).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});}
+
+/* ---------- notifications (rappels à l'heure + récap du matin) ----------
+   L'appareil s'abonne avec la clé publique de Supabase ; la fonction « closer-push »
+   (supabase/functions/closer-push) envoie les notifications. iPhone : iOS 16.4 ou plus,
+   Closer ajouté à l'écran d'accueil. */
+var PUSH_URL=SB_URL+"/functions/v1/closer-push", PUSH_KEY="closer-push", MORNING_KEY="closer-morning", pushBusy=false;
+function pushOk(){return "serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;}
+function pushEndpoint(){try{return localStorage.getItem(PUSH_KEY)||"";}catch(e){return "";}}
+function pushOn(){return pushOk()&&Notification.permission==="granted"&&!!pushEndpoint();}
+function pushMorning(){try{var v=localStorage.getItem(MORNING_KEY);return v===null?"08:00":v;}catch(e){return "08:00";}}
+function b64uBytes(s){s=s.replace(/-/g,"+").replace(/_/g,"/");s+="===".slice((s.length+3)%4);var r=atob(s),a=new Uint8Array(r.length);for(var i=0;i<r.length;i++)a[i]=r.charCodeAt(i);return a;}
+async function pushPublicKey(){
+  var r=await SB.rpc("closer_vapid_public");
+  if(r&&r.data)return r.data;
+  var g=await fetch(PUSH_URL).then(function(x){return x.json();}).catch(function(){return null;});   // crée les clés au tout premier appel
+  return g&&g.publicKey;
+}
+async function pushSave(sub){
+  var j=sub.toJSON(), tz="Europe/Paris";
+  try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||tz;}catch(e){}
+  var r=await SB.from("closer_push").upsert({endpoint:j.endpoint,user_id:SU.id,p256dh:j.keys.p256dh,auth:j.keys.auth,tz:tz,morning:pushMorning()||null});
+  if(r.error)throw r.error;
+  try{localStorage.setItem(PUSH_KEY,j.endpoint);}catch(e){}
+}
+// Doit être appelé directement par le toucher (sinon l'iPhone refuse de demander l'autorisation)
+function pushEnable(){
+  if(!pushOk())return;
+  if(!SU||!SB){showToast("Connecte-toi d'abord pour recevoir des rappels.",true);return;}
+  if(pushBusy)return;pushBusy=true;
+  Promise.resolve(Notification.requestPermission()).then(async function(perm){
+    if(perm!=="granted"){showToast("Notifications refusées : autorise Closer dans les réglages du téléphone.",true);return;}
+    var reg=await navigator.serviceWorker.ready;
+    var pk=await pushPublicKey();if(!pk)throw new Error("service de notifications pas encore prêt");
+    var sub=await reg.pushManager.getSubscription();
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64uBytes(pk)});
+    await pushSave(sub);
+    showToast("Notifications activées",true);
+  }).catch(function(e){logErr("notifications",e);showToast("Impossible d'activer les notifications ("+((e&&e.message)||e)+").",true);})
+    .then(function(){pushBusy=false;if(sheet&&sheet.kind==="account")renderSheet();});
+}
+async function pushDisable(){
+  var ep=pushEndpoint();
+  try{var reg=await navigator.serviceWorker.ready, s=await reg.pushManager.getSubscription();if(s)await s.unsubscribe();}catch(e){logErr("notifications",e);}
+  try{if(ep&&SB)await SB.from("closer_push").delete().eq("endpoint",ep);}catch(e){logErr("notifications",e);}
+  try{localStorage.removeItem(PUSH_KEY);}catch(e){}
+  showToast("Notifications désactivées",true);
+  if(sheet&&sheet.kind==="account")renderSheet();
+}
+async function pushSetMorning(v){
+  try{localStorage.setItem(MORNING_KEY,v);}catch(e){}
+  var ep=pushEndpoint();
+  if(ep&&SB){var r=await SB.from("closer_push").update({morning:v||null}).eq("endpoint",ep);if(r.error)logErr("notifications",r.error);}
+}
+async function pushTest(){
+  var ep=pushEndpoint();if(!ep)return;
+  try{
+    var r=await fetch(PUSH_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({test:ep})});
+    var j=await r.json().catch(function(){return {};});
+    if(r.ok&&j.ok)showToast("Notification d'essai envoyée : elle arrive dans quelques secondes.",true);
+    else if(r.status===401)showToast("Le service de notifications refuse l'appel : réglage à terminer dans Supabase.",true);
+    else{if(r.status===404){try{localStorage.removeItem(PUSH_KEY);}catch(e){}}showToast("L'essai n'est pas parti"+(j.error?" ("+j.error+")":"")+". Réactive les notifications.",true);if(sheet&&sheet.kind==="account")renderSheet();}
+  }catch(e){logErr("notifications",e);showToast("Pas de réseau : essai impossible.",true);}
+}
+// À l'ouverture : garde l'abonnement à jour (il peut changer, et le fuseau aussi)
+async function pushRefresh(){
+  if(!pushOk()||!SU||!SB||Notification.permission!=="granted"||!pushEndpoint())return;
+  try{var reg=await navigator.serviceWorker.ready, s=await reg.pushManager.getSubscription();
+    if(s)await pushSave(s);else{localStorage.removeItem(PUSH_KEY);}
+  }catch(e){logErr("notifications",e);}
+}

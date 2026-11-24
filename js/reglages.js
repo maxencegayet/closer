@@ -4,6 +4,9 @@
 var IC={
   tag:'<path d="M3 12V4h8l9 9-8 8z"/><circle cx="7.5" cy="7.5" r="1.2"/>',
   folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  send:'<path d="M21 3 10 14M21 3l-7 18-4-7-7-4z"/>',
+  bell:'<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
   badge:'<rect x="3.5" y="6.5" width="14" height="14" rx="4"/><circle cx="18" cy="6" r="3"/>',
   chart:'<path d="M5 20V11M12 20V4M19 20v-7"/>',
   data:'<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
@@ -20,6 +23,7 @@ var IC={
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["24 nov.","Notifications : un rappel à l'heure choisie pour une tâche (« Rappel à » dans la fiche) et un récap du matin. À activer dans Réglages › Notifications, Closer ajouté à l'écran d'accueil."],
   ["23 nov.","Corrigé sur iPhone : faire défiler les dates dans une fiche ne la ferme plus, et la page ne glisse plus de côté."],
   ["23 nov.","Thème clair par défaut, avec le choix Clair, Sombre ou Auto dans Réglages › Apparence. Page Tâches rangée : sections Aujourd'hui, Demain, Cette semaine, Plus tard, repliables ; date et catégorie à droite de chaque ligne."],
   ["23 nov.","Tâches et devoirs réunis dans un seul onglet, tri rangé dans un menu, mode sombre automatique, points dans l'agenda, carte du jour plus claire. Synchro : une note modifiée sur deux appareils garde ses deux versions."],
@@ -104,6 +108,26 @@ function acHTML(){
   rows+=sRow("set-fx","fx","Son et vibration",{sub:"Quand tu enregistres une tâche",sw:!fxOff()});
   if(acOn())rows+=sRow("ac-stats","chart","Statistiques anonymes",{sub:statsOff()?"désactivées":"activées · aucun contenu envoyé",sw:!statsOff()});
   h+=sGroup("Préférences",rows);
+
+  /* 3 bis. Notifications : rappels à l'heure + récap du matin */
+  if(acOn()){
+    var nr="", note="";
+    if(!pushOk())nr=sRow("set-a2hs","bell","Rappels et récap du matin",{sub:isIOS()?"Ajoute d'abord Closer à l'écran d'accueil (iOS 16.4 ou plus)":"Ce navigateur ne reçoit pas les notifications",noChev:true});
+    else if(!SU)nr=sRow("ac-open","bell","Rappels et récap du matin",{sub:"Connecte-toi pour les activer",noChev:true});
+    else if(perm==="denied")nr=sRow("set-push","bell","Rappels et récap du matin",{sub:"Refusées : autorise Closer dans Réglages › Notifications du téléphone",noChev:true});
+    else{
+      var on=pushOn();
+      nr=sRow("set-push","bell","Rappels et récap du matin",{sub:on?"Activés sur cet appareil":"Une notification à l'heure de tes tâches",sw:on});
+      if(on){
+        var mo=pushMorning();
+        nr+='<div class="srow segrow">'+sIcon("sun")+'<span class="sl">Récap du matin</span><span class="segc" role="radiogroup" aria-label="Récap du matin">'+
+          [["","Non"],["07:00","7 h"],["08:00","8 h"],["09:00","9 h"]].map(function(o){return '<button type="button" role="radio" aria-checked="'+(mo===o[0])+'" data-act="set-morning" data-v="'+o[0]+'">'+o[1]+'</button>';}).join("")+'</span></div>';
+        nr+=sRow("set-push-test","send","Envoyer une notification d'essai",{noChev:true});
+      }
+      note="Pour être prévenu, choisis une heure dans « Rappel à » en ajoutant ou en modifiant une tâche.";
+    }
+    h+=sGroup("Notifications",nr,note);
+  }
 
   /* 4. Écran d'accueil */
   if(!standalone()){

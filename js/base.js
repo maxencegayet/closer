@@ -124,6 +124,7 @@ function taskCat(d){return d.cat==="Devoir"?cap(d.subject||"Devoir"):(d.cat||"")
 // à droite : la date (si la section ne la dit pas déjà) et la catégorie (si le filtre ne la dit pas déjà)
 function taskSide(d,hideDate,hideCat){
   var late=isDate(d.due)&&d.due<today()&&!d.done, dt=(!hideDate||late)?sideDue(d.due,d.done):"", c=hideCat?"":esc(taskCat(d));
+  if(d.time&&isDate(d.due)&&!d.done&&!late)dt=dt?dt+" · "+esc(d.time):esc(d.time);   // heure du rappel
   if(!dt&&!c)return "";
   return '<span class="side">'+(dt?'<span class="sd">'+dt+'</span>':"")+(c?'<span class="sc">'+c+'</span>':"")+'</span>';
 }

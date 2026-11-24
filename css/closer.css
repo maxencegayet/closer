@@ -432,3 +432,7 @@ ol.sdetail,ul.sdetail{padding-left:74px;display:flex;flex-direction:column;gap:6
 .fchev{flex:none;width:18px;height:18px;fill:none;stroke:var(--muted);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:transform 200ms var(--ease-out);margin-left:-4px}
 .fold.shut .fchev{transform:rotate(-90deg)}
 .fold.shut{gap:0}
+/* fiche : heure du rappel */
+.timefield .trow{display:flex;align-items:center;gap:12px}
+.timefield input[type="time"]{flex:none;width:auto;min-width:120px;font-variant-numeric:tabular-nums}
+.timefield .thint{font-size:14px;color:var(--muted)}

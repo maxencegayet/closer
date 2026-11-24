@@ -21,6 +21,7 @@ Les applications existantes (to-do, agenda, suivi d'habitudes) séparaient ce qu
 - **Sauvegarde** : export et import des données dans un fichier.
 - **Mises à jour** : un bandeau « Nouvelle version » apparaît dès qu'une version est mise en ligne.
 - **Installable** : s'ajoute à l'écran d'accueil du téléphone et s'ouvre hors connexion.
+- **Notifications** : rappel à l'heure choisie pour une tâche et récap du matin, envoyés par une fonction Supabase (Web Push, sans service tiers).
 - **Apparence** : clair par défaut, sombre ou automatique (comme le téléphone), au choix dans les Réglages.
 
 ## Choix techniques

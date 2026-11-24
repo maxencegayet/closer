@@ -288,6 +288,17 @@ with sync_playwright() as p:
     pg.click('#l-tasks [data-act="fold"]'); pg.wait_for_timeout(200)
     check('Tâches : une section se replie', pg.get_attribute('#l-tasks [data-act="fold"]', 'aria-expanded') == 'false' and len(pg.query_selector_all('#l-tasks .row')) < n0)
     pg.click('#l-tasks [data-act="fold"]'); pg.wait_for_timeout(200)
+    # heure de rappel : visible seulement avec une date, gardée et affichée à droite de la ligne
+    pg.evaluate("document.getElementById('fab').click()"); pg.wait_for_timeout(400)
+    pg.fill('#sh-title', 'Appeler le garage')
+    pg.click('#sheet [data-act="sdate"][data-v=""]'); pg.wait_for_timeout(150)
+    check('rappel : pas d\'heure sans date', not pg.query_selector('#sh-time'))
+    pg.click('#sheet [data-act="sdate"]:nth-child(2)'); pg.wait_for_timeout(150)
+    pg.fill('#sh-time', '14:30')
+    pg.click('#sheet button[type="submit"]'); pg.wait_for_timeout(500)
+    saved = pg.evaluate("[...state.items.values()].find(d=>d.title==='Appeler le garage')")
+    check('rappel : heure enregistrée avec la tâche', saved and saved.get('time') == '14:30')
+    check('rappel : heure affichée sur la ligne', '14:30' in pg.inner_text('#l-tasks'))
     check('onglets, menu, recherche : aucune erreur', not errs)
     c.close()
 
