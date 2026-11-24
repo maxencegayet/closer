@@ -514,12 +514,16 @@ body.arr-drag .list{overflow:visible}
 .segt{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface)}
 .segt button{padding:9px 0;text-align:center;font-size:14px}
 /* « Rappel à » et « Répéter » côte à côte */
-.two.eq{grid-template-columns:1fr 1fr;align-items:end}
+.two.eq{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+.two.eq > .field{min-width:0}
+.two.eq > .field > label{min-height:18px;line-height:18px}
 .flab{display:flex;align-items:baseline;justify-content:space-between;gap:6px;padding-left:4px;min-height:18px}
 .flab label{font-size:13px;font-weight:600;color:var(--muted)}
 .linkbtn.tiny{font-size:13px;padding:0}
-.two.eq .timefield input[type="time"]{width:100%;min-width:0}
+/* Safari iOS donne au champ heure une largeur minimale propre : on la neutralise pour qu'il reste dans sa colonne */
+.two.eq .timefield input[type="time"]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box;height:50px;text-align:left}
+.two.eq .timefield input[type="time"]::-webkit-date-and-time-value{text-align:left}
 .tquick{margin-top:-4px}
 .timefield .tquick{margin-top:8px}
 .tquick .chip{padding:6px 14px;font-size:13px;font-variant-numeric:tabular-nums}
-.two.eq select{width:100%;min-width:0}
+.two.eq select{width:100%;min-width:0;max-width:100%;box-sizing:border-box;height:50px}
