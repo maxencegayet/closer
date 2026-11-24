@@ -128,6 +128,7 @@ function taskSide(d,hideDate,hideCat){
   if(!dt&&!c)return "";
   return '<span class="side">'+(dt?'<span class="sd">'+dt+'</span>':"")+(c?'<span class="sc">'+c+'</span>':"")+'</span>';
 }
+var LATE_BTN='<button type="button" class="btn ghost small latebtn" data-act="late-today">Tout reporter à aujourd\'hui</button>';
 var BANG='<i class="bang" aria-hidden="true">!</i>';
 var UP='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 10L8 5.5 12.5 10"/></svg>', DOWN='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 6L8 10.5 12.5 6"/></svg>';
 function mvBtn(a,id,dir,ti){

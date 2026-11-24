@@ -122,6 +122,7 @@ function renderSheet(){
     h+='<div class="field"><span class="lab">Catégorie</span><div class="chips" role="group" aria-label="Catégorie">'+allCats(dr.cat).map(function(c){return sChip("scat",c,c,!dr.newCat&&dr.cat===c);}).join("")+sChip("scat","__new","Nouvelle",dr.newCat)+'</div>'+
       (dr.newCat?'<input type="text" id="sh-newcat" value="'+esc(dr.newCatName)+'" placeholder="Nom de la catégorie, ex. Sport" aria-label="Nom de la nouvelle catégorie" maxlength="24" autocapitalize="sentences">':"")+'</div>';
   }
+  var more="";
   if(k==="task"||k==="hw"){
     var opts=dayOpts(), match=opts.some(function(o){return o[0]===dr.due;});
     if(dr.due&&!match)dr.other=true;
@@ -132,8 +133,8 @@ function renderSheet(){
     // heure du rappel : seulement quand il y a une date
     if(isDate(dr.due))h+='<div class="field timefield"><label for="sh-time">Rappel à</label><div class="trow"><input type="time" id="sh-time" value="'+esc(dr.time||"")+'">'+
       (dr.time?'<button type="button" class="linkbtn" data-act="stime-clear">Sans rappel</button>':'<span class="thint">Facultatif</span>')+'</div></div>';
-    h+='<label class="tick" for="sh-prio"><input type="checkbox" id="sh-prio"'+(dr.prio?" checked":"")+'> Important</label>'+
-      '<div class="hint">Passe en tête de sa date et s\'affiche en gras avec une étiquette.</div>';
+    more+='<label class="tick" for="sh-prio"><input type="checkbox" id="sh-prio"'+(dr.prio?" checked":"")+'> Important</label>'+
+      '<div class="hint">Passe en tête de sa date et s\'affiche en gras avec une pastille « ! ».</div>';
   }
   if(k==="goal"){
     var y=new Date().getFullYear(), ys="";
@@ -147,10 +148,12 @@ function renderSheet(){
   if(k==="task"||k==="hw"||k==="daily"){
     var goals=byKind("goal");
     if(goals.length){
-      h+='<div class="field"><label for="sh-goal">Fait avancer l\'objectif</label><select id="sh-goal"><option value="">Aucun</option>'+
+      more+='<div class="field"><label for="sh-goal">Fait avancer l\'objectif</label><select id="sh-goal"><option value="">Aucun</option>'+
         goals.map(function(g){return '<option value="'+esc(g.id)+'"'+(g.id===dr.goal?" selected":"")+'>'+esc(cap(g.d.title))+'</option>';}).join("")+'</select></div>';
     }
   }
+  // options rares repliées, sauf si elles servent déjà
+  if(more)h+=(dr.more||dr.prio||dr.goal)?more:'<button type="button" class="linkbtn moreopt" data-act="sheet-more" aria-expanded="false">Plus d\'options</button>';
   if(!isNew)h+='<div><button type="button" class="btn danger small" data-act="sheet-del">Supprimer '+(k==="daily"||k==="step"?"cette ":k==="goal"?"cet ":k==="hw"?"ce ":"cette ")+KIND_NAME[k]+'</button></div>';
   if(sheet.restored&&sheet.mode==="new"&&h.indexOf("sh-restored")<0)h=h.replace(/(<\/div>)/,'$1<div class="restored" id="sh-restored" role="status"><span><b>Brouillon repris</b> là où tu l\'avais laissé.</span><button type="button" class="linkbtn" data-act="draft-clear">Effacer</button></div>');
   $("sheet").innerHTML=h;

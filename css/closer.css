@@ -436,3 +436,27 @@ ol.sdetail,ul.sdetail{padding-left:74px;display:flex;flex-direction:column;gap:6
 .timefield .trow{display:flex;align-items:center;gap:12px}
 .timefield input[type="time"]{flex:none;width:auto;min-width:120px;font-variant-numeric:tabular-nums}
 .timefield .thint{font-size:14px;color:var(--muted)}
+/* Jour : bouton pour reporter tous les retards */
+.latebtn{align-self:flex-start;margin:2px 4px 0}
+/* glisser une tâche (fait / demain) */
+.row{touch-action:pan-y}
+.list:has(.swbg){overflow:hidden}
+.row.swiping{background:var(--surface);z-index:1;will-change:transform}
+.swbg{position:absolute;left:0;right:0;z-index:0;display:flex;align-items:center;padding:0 22px;font-weight:700;font-size:15px;opacity:.6;transition:opacity 120ms ease}
+.swbg.far{opacity:1}
+.swbg.done{background:var(--credit);color:#fff;justify-content:flex-start}
+.swbg.later{background:var(--ink);color:var(--surface);justify-content:flex-end}
+/* en-tête fusionné : le titre de l'onglet remplace « Closer » */
+body:not([data-view="jour"]) #top .brand{font-size:28px;font-weight:800;line-height:1.1;letter-spacing:-.03em}
+#v-taches .thead h1,#v-objectifs > h1,#v-brouillon .nb-head h1{display:none}
+.thead{justify-content:flex-start}
+/* le + rangé à côté de la barre d'onglets : il ne cache plus le contenu */
+.dock{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom,0px));margin-inline:auto;max-width:540px;z-index:5;display:flex;align-items:center;gap:8px;pointer-events:none}
+.dock > *{pointer-events:auto}
+.dock nav.tabs{position:static;flex:1;min-width:0;max-width:none;margin:0}
+.dock .fab{position:static;order:2;flex:none;width:54px;height:54px;box-shadow:none}
+.dock .fab.away{transform:none;opacity:1;pointer-events:auto}
+body.editing .dock{display:none}
+/* fiche : options rares repliées */
+.moreopt{align-self:flex-start;margin:0 4px}
+.list{position:relative}

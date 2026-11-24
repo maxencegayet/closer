@@ -245,8 +245,8 @@ with sync_playwright() as p:
     pg.reload(); pg.wait_for_timeout(600)
     hero = int(pg.inner_text('#hero .num'))
     heads = pg.eval_on_selector_all('#l-jour .sh', "els=>els.map(e=>e.innerText)")
-    nums = sum(int(''.join(ch for ch in h.split('\n')[-1] if ch.isdigit()) or 0) for h in heads if h.startswith(('Reste','Habitudes')))
-    check('carte noire = Reste à faire + Habitudes du jour (%d = %d)' % (hero, nums), hero == nums == 3)
+    nums = sum(int(''.join(ch for ch in h.split('\n')[-1] if ch.isdigit()) or 0) for h in heads if h.startswith(('Aujourd','En retard','Habitudes')))
+    check('carte noire = Aujourd\'hui + Habitudes du jour (%d = %d)' % (hero, nums), hero == nums == 3)
     c.close()
 
     # 7 quinquies. Tâches et devoirs dans un seul onglet, menu « Trier et ranger », points de l'agenda
@@ -261,7 +261,7 @@ with sync_playwright() as p:
     check('filtre Devoirs : seulement le devoir', pg.eval_on_selector_all('#l-tasks .row .title', 'e=>e.map(x=>x.textContent)') == ['Dossier finance'])
     pg.click('#tsort'); pg.wait_for_timeout(200)
     check('menu « Trier et ranger » ouvert', pg.is_visible('#tmenu') and 'Par matière' in pg.inner_text('#tmenu'))
-    pg.click('h1'); pg.wait_for_timeout(200)
+    pg.click('#top .brand'); pg.wait_for_timeout(200)
     check('le menu se ferme en touchant ailleurs', pg.is_hidden('#tmenu'))
     pg.click('#chips [data-id="Tout"]'); pg.wait_for_timeout(200)
     pg.click('#tsort'); pg.click('#tmenu [data-v="group"]'); pg.wait_for_timeout(300)
@@ -300,6 +300,55 @@ with sync_playwright() as p:
     check('rappel : heure enregistrée avec la tâche', saved and saved.get('time') == '14:30')
     check('rappel : heure affichée sur la ligne', '14:30' in pg.inner_text('#l-tasks'))
     check('onglets, menu, recherche : aucune erreur', not errs)
+    c.close()
+
+    # 7 septies. Retards : encart, « Tout reporter », glisser (fait / demain), « Annuler »
+    c, pg, errs = device(cfg=False)
+    pg.evaluate("""()=>{const t=new Date(),z=n=>String(n).padStart(2,'0'),f=d=>d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());
+      const y=new Date(t);y.setDate(t.getDate()-2);const d=f(t),p=f(y);
+      localStorage.setItem('cap-items-v1',JSON.stringify([
+        ['l1',{kind:'task',title:'Payer le loyer',cat:'Perso',due:p,done:false,created:1}],
+        ['l2',{kind:'task',title:'Répondre à Amazon',cat:'Perso',due:p,done:false,created:2}],
+        ['a',{kind:'task',title:'Appeler le garage',cat:'Perso',due:d,done:false,created:3}],
+        ['b',{kind:'task',title:'Courses',cat:'Courses',due:d,done:false,created:4}]]));}""")
+    pg.reload(); pg.wait_for_timeout(600)
+    heads = pg.eval_on_selector_all('#l-jour .sh h2', 'e=>e.map(x=>x.textContent)')
+    check('Jour : « En retard » à part, puis « Aujourd\'hui »', heads[:2] == ['En retard', "Aujourd'hui"])
+    pg.click('#l-jour [data-act="late-today"]'); pg.wait_for_timeout(300)
+    check('« Tout reporter à aujourd\'hui » : plus de retard', 'En retard' not in pg.inner_text('#l-jour') and pg.evaluate("[...state.items.values()].filter(d=>d.due===new Date().toISOString().slice(0,10)||true).every(d=>d.done||d.due>=document.querySelector('#week .day').dataset.id)"))
+    pg.click('#toast-undo'); pg.wait_for_timeout(300)
+    check('« Annuler » remet les deux retards', len(pg.query_selector_all('#l-jour .sh h2.late')) == 1 and pg.inner_text('#l-jour .sh:has(h2.late) .n') == '2')
+    pg.click('#l-jour [data-act="task"][data-id="a"]'); pg.wait_for_timeout(300)
+    check('cocher : message avec « Annuler »', 'Fait' in pg.inner_text('#toast-txt') and pg.is_visible('#toast-undo'))
+    pg.click('#toast-undo'); pg.wait_for_timeout(300)
+    check('« Annuler » décoche la tâche', pg.evaluate("!state.items.get('a').done"))
+    cdp = c.new_cdp_session(pg)
+    def swipe_row(rid, dx):
+        r = pg.evaluate("(id=>{const e0=document.querySelector('#l-jour [data-act=\"task\"][data-id=\"'+id+'\"]').closest('.row');e0.scrollIntoView({block:'center'});const e=e0.getBoundingClientRect();return [e.left+e.width/2,e.top+e.height/2]})('%s')" % rid)
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [{'x': r[0], 'y': r[1]}]})
+        for i in range(1, 7):
+            pg.wait_for_timeout(16)
+            cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove', 'touchPoints': [{'x': r[0] + dx * i / 6, 'y': r[1] + 2}]})
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
+        pg.wait_for_timeout(450)
+    swipe_row('b', 40)
+    check('petit glissement : rien ne change', pg.evaluate("!state.items.get('b').done"))
+    swipe_row('b', 170)
+    check('glisser vers la droite : tâche faite', pg.evaluate("state.items.get('b').done===true"))
+    swipe_row('a', -170)
+    tom = pg.evaluate("(()=>{const t=new Date();t.setDate(t.getDate()+1);const z=n=>String(n).padStart(2,'0');return t.getFullYear()+'-'+z(t.getMonth()+1)+'-'+z(t.getDate())})()")
+    check('glisser vers la gauche : reportée à demain (%s)' % pg.evaluate("state.items.get('a').due+' '+state.items.get('a').done"), pg.evaluate("state.items.get('a').due") == tom)
+    # fiche : options rares repliées ; titre de l'onglet dans l'en-tête ; le + ne recouvre pas la liste
+    pg.evaluate("location.hash='#taches'"); pg.wait_for_timeout(300)
+    check('en-tête : « Tâches » à la place de « Closer »', pg.inner_text('#top .brand') == 'Tâches')
+    pg.evaluate("document.getElementById('fab').click()"); pg.wait_for_timeout(400)
+    check('fiche : « Important » replié sous « Plus d\'options »', not pg.is_visible('#sh-prio') and pg.is_visible('#sheet [data-act="sheet-more"]'))
+    pg.click('#sheet [data-act="sheet-more"]'); pg.wait_for_timeout(200)
+    check('« Plus d\'options » déplie « Important »', pg.is_visible('#sh-prio'))
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(400)
+    fab = pg.evaluate("(()=>{const f=document.getElementById('fab').getBoundingClientRect(),n=document.getElementById('nav').getBoundingClientRect();return [Math.round(f.top),Math.round(n.top),Math.round(f.left),Math.round(n.right)]})()")
+    check('le + est dans la barre du bas, à côté des onglets', abs(fab[0] - fab[1]) < 6 and fab[2] >= fab[3])
+    check('retards, glissements, fiche : aucune erreur', not errs)
     c.close()
 
     # 7 sexies. Apparence : clair par défaut, Sombre ou Auto dans les Réglages

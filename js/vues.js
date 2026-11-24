@@ -49,8 +49,11 @@ function renderJour(){
   if(state.day===t){
     var wk=byKind("weekly").sort(function(a,b){return (weekCount(a.d)>=(a.d.target||1)?1:0)-(weekCount(b.d)>=(b.d.target||1)?1:0);});
     var hasHab=dRest.length||wk.length;
-    if(tRest.length||!hasHab)html+=block("Reste à faire",tRest.length||"",tRest.length
-      ? tRest.map(function(x){return taskRow(x,true);}).join("")
+    // les retards à part, repliables, avec un geste pour tout reporter ; la journée reste lisible en dessous
+    var tLate=tRest.filter(function(x){return x.d.due<t;}), tToday=tRest.filter(function(x){return x.d.due===t;});
+    if(tLate.length)html+=foldBlock("jour:late","En retard",tLate.length,tLate.map(function(x){return taskRow(x,true);}).join(""),"late",LATE_BTN);
+    if(tToday.length||(!hasHab&&!tLate.length))html+=block("Aujourd'hui",tToday.length||"",tToday.length
+      ? tToday.map(function(x){return taskRow(x,true);}).join("")
       : '<div class="empty">'+(state.mode==="loading"?"Chargement…":(total?"Tout est fait pour aujourd'hui.":"Rien pour l'instant."))+'</div>');
     if(hasHab){
       // même compte que la carte noire : les habitudes du jour ; les hebdomadaires affichent leur propre « n sur x cette semaine »
@@ -147,7 +150,8 @@ function renderTaskView(v,target,emptyTxt){
       return taskRow(x,g[3],a,g[4]);
     }).join("");
     // en mode rangement, tout est déplié ; « En retard » ne se replie jamais
-    html+=arr||g[5]==="late"?block(g[0],g[2].length,rows,g[1]):foldBlock(v+":"+g[5],g[0],g[2].length,rows,g[1]);
+    if(g[5]==="late")html+=arr?block(g[0],g[2].length,rows,g[1]):foldBlock(v+":late",g[0],g[2].length,rows,g[1],LATE_BTN);
+    else html+=arr?block(g[0],g[2].length,rows,g[1]):foldBlock(v+":"+g[5],g[0],g[2].length,rows,g[1]);
   });
   if(!open.length)html+='<div class="list"><div class="empty">'+(state.mode==="loading"?"Chargement…":esc(emptyTxt))+'</div></div>';
   var done=all.filter(function(x){return x.d.done;}).sort(function(a,b){return (b.d.doneAt||0)-(a.d.doneAt||0);});

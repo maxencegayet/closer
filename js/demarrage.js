@@ -43,3 +43,51 @@ route();render();
 if(navigator.storage&&navigator.storage.persist){navigator.storage.persist().catch(function(){});}
 if("serviceWorker" in navigator&&location.protocol==="https:"){navigator.serviceWorker.register("sw.js").catch(function(){});}
 localMode();
+
+/* stockage durable : demande au navigateur de ne pas effacer les données de Closer (Safari peut le faire sinon) */
+try{if(navigator.storage&&navigator.storage.persisted)navigator.storage.persisted().then(function(p){if(!p&&navigator.storage.persist)return navigator.storage.persist();}).catch(function(e){logErr("stockage",e);});}catch(e){}
+
+/* glisser une tâche : vers la droite = fait, vers la gauche = demain (Jour et Tâches) */
+(function(){
+  var row=null,id=null,x0=0,y0=0,dx=0,mode=0,bg=null,w=0;   // mode 0 = pas encore décidé, 1 = glissement
+  function thr(){return Math.min(110,w*0.3);}
+  function reset(){
+    if(!row)return;var r=row,b=bg;row=null;bg=null;
+    r.style.transition="transform 200ms var(--ease-out)";r.style.transform="";
+    setTimeout(function(){r.style.transition="";r.classList.remove("swiping");if(b)b.remove();},210);
+  }
+  function paint(){
+    var right=dx>0;
+    bg.className="swbg "+(right?"done":"later")+(Math.abs(dx)>=thr()?" far":"");
+    bg.textContent=right?"Fait":"Demain";
+  }
+  document.addEventListener("touchstart",function(e){
+    if(row||e.touches.length!==1||sheet)return;
+    var r=e.target.closest&&e.target.closest(".row");
+    if(!r||r.classList.contains("done")||!r.closest("#l-jour,#l-tasks")||r.querySelector(".mvs"))return;
+    var c=r.querySelector('[data-act="task"]');if(!c)return;
+    row=r;id=c.dataset.id;x0=e.touches[0].clientX;y0=e.touches[0].clientY;dx=0;mode=0;w=r.offsetWidth;
+  },{passive:true});
+  document.addEventListener("touchmove",function(e){
+    if(!row)return;
+    var x=e.touches[0].clientX,y=e.touches[0].clientY;
+    if(mode===0){
+      if(Math.abs(y-y0)>8&&Math.abs(y-y0)>=Math.abs(x-x0)){row=null;return;}   // défilement vertical : on laisse faire
+      if(Math.abs(x-x0)<12)return;
+      mode=1;bg=document.createElement("div");bg.setAttribute("aria-hidden","true");
+      bg.style.top=row.offsetTop+"px";bg.style.height=row.offsetHeight+"px";
+      row.parentElement.insertBefore(bg,row.parentElement.firstChild);row.classList.add("swiping");
+    }
+    dx=x-x0;row.style.transform="translateX("+dx+"px)";paint();
+  },{passive:true});
+  document.addEventListener("touchend",function(){
+    if(!row)return;
+    if(mode!==1){row=null;return;}
+    if(Math.abs(dx)<thr()){reset();return;}
+    var r=row,b=bg,i=id,d=dx;row=null;bg=null;
+    r.style.transition="transform 170ms var(--ease-out)";r.style.transform="translateX("+(d>0?w:-w)+"px)";
+    try{haptic();}catch(e){}
+    setTimeout(function(){if(b)b.remove();if(d>0)taskDone(i);else taskTomorrow(i);},160);
+  },{passive:true});
+  document.addEventListener("touchcancel",reset,{passive:true});
+})();

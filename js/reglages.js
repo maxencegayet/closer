@@ -23,6 +23,7 @@ var IC={
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["24 nov.","Retards à part sur le Jour, avec « Tout reporter à aujourd'hui ». Glisse une tâche vers la droite pour la cocher, vers la gauche pour la reporter à demain. « Annuler » après chaque coche. Le + rejoint la barre du bas, le titre de l'onglet remplace « Closer », et les options rares de la fiche sont repliées."],
   ["24 nov.","Notifications : un rappel à l'heure choisie pour une tâche (« Rappel à » dans la fiche) et un récap du matin. À activer dans Réglages › Notifications, Closer ajouté à l'écran d'accueil."],
   ["23 nov.","Corrigé sur iPhone : faire défiler les dates dans une fiche ne la ferme plus, et la page ne glisse plus de côté."],
   ["23 nov.","Thème clair par défaut, avec le choix Clair, Sombre ou Auto dans Réglages › Apparence. Page Tâches rangée : sections Aujourd'hui, Demain, Cette semaine, Plus tard, repliables ; date et catégorie à droite de chaque ligne."],
