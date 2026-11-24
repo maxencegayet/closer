@@ -224,6 +224,7 @@ document.addEventListener("click",function(ev){
   if(act==="set-morning"){pushSetMorning(b.dataset.v);renderSheet();return;}
   if(act==="set-evening"){pushSetEvening(b.dataset.v).then(function(){if(sheet&&sheet.kind==="account"){renderSheet();var nb=$("sheet").querySelector('[data-act="set-evening"][aria-checked="true"]');if(nb)nb.focus();}});renderSheet();var eb=$("sheet").querySelector('[data-act="set-evening"][data-v="'+b.dataset.v+'"]');if(eb)eb.focus();return;}
   if(act==="set-push-test"){pushTest();return;}
+  if(act==="cal-add"||act==="cal-copy"||act==="cal-renew"){calAct(act);return;}
   if(act==="set-badge"){
     var pm=("Notification" in window)?Notification.permission:"";
     if(pm==="denied")return;

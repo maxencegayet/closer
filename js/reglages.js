@@ -20,10 +20,13 @@ var IC={
   home:'<rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M12 9v6M9 12h6"/>',
   sync:'<path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/>',
   theme:'<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>',
+  cal:'<rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   fx:'<path d="M4 10v4h3l5 4V6L7 10z"/><path d="M16 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/>'
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["24 nov.","Tes tâches dans Calendrier Apple : Réglages › Calendrier › « Ajouter à Calendrier », puis « S’abonner ». Une tâche avec une heure y figure à son heure (30 min), les autres sur toute la journée, les tâches répétées à chaque date. En lecture seule, mis à jour par l’iPhone en général en moins d’une heure."],
   ["24 nov.","Écris la date dans le titre : « Appeler la banque demain 14h », « Rendre le dossier lundi », « le 12 », « 3 déc. ». Closer la comprend et l'enlève du titre (touche « Ignorer » si ce n'était pas une date). Nouveau bouton « Ajouter et en saisir une autre » pour enchaîner plusieurs tâches. Et une note libre sur chaque tâche (détails, lien, adresse), dans « Plus d'options »."],
   ["24 nov.","Toucher un rappel ouvre simplement Closer sur le Jour."],
   ["24 nov.","Correction sur iPhone : dans la fiche, « Rappel à » et « Répéter » ne se chevauchent plus."],
@@ -164,6 +167,15 @@ function acHTML(){
     h+=sGroup("Notifications",nr,note);
   }
 
+  /* 3 ter. Calendrier : s'abonner à ses tâches depuis Calendrier Apple (ou un autre calendrier) */
+  if(acOn()&&SB&&SU&&AS.step!=="newpw"){
+    var cr=sRow("cal-add","cal","Ajouter à Calendrier",{sub:"Tes tâches datées dans l'app Calendrier",noChev:true})+
+      sRow("cal-copy","link","Copier le lien",{sub:"Pour un autre appareil, par exemple ton Mac",noChev:true})+
+      sRow("cal-renew","sync",calq?"Confirmer : changer le lien":"Changer le lien",{sub:calq?"Touche encore : l'ancien lien cessera de marcher":"Si tu l'as donné par erreur",noChev:true});
+    if(calShow&&calTok&&calFor===SU.id)cr+='<div class="sdetail"><label for="cal-link" class="sr">Lien du calendrier</label><input id="cal-link" class="callink" readonly value="'+esc(calLink())+'"></div>';
+    h+=sGroup("Calendrier",cr,"En lecture seule : une tâche modifiée dans Closer se met à jour dans Calendrier, en général en moins d'une heure. Toute personne qui a le lien voit tes tâches : garde-le pour toi.");
+  }
+
   /* 4. Écran d'accueil */
   if(!standalone()){
     var steps=isIOS()?["Touche le bouton Partager de Safari (le carré avec une flèche vers le haut).","Fais défiler et choisis « Sur l'écran d'accueil ».","Touche « Ajouter » : Closer s'ouvre alors comme une vraie appli, en plein écran."]
@@ -196,7 +208,7 @@ function acRefresh(){
   var dot=$("ac-dot");if(dot)dot.className="acdot"+(SU&&cst===1?" ok":SU&&cst===2?" err":"");
   if(sheet&&sheet.kind==="account"){var a=document.activeElement;if(!(a&&(a.id==="ac-em"||a.id==="ac-pw")))renderSheet();}
 }
-function acOpen(b){if(sheet&&sheet.kind==="account"){renderSheet();return;}acq=false;if(sheet){sheet={mode:"edit",kind:"account",draft:{}};renderSheet();$("sheet").scrollTop=0;$("sheet").focus();return;}openSheet({mode:"edit",kind:"account",draft:{}},b||$("ac-btn"));}
+function acOpen(b){if(sheet&&sheet.kind==="account"){renderSheet();return;}acq=false;calq=false;if(sheet){sheet={mode:"edit",kind:"account",draft:{}};renderSheet();$("sheet").scrollTop=0;$("sheet").focus();return;}openSheet({mode:"edit",kind:"account",draft:{}},b||$("ac-btn"));}
 function acVals(){var e=$("ac-em"),p=$("ac-pw");if(e)AS.email=e.value.trim();return {em:AS.email,pw:p?p.value:""};}
 function okEm(x){return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x);}
 function redir(){return location.origin+location.pathname;}
@@ -250,14 +262,14 @@ async function acAct(act,b){
     }else if(act==="ac-out"){
       if(syncTimer){clearTimeout(syncTimer);syncTimer=null;await syncNow();}
       try{await SB.auth.signOut({scope:"local"});}catch(e){}
-      SU=null;cst=0;SY={};try{localStorage.removeItem(SK);}catch(e){}
+      SU=null;cst=0;SY={};calTok="";calShow=false;try{localStorage.removeItem(SK);}catch(e){}
       AS={step:"login",email:"",msg:"Déconnecté : tes éléments restent sur cet appareil."};
     }else if(act==="ac-del"){
       if(!acq){acq=true;return renderSheet();}
       acq=false;var d=await SB.rpc("delete_my_account");
       if(d.error){AS.msg=errMsg(d.error);return renderSheet();}
       try{await SB.auth.signOut({scope:"local"});}catch(e){}
-      SU=null;cst=0;SY={};try{localStorage.removeItem(SK);}catch(e){}
+      SU=null;cst=0;SY={};calTok="";calShow=false;try{localStorage.removeItem(SK);}catch(e){}
       AS={step:"login",email:"",msg:"Compte supprimé. Tes éléments restent sur cet appareil."};
     }
   }catch(e){AS.msg=errMsg(e);}

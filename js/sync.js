@@ -243,3 +243,50 @@ async function pushRefresh(){
     if(s)await pushSave(s);else{localStorage.removeItem(PUSH_KEY);}
   }catch(e){logErr("notifications",e);}
 }
+
+/* ---------- abonnement au calendrier (Calendrier Apple ou autre) ----------
+   La fonction « closer-ics » (supabase/functions/closer-ics) donne les tâches datées au format .ics.
+   Le lien contient une clé secrète créée par closer_ics_token() (supabase/calendrier.sql) :
+   Calendrier ne sait pas se connecter à un compte, la clé remplace la connexion. */
+var CAL_URL=SB_URL+"/functions/v1/closer-ics", calTok="", calFor="", calq=false, calShow=false, calBusy=false;
+function calGo(u){location.href=u;}   // ouvre Calendrier (remplacée dans les tests)
+function calLink(){return calTok?CAL_URL+"?cle="+calTok:"";}
+function calWebcal(){return calLink().replace(/^https?:/,"webcal:");}
+async function calToken(renew){
+  if(!SB||!SU)throw new Error("connecte-toi d'abord");
+  if(calFor!==SU.id){calTok="";calFor=SU.id;}
+  if(calTok&&!renew)return calTok;
+  var r=await SB.rpc("closer_ics_token",{renew:!!renew});
+  if(r.error||!r.data)throw (r.error||new Error("pas de lien"));
+  calTok=String(r.data);return calTok;
+}
+function calCopy(){
+  var u=calLink();
+  try{if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(u).then(function(){return true;},function(){return false;});}catch(e){}
+  return Promise.resolve(false);
+}
+async function calAct(act){
+  if(calBusy)return;
+  if(act!=="cal-renew")calq=false;
+  try{
+    if(act==="cal-add"){
+      var had=!!(calTok&&calFor===SU.id);
+      if(!had){calBusy=true;await calToken(false);calBusy=false;}
+      calGo(calWebcal());
+      showToast("Touche « S'abonner » dans Calendrier. Si rien ne s'ouvre, utilise « Copier le lien ».",true);
+    }else if(act==="cal-copy"){
+      if(!(calTok&&calFor===SU.id)){calBusy=true;await calToken(false);calBusy=false;}
+      var done=await calCopy();
+      if(done)showToast("Lien copié. Sur Mac : Calendrier › Fichier › Nouvel abonnement à un calendrier.",true);
+      else{calShow=true;showToast("Copie impossible ici : sélectionne le lien affiché.",true);}
+    }else if(act==="cal-renew"){
+      if(!calq){calq=true;renderSheet();return;}
+      calq=false;calBusy=true;await calToken(true);calBusy=false;
+      showToast("Nouveau lien créé : l'ancien ne marche plus. Dans Calendrier, supprime l'ancien calendrier Closer, puis touche « Ajouter à Calendrier ».",true);
+    }
+  }catch(e){
+    calBusy=false;logErr("calendrier",e);
+    showToast("Calendrier indisponible pour le moment"+(e&&e.message?" ("+e.message+")":"")+".",true);
+  }
+  if(sheet&&sheet.kind==="account")renderSheet();
+}

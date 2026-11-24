@@ -56,10 +56,10 @@ export function createClient(){
     range(a,z){q.range=[a,z];q.uid=cur();return call('select',q);},
     upsert(rows){return call('upsert',{rows,uid:cur()});},
     update(v){return {eq(){(window.__upd=window.__upd||[]).push(v);return Promise.resolve({error:null});}};}};return b;}
-  return {auth,from,rpc:async(n)=>call('rpc',{n,uid:cur()})};
+  return {auth,from,rpc:async(n,args)=>call('rpc',{n,args:args||{},uid:cur()})};
 }
 """
-USERS, ROWS, EVENTS = {}, {}, []
+USERS, ROWS, EVENTS, ICS = {}, {}, [], {}
 FAIL = {'jwt': 0}
 CLOCK = itertools.count(1_700_000_000_000, 1000)
 
@@ -87,6 +87,14 @@ def srv(op, raw):
             assert r['user_id'] == a['uid'], 'écriture pour un autre utilisateur'
             ROWS[(a['uid'], r['id'])] = {'id': r['id'], 'data': r['data'], 'deleted': r['deleted'], 'updated_at': next(CLOCK)}
         return json.dumps({'error': None})
+    if op == 'rpc' and a['n'] == 'closer_ics_token':
+        if not a['uid']:
+            return json.dumps({'data': None, 'error': {'message': 'non connecté'}})
+        if a['args'].get('renew') or a['uid'] not in ICS:
+            ICS[a['uid']] = ('%064x' % (len(ICS) * 7919 + 1 + next(CLOCK)))[-64:]
+        return json.dumps({'data': ICS[a['uid']], 'error': None})
+    if op == 'rpc' and a['n'] != 'delete_my_account':
+        return json.dumps({'data': None, 'error': None})
     if op == 'rpc':
         for k in [k for k in ROWS if k[0] == a['uid']]:
             del ROWS[k]
@@ -885,6 +893,47 @@ with sync_playwright() as p:
     pg.fill('#sh-note', ''); pg.click('#sheet button[type="submit"]'); pg.wait_for_timeout(450)
     check('note vidée : retirée de la tâche', 'note' not in find('Rendez-vous banque'))
     check('aucune erreur (lot 6)', not errs)
+    c.close()
+
+    # Calendrier : s'abonner à ses tâches (Réglages › Calendrier)
+    USERS['cal@test.fr'] = {'pw': 'Motdepasse1', 'id': 'u-cal', 'conf': True}
+    c, pg, errs = device(cfg=False)
+    pg.click('#ac-btn'); pg.wait_for_timeout(350)
+    check('Calendrier : rien sans compte', not pg.is_visible('#sheet [data-act="cal-add"]'))
+    c.close()
+    c, pg, errs = device()
+    open_account(pg)
+    check('Calendrier : rien tant qu\'on n\'est pas connecté', not pg.is_visible('#sheet [data-act="cal-add"]'))
+    pg.click('#sheet [data-act="close-sheet"]'); pg.wait_for_timeout(400)
+    login(pg, 'cal@test.fr', 'Motdepasse1')
+    open_account(pg) if not pg.evaluate("document.body.classList.contains('sheet-open')") else None
+    pg.wait_for_timeout(300)
+    txt = pg.inner_text('#sheet')
+    check('connecté : section Calendrier avec ses 3 boutons', all(pg.is_visible('#sheet [data-act="%s"]' % a) for a in ('cal-add', 'cal-copy', 'cal-renew'))
+          and 'Ajouter à Calendrier' in txt and 'garde-le pour toi' in txt)
+    check('le lien n\'est pas créé avant d\'en avoir besoin', 'u-cal' not in ICS)
+    pg.evaluate("calGo=function(u){window.__went=u;}")
+    pg.click('#sheet [data-act="cal-add"]'); pg.wait_for_timeout(400)
+    went = pg.evaluate("window.__went") or ''
+    check('« Ajouter à Calendrier » ouvre le lien webcal de la fonction, avec la clé du compte',
+          went == 'webcal://test.supabase.co/functions/v1/closer-ics?cle=' + ICS.get('u-cal', '?'))
+    check('… et explique quoi faire', 'S\'abonner' in pg.inner_text('#toast') if pg.query_selector('#toast') else False)
+    # copie : réussie, puis impossible (le lien s'affiche à sélectionner)
+    pg.evaluate("Object.defineProperty(navigator,'clipboard',{value:{writeText:async(t)=>{window.__clip=t;}},configurable:true})")
+    pg.click('#sheet [data-act="cal-copy"]'); pg.wait_for_timeout(300)
+    check('« Copier le lien » copie l\'adresse https', pg.evaluate("window.__clip") == 'https://test.supabase.co/functions/v1/closer-ics?cle=' + ICS['u-cal'])
+    pg.evaluate("Object.defineProperty(navigator,'clipboard',{value:{writeText:async()=>{throw new Error('refusé');}},configurable:true})")
+    pg.click('#sheet [data-act="cal-copy"]'); pg.wait_for_timeout(300)
+    check('copie refusée : le lien s\'affiche, prêt à sélectionner', pg.is_visible('#cal-link') and pg.input_value('#cal-link').endswith(ICS['u-cal']))
+    old = ICS['u-cal']
+    pg.click('#sheet [data-act="cal-renew"]'); pg.wait_for_timeout(250)
+    check('« Changer le lien » demande une confirmation', ICS['u-cal'] == old and 'Confirmer : changer le lien' in pg.inner_text('#sheet'))
+    pg.click('#sheet [data-act="cal-renew"]'); pg.wait_for_timeout(400)
+    check('… puis crée une nouvelle clé, affichée et utilisée ensuite', ICS['u-cal'] != old and pg.input_value('#cal-link').endswith(ICS['u-cal'])
+          and 'Confirmer' not in pg.inner_text('#sheet'))
+    pg.click('#sheet [data-act="cal-add"]'); pg.wait_for_timeout(300)
+    check('le nouvel abonnement utilise la nouvelle clé', pg.evaluate("window.__went").endswith(ICS['u-cal']))
+    check('aucune erreur (calendrier)', not errs)
     c.close()
 
     # 8. Bandeau de mise à jour quand une nouvelle version est en ligne

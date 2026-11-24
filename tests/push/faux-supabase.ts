@@ -1,13 +1,13 @@
 // Faux client Supabase : des tables en mémoire et juste ce que closer-push utilise
-// (select / insert / update / delete, eq / in / lt, single / maybeSingle).
+// (select / insert / update / delete, eq / in / lt / range, single / maybeSingle). Sert aussi à closer-ics.
 type Row = Record<string, any>;
-export const db: Record<string, Row[]> = { closer_push: [], closer_push_sent: [], closer_push_config: [], closer_items: [] };
+export const db: Record<string, Row[]> = { closer_push: [], closer_push_sent: [], closer_push_config: [], closer_items: [], closer_ics: [] };
 export function reset() { for (const k in db) db[k] = []; }
 
 const col = (r: Row, c: string) => c.startsWith("data->>") ? r.data?.[c.slice(7)] : r[c];
 
 class Query {
-  op = "select"; val: any = null; f: ((r: Row) => boolean)[] = []; one = ""; picked = false;
+  op = "select"; val: any = null; f: ((r: Row) => boolean)[] = []; one = ""; picked = false; span: [number, number] | null = null;
   constructor(public t: string) {}
   select(_c?: string) { if (!this.picked) this.op = "select"; return this; }
   insert(v: Row) { this.op = "insert"; this.val = v; this.picked = true; return this; }
@@ -16,6 +16,7 @@ class Query {
   eq(c: string, v: any) { this.f.push((r) => col(r, c) === v); return this; }
   in(c: string, v: any[]) { this.f.push((r) => v.includes(col(r, c))); return this; }
   lt(c: string, v: any) { this.f.push((r) => col(r, c) < v); return this; }
+  range(a: number, z: number) { this.span = [a, z]; return this; }
   maybeSingle() { this.one = "maybe"; return this; }
   single() { this.one = "single"; return this; }
   run() {
@@ -29,7 +30,8 @@ class Query {
     }
     if (this.op === "update") { T.filter(hit).forEach((r) => Object.assign(r, this.val)); return { data: null, error: null }; }
     if (this.op === "delete") { db[this.t] = T.filter((r) => !hit(r)); return { data: null, error: null }; }
-    const rows = structuredClone(T.filter(hit));
+    let rows = structuredClone(T.filter(hit));
+    if (this.span) rows = rows.slice(this.span[0], this.span[1] + 1);
     if (this.one) return rows.length ? { data: rows[0], error: null } : { data: null, error: this.one === "single" ? { message: "aucune ligne" } : null };
     return { data: rows, error: null };
   }
