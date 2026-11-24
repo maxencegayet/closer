@@ -119,11 +119,6 @@ function renderSheet(){
   h+='<div class="sh-head"><button type="button" class="btn ghost small" data-act="close-sheet">Annuler</button>'+
     '<h2 id="sh-h">'+(isNew?KIND_NEW[k]:"Modifier")+'</h2>'+
     '<button type="submit" class="btn small">'+(isNew?"Ajouter":"Enregistrer")+'</button></div>';
-  // ouverte depuis une notification : la coche d'abord, c'est ce qu'on vient faire
-  var pd=sheet.fromPush&&sheet.id?get(sheet.id):null;
-  if(pd&&(pd.kind==="task"||pd.kind==="daily"||pd.kind==="weekly"))
-    h+=doneToday(pd)?'<div class="pushdone is-done" role="status">Déjà fait aujourd\'hui</div>'
-      :'<button type="button" class="btn pushdone" data-act="push-done" data-id="'+esc(sheet.id)+'">Marquer comme fait</button>';
   if(isNew){
     // le type en une barre à 4 segments, sur une seule ligne
     h+='<div class="segc segt" role="radiogroup" aria-label="Type">'+["task","hw","daily","goal"].map(function(t){return '<button type="button" role="radio" aria-checked="'+(k===t)+'" data-act="stype" data-v="'+t+'">'+esc(cap(KIND_NAME[t]))+'</button>';}).join("")+'</div>'+

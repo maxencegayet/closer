@@ -527,7 +527,3 @@ body.arr-drag .list{overflow:visible}
 .timefield .tquick{margin-top:8px}
 .tquick .chip{padding:6px 14px;font-size:13px;font-variant-numeric:tabular-nums}
 .two.eq select{width:100%;min-width:0;max-width:100%;box-sizing:border-box;height:50px}
-
-/* fiche ouverte depuis une notification : « Marquer comme fait » en grand, en haut */
-.pushdone{display:block;width:100%;min-height:50px;margin:0 0 14px;border-radius:16px;font-weight:600}
-.pushdone.is-done{display:flex;align-items:center;justify-content:center;background:var(--surface);color:var(--muted);font-size:15px}

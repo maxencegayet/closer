@@ -14,9 +14,8 @@ function route(){
   var h=(location.hash||"").slice(1), parts=h.split("/");
   // ancien onglet Devoirs : c'est maintenant un filtre de Tâches
   if(parts[0]==="devoirs"){state.filter="Devoirs";parts=["taches"];try{history.replaceState(null,"","#taches");}catch(e){}}
-  // liens des notifications : #ouvrir/<id> (un rappel : montre la tâche ou l'habitude) et #jour/AAAA-MM-JJ (récap du soir : demain)
-  var openId=null;
-  if(parts[0]==="ouvrir"){lastOpen={h:"#"+h,t:Date.now()};openId=decodeURIComponent(parts[1]||"");state.day=today();parts=["jour"];try{history.replaceState(null,"","#jour");}catch(e){}}
+  // liens des notifications : #ouvrir/<id> (un rappel : ouvre simplement le Jour) et #jour/AAAA-MM-JJ (récap du soir : demain)
+  if(parts[0]==="ouvrir"){state.day=today();parts=["jour"];try{history.replaceState(null,"","#jour");}catch(e){}}
   else if(parts[0]==="jour"&&isDate(parts[1])){state.day=parts[1];parts=["jour"];try{history.replaceState(null,"","#jour");}catch(e){}}
   var v=TABS.indexOf(parts[0])>=0?parts[0]:"jour";
   state.tmenu=false;
@@ -34,37 +33,6 @@ function route(){
   $("fab").setAttribute("aria-label",v==="brouillon"?"Nouvelle note":"Ajouter");
   render();
   document.querySelectorAll("nav.tabs a").forEach(function(a){if(a.dataset.tab===v)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");});
-  if(openId)showItem(openId);
-}
-// ouvrir la fiche « Modifier » d'un élément (bouton de la ligne, ou notification touchée)
-function editItem(id,b){
-  var d=get(id);if(!d)return;
-  var dr=blankDraft();dr.title=cap(d.title||"");
-    var k=d.kind==="task"?(d.cat==="Devoir"?"hw":"task"):(d.kind==="weekly"?"daily":d.kind);
-    if(d.kind==="weekly")dr.freq=d.target||1;
-    if(d.kind==="daily"&&hasDays(d)){dr.freq=-1;dr.days=d.days.slice();}
-    if(d.kind==="task"){dr.cat=(d.cat&&d.cat!=="Devoir")?d.cat:(cats()[0]||"Perso");dr.subject=cap(d.subject||"");dr.due=isDate(d.due)?d.due:"";dr.time=isDate(d.due)&&d.time?d.time:"";dr.rep=isDate(d.due)&&d.rep?d.rep:"";dr.prio=!!d.prio;}
-    if(d.kind==="daily"||d.kind==="weekly")dr.time=d.time||"";
-    if(d.kind==="goal"&&isDate(d.target)){var p=parse(d.target);dr.tm=String(p.getMonth()+1);dr.ty=String(p.getFullYear());}
-    dr.goal=d.goal&&state.items.has(d.goal)?d.goal:"";
-    openSheet({mode:"edit",kind:k,id:id,draft:dr},b);
-}
-// notification touchée : la fiche de la tâche ou de l'habitude s'ouvre, avec « Marquer comme fait » en haut
-var lastOpen=null;
-function showItem(id){
-  if(!state.items.has(id))return;
-  if(sheet)closeSheet();
-  editItem(id,null);
-  if(sheet)sheet.fromPush=true;
-  renderSheet();
-}
-// déjà fait aujourd'hui ? (tâche cochée, habitude faite aujourd'hui)
-function doneToday(d){
-  var t=today();
-  if(d.kind==="task")return !!d.done;
-  if(d.kind==="daily")return d.lastDone===t;
-  if(d.kind==="weekly")return (d.dones||[]).indexOf(t)>=0;
-  return true;
 }
 
 /* ---------- actions ---------- */
@@ -212,12 +180,17 @@ document.addEventListener("click",function(ev){
     if(curView==="taches"&&cats().indexOf(state.filter)>=0)dr.cat=state.filter;
     openSheet({mode:"new",kind:kind,draft:dr},b);return;
   }
-  if(act==="edit"){editItem(id,b);return;}
-  if(act==="push-done"){
-    // même effet que la coche de la ligne
-    var dk=d&&(d.kind==="task"||d.kind==="daily"||d.kind==="weekly")?d.kind:"";closeSheet();
-    if(dk&&!doneToday(d)){var fb=document.createElement("button");fb.type="button";fb.hidden=true;fb.dataset.act=dk;fb.dataset.id=id;document.body.appendChild(fb);fb.click();fb.remove();}
-    return;
+  if(act==="edit"){
+    if(!d)return;
+    dr=blankDraft();dr.title=cap(d.title||"");
+    var k=d.kind==="task"?(d.cat==="Devoir"?"hw":"task"):(d.kind==="weekly"?"daily":d.kind);
+    if(d.kind==="weekly")dr.freq=d.target||1;
+    if(d.kind==="daily"&&hasDays(d)){dr.freq=-1;dr.days=d.days.slice();}
+    if(d.kind==="task"){dr.cat=(d.cat&&d.cat!=="Devoir")?d.cat:(cats()[0]||"Perso");dr.subject=cap(d.subject||"");dr.due=isDate(d.due)?d.due:"";dr.time=isDate(d.due)&&d.time?d.time:"";dr.rep=isDate(d.due)&&d.rep?d.rep:"";dr.prio=!!d.prio;}
+    if(d.kind==="daily"||d.kind==="weekly")dr.time=d.time||"";
+    if(d.kind==="goal"&&isDate(d.target)){var p=parse(d.target);dr.tm=String(p.getMonth()+1);dr.ty=String(p.getFullYear());}
+    dr.goal=d.goal&&state.items.has(d.goal)?d.goal:"";
+    openSheet({mode:"edit",kind:k,id:id,draft:dr},b);return;
   }
   if(act==="edit-step"){
     if(!d||!d.steps||!d.steps[i])return;

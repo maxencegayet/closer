@@ -24,11 +24,11 @@ var IC={
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
-  ["24 nov.","Toucher une notification ouvre maintenant la fiche de la tâche ou de l'habitude, avec « Marquer comme fait » en haut. Ça marche aussi quand Closer était resté en arrière-plan sur iPhone."],
+  ["24 nov.","Toucher un rappel ouvre simplement Closer sur le Jour."],
   ["24 nov.","Correction sur iPhone : dans la fiche, « Rappel à » et « Répéter » ne se chevauchent plus."],
   ["24 nov.","Correction : si Closer restait ouvert pendant la nuit, le Jour affichait encore la veille au réveil. Il passe maintenant tout seul au nouveau jour."],
   ["24 nov.","Habitudes sur des jours précis (ex. lundi, mercredi, vendredi) : elles n'apparaissent que ces jours-là, sans casser ta série. Grille des habitudes plus lisible, une case par semaine, et ton record sur chaque habitude. Objectifs atteints rangés dans une section repliée. Dans les Réglages, le bilan de ta semaine remplace les statistiques ; le dimanche, il s'affiche aussi sur le Jour."],
-  ["24 nov.","Toucher une notification ouvre directement la tâche ou l'habitude concernée. Heures rapides (9 h, 12 h, 18 h) sous « Rappel à ». Nouveau récap du soir, avec ce qui est prévu demain (Réglages › Notifications). Barre de la journée continue quand il y a plus de 10 choses à faire, et écran de lancement aux couleurs de Closer sur iPhone."],
+  ["24 nov.","Heures rapides (9 h, 12 h, 18 h) sous « Rappel à ». Nouveau récap du soir, avec ce qui est prévu demain (Réglages › Notifications). Barre de la journée continue quand il y a plus de 10 choses à faire, et écran de lancement aux couleurs de Closer sur iPhone."],
   ["24 nov.","Sur le Jour, « Sans date, à caser » est repliée par défaut : touche le titre pour l'ouvrir. Closer est maintenant testé aussi dans le moteur de Safari, et les rappels sont vérifiés automatiquement à chaque mise en ligne."],
   ["24 nov.","Fais glisser la bande des jours vers la droite pour revoir la semaine passée. Une tâche répétée chaque jour qu'on a manquée revient d'elle-même à aujourd'hui. « Ranger à la main » se fait en faisant glisser la poignée. Petit repère sur les tâches qui font avancer un objectif. Fiche plus compacte : le type en une barre, « Rappel à » et « Répéter » côte à côte."],
   ["24 nov.","Tâches qui se répètent (tous les jours, du lundi au vendredi, chaque semaine ou chaque mois) : cocher garde une trace et passe à la prochaine date. Rappel à l'heure pour les habitudes. Premiers pas guidés et écrans vides plus clairs."],
