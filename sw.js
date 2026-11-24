@@ -1,7 +1,7 @@
 /* Closer : hors ligne.
    Réseau d'abord (sans cache HTTP) pour toujours avoir la dernière version,
    copie locale en secours quand il n'y a pas de réseau. */
-const CACHE = "closer-v20";
+const CACHE = "closer-v21";
 const CORE = [
   "./",
   "index.html",

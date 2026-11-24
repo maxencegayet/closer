@@ -74,10 +74,13 @@ function syncDraft(){
   if((el=$("sh-ty")))dr.ty=el.value;
 }
 // « Rappel à » : heure facultative, avec un avertissement si l'appareil ne reçoit pas les notifications
-function timeField(dr){
+function pushWarn(dr){return dr.time&&!pushOn()?'<div class="pushwarn" role="note">Les notifications ne sont pas activées sur cet appareil : ce rappel n\'arrivera pas. Active-les dans Réglages › Notifications.</div>':"";}
+// compact : sur une moitié de ligne, à côté de « Répéter » (l'avertissement passe en dessous, sur toute la largeur)
+function timeField(dr,compact){
+  if(compact)return '<div class="field timefield"><div class="flab"><label for="sh-time">Rappel à</label>'+(dr.time?'<button type="button" class="linkbtn tiny" data-act="stime-clear" aria-label="Retirer le rappel">Retirer</button>':"")+'</div>'+
+    '<input type="time" id="sh-time" value="'+esc(dr.time||"")+'"></div>';
   return '<div class="field timefield"><label for="sh-time">Rappel à</label><div class="trow"><input type="time" id="sh-time" value="'+esc(dr.time||"")+'">'+
-    (dr.time?'<button type="button" class="linkbtn" data-act="stime-clear">Sans rappel</button>':'<span class="thint">Facultatif</span>')+'</div>'+
-    (dr.time&&!pushOn()?'<div class="pushwarn" role="note">Les notifications ne sont pas activées sur cet appareil : ce rappel n\'arrivera pas. Active-les dans Réglages › Notifications.</div>':"")+'</div>';
+    (dr.time?'<button type="button" class="linkbtn" data-act="stime-clear">Sans rappel</button>':'<span class="thint">Facultatif</span>')+'</div>'+pushWarn(dr)+'</div>';
 }
 function sChip(act,val,label,on){return '<button type="button" class="chip" aria-pressed="'+on+'" data-act="'+act+'" data-v="'+esc(val)+'">'+esc(label)+'</button>';}
 function renderSheet(){
@@ -112,7 +115,8 @@ function renderSheet(){
     '<h2 id="sh-h">'+(isNew?KIND_NEW[k]:"Modifier")+'</h2>'+
     '<button type="submit" class="btn small">'+(isNew?"Ajouter":"Enregistrer")+'</button></div>';
   if(isNew){
-    h+='<div class="chips" role="group" aria-label="Type">'+["task","hw","daily","goal"].map(function(t){return sChip("stype",t,cap(KIND_NAME[t]),k===t);}).join("")+'</div>'+
+    // le type en une barre à 4 segments, sur une seule ligne
+    h+='<div class="segc segt" role="radiogroup" aria-label="Type">'+["task","hw","daily","goal"].map(function(t){return '<button type="button" role="radio" aria-checked="'+(k===t)+'" data-act="stype" data-v="'+t+'">'+esc(cap(KIND_NAME[t]))+'</button>';}).join("")+'</div>'+
       '<div class="hint">'+KIND_HINT[k]+'</div>';
   }
   var ph={task:"Ex. Prendre rendez-vous",hw:"Ex. Rendre le dossier",daily:"Ex. Lire 20 pages",goal:"Ex. Décrocher un stage",step:"Étape"}[k];
@@ -127,7 +131,7 @@ function renderSheet(){
       '<datalist id="sh-subjects">'+subjectsList(false).filter(function(s){return s!=="Sans matière";}).map(function(s){return '<option value="'+esc(s)+'"></option>';}).join("")+'</datalist></div>';
   }
   if(k==="task"){
-    h+='<div class="field"><span class="lab">Catégorie</span><div class="chips" role="group" aria-label="Catégorie">'+allCats(dr.cat).map(function(c){return sChip("scat",c,c,!dr.newCat&&dr.cat===c);}).join("")+sChip("scat","__new","Nouvelle",dr.newCat)+'</div>'+
+    h+='<div class="field"><span class="lab">Catégorie</span><div class="chips scroll" role="group" aria-label="Catégorie">'+allCats(dr.cat).map(function(c){return sChip("scat",c,c,!dr.newCat&&dr.cat===c);}).join("")+sChip("scat","__new","Nouvelle",dr.newCat)+'</div>'+
       (dr.newCat?'<input type="text" id="sh-newcat" value="'+esc(dr.newCatName)+'" placeholder="Nom de la catégorie, ex. Sport" aria-label="Nom de la nouvelle catégorie" maxlength="24" autocapitalize="sentences">':"")+'</div>';
   }
   var more="";
@@ -140,8 +144,8 @@ function renderSheet(){
       (dr.other?'<input type="date" id="sh-due" value="'+esc(dr.due)+'" aria-label="Autre date">':"")+'</div>';
     // heure du rappel et répétition : seulement quand il y a une date
     if(isDate(dr.due)){
-      h+=timeField(dr);
-      h+='<div class="field"><label for="sh-rep">Répéter</label><select id="sh-rep">'+REPS.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===(dr.rep||"")?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select></div>';
+      h+='<div class="two eq">'+timeField(dr,true)+
+        '<div class="field"><label for="sh-rep">Répéter</label><select id="sh-rep">'+REPS.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===(dr.rep||"")?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select></div></div>'+pushWarn(dr);
     }
     more+='<label class="tick" for="sh-prio"><input type="checkbox" id="sh-prio"'+(dr.prio?" checked":"")+'> Important</label>'+
       '<div class="hint">Passe en tête de sa date et s\'affiche en gras avec une pastille « ! ».</div>';

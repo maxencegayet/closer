@@ -23,6 +23,7 @@ var IC={
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["24 nov.","Fais glisser la bande des jours vers la droite pour revoir la semaine passée. Une tâche répétée chaque jour qu'on a manquée revient d'elle-même à aujourd'hui. « Ranger à la main » se fait en faisant glisser la poignée. Petit repère sur les tâches qui font avancer un objectif. Fiche plus compacte : le type en une barre, « Rappel à » et « Répéter » côte à côte."],
   ["24 nov.","Tâches qui se répètent (tous les jours, du lundi au vendredi, chaque semaine ou chaque mois) : cocher garde une trace et passe à la prochaine date. Rappel à l'heure pour les habitudes. Premiers pas guidés et écrans vides plus clairs."],
   ["24 nov.","La fiche prévient quand un « Rappel à » ne pourra pas arriver parce que les notifications ne sont pas activées sur l'appareil."],
   ["24 nov.","Retards à part sur le Jour, avec « Tout reporter à aujourd'hui ». Glisse une tâche vers la droite pour la cocher, vers la gauche pour la reporter à demain. « Annuler » après chaque coche. Le + rejoint la barre du bas, le titre de l'onglet remplace « Closer », et les options rares de la fiche sont repliées."],

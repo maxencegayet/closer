@@ -3,7 +3,7 @@
 /* ---------- Jour ---------- */
 function renderJour(){
   var t=today();
-  if(!state.day||state.day<t||state.day>shift(t,6))state.day=t;
+  if(!state.day||state.day<shift(t,-PAST_DAYS)||state.day>shift(t,6))state.day=t;
   var dateTxt=new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
   var dailies=byKind("daily"), tasks=byKind("task");
   var dRest=dailies.filter(function(x){return x.d.lastDone!==t;}), dDone=dailies.filter(function(x){return x.d.lastDone===t;});
@@ -15,7 +15,7 @@ function renderJour(){
   if(state.mode==="loading"){h+='<div class="msg">Chargement</div>';}
   else if(!total){h+='<div class="msg">Rien de prévu aujourd\'hui</div><div class="sub">Touche le bouton + pour ajouter une tâche ou une habitude.</div>';}
   else{
-    if(!rest)h+='<div class="msg">Journée bouclée</div><div class="sub">'+done+' sur '+total+' '+(done>1?"faites":"faite")+'.</div>';
+    if(!rest)h+='<div class="msg">Journée bouclée</div><div class="sub">'+done+' sur '+total+' '+(done>1?"faites":"faite")+'. '+esc(cheer(t))+'</div>';
     else{
       // même découpage que les listes en dessous : « Reste à faire » (tâches) et « Habitudes »
       var parts=[];
@@ -33,17 +33,26 @@ function renderJour(){
     var seg=$("hero").querySelectorAll(".segs i")[done-1];
     if(seg&&seg.animate)seg.animate([{transform:"scaleY(.35)",opacity:.35},{transform:"none",opacity:1}],{duration:260,easing:EASE});
   }
-  if(state.mode!=="loading")prevDone=done;
+  // tout vient d'être fini : petit moment de fête (pas au chargement)
+  if(state.mode!=="loading"&&prevRest>0&&!rest&&total&&!reduce.matches&&$("hero").animate){
+    $("hero").animate([{transform:"scale(1)"},{transform:"scale(1.025)"},{transform:"scale(1)"}],{duration:420,easing:EASE});
+    var mg=$("hero").querySelector(".msg");if(mg&&mg.animate)mg.animate([{opacity:0,transform:"translateY(8px)"},{opacity:1,transform:"none"}],{duration:320,easing:EASE});
+  }
+  if(state.mode!=="loading"){prevDone=done;prevRest=rest;}
 
-  // bande des 7 jours
+  // bande des jours : la semaine passée à gauche (en faisant glisser), aujourd'hui et les 6 suivants
   var w="";
-  for(var k=0;k<7;k++){
-    var d=shift(t,k), c=k===0?tRest.length:tasks.filter(function(x){return !x.d.done&&x.d.due===d;}).length;
+  for(var k=-PAST_DAYS;k<7;k++){
+    var d=shift(t,k), past=k<0, c=past?doneOnDay(d).length:k===0?tRest.length:tasks.filter(function(x){return !x.d.done&&x.d.due===d;}).length;
     var dots="";for(var q=0;q<Math.min(c,3);q++)dots+="<i></i>";if(c>3)dots+="<b>+</b>";
-    w+='<button type="button" class="day" data-act="day" data-id="'+d+'" aria-pressed="'+(state.day===d)+'" aria-label="'+esc(fmt(d,{weekday:"long",day:"numeric",month:"long"}))+', '+(c?c+(c>1?" tâches":" tâche"):"rien de prévu")+'">'+
+    w+='<button type="button" class="day'+(past?" past":"")+'" data-act="day" data-id="'+d+'" aria-pressed="'+(state.day===d)+'" aria-label="'+esc(fmt(d,{weekday:"long",day:"numeric",month:"long"}))+', '+(past?(c?c+(c>1?" faites":" faite"):"rien de coché"):(c?c+(c>1?" tâches":" tâche"):"rien de prévu"))+'">'+
       '<span class="wd">'+esc(k===0?"auj.":fmt(d,{weekday:"short"}))+'</span><span class="dn">'+parse(d).getDate()+'</span><span class="ct" aria-hidden="true">'+dots+'</span></button>';
   }
-  $("week").innerHTML=w;
+  var wk0=$("week"), sl=wk0.scrollLeft;
+  wk0.innerHTML=w;
+  // au premier affichage, la bande s'ouvre sur aujourd'hui ; ensuite on garde la position
+  if(!weekPlaced){var tb=wk0.querySelector('[data-id="'+t+'"]');if(tb&&wk0.clientWidth){wk0.scrollLeft=tb.offsetLeft-6;weekPlaced=true;}}
+  else wk0.scrollLeft=sl;
 
   var html="";
   if(state.day===t){
@@ -64,6 +73,12 @@ function renderJour(){
     var und=tasks.filter(function(x){return !x.d.done&&!isDate(x.d.due);}).sort(sortTasks);
     if(und.length)html+=block("Sans date, à caser",und.length,und.map(function(x){return taskRow(x,true);}).join(""));
     if(done)html+=block("Fait aujourd'hui",done,dDone.map(dailyRow).concat(tDone.map(function(x){return taskRow(x,true);})).join(""));
+  }else if(state.day<t){
+    // un jour passé : ce qui a été fait ce jour-là, et ce qui était prévu sans être fait
+    var pd=state.day, got=doneOnDay(pd), miss=tasks.filter(function(x){return !x.d.done&&x.d.due===pd;}).sort(sortTasks);
+    html+=block(cap(fmt(pd,{weekday:"long",day:"numeric",month:"long"})),got.length?got.length+(got.length>1?" faites":" faite"):"",
+      got.length?got.map(function(x){return x.d.kind==="task"?taskRow(x,true):pastHabRow(x);}).join(""):'<div class="empty">Rien de coché ce jour-là.</div>');
+    if(miss.length)html+=block("Prévu, pas encore fait",miss.length,miss.map(function(x){return taskRow(x,true);}).join(""),"late");
   }else{
     var day=tasks.filter(function(x){return x.d.due===state.day;}).sort(function(a,b){return (a.d.done?1:0)-(b.d.done?1:0)||sortTasks(a,b);});
     html+=block(fmt(state.day,{weekday:"long",day:"numeric",month:"long"}),day.filter(function(x){return !x.d.done;}).length||"",
@@ -71,6 +86,21 @@ function renderJour(){
   }
   $("l-jour").innerHTML=html;
 }
+
+var PAST_DAYS=7, weekPlaced=false, prevRest=null;
+// ce qui a été coché un jour donné : habitudes faites ce jour-là, puis tâches terminées ce jour-là
+function doneOnDay(day){
+  var hb=byKind("daily").concat(byKind("weekly")).filter(function(x){return histOf(x.d).indexOf(day)>=0;});
+  return hb.concat(byKind("task").filter(function(x){return x.d.done&&x.d.doneOn===day;}).sort(function(a,b){return (a.d.doneAt||0)-(b.d.doneAt||0);}));
+}
+function pastHabRow(x){
+  var ti=cap(x.d.title);
+  return '<div class="row done"><span class="check round on" aria-hidden="true">'+CHECK+'</span>'+
+    '<button type="button" class="body" data-act="edit" data-id="'+esc(x.id)+'" aria-label="Habitude faite : '+esc(ti)+'"><span class="title">'+esc(ti)+'</span><span class="meta"><span>Habitude</span></span></button></div>';
+}
+// une phrase pour la journée bouclée, qui change d'un jour à l'autre
+var CHEERS=["Bien joué.","Le reste de la journée est à toi.","Rien ne traîne : profites-en.","Demain repart sur de bonnes bases.","Belle régularité."];
+function cheer(t){var n=0;for(var i=0;i<t.length;i++)n+=t.charCodeAt(i)*(i+1);return CHEERS[n%CHEERS.length];}
 
 /* ---------- premiers pas : 3 étapes, puis la carte disparaît ---------- */
 var ONB_KEY="closer-onboard-off";
@@ -157,7 +187,8 @@ function renderTaskView(v,target,emptyTxt){
   if(open.length<2)arr=state.arr[v]=false;
   orderGroups[v]=groups.map(function(g){return g[2].map(function(x){return x.id;});});
   var html="";
-  if(arr)html+='<div class="arrbar" role="status"><span>'+(mode==="date"?"Range avec les flèches les lignes d'un même jour.":"Range avec les flèches dans chaque groupe.")+'</span><button type="button" class="btn small" id="arr-'+v+'" data-act="arr" data-k="'+v+'">Terminé</button></div>';
+  orderModes[v]=mode;
+  if(arr)html+='<div class="arrbar" role="status"><span id="arr-help-'+v+'">'+(mode==="date"?"Fais glisser la poignée pour ranger les tâches d'un même jour.":"Fais glisser la poignée pour ranger chaque groupe.")+'<span class="sr"> Au clavier : flèches haut et bas.</span></span><button type="button" class="btn small" id="arr-'+v+'" data-act="arr" data-k="'+v+'">Terminé</button></div>';
   groups.forEach(function(g,gi){
     var rows=g[2].map(function(x,i){
       var a=null;

@@ -17,7 +17,7 @@ var KIND_HINT={
 var state={items:new Map(),filter:"Tout",tmenu:false,day:"",showDone:{taches:false,devoirs:false},arr:{taches:false,devoirs:false},mode:"loading",note:"",nfolder:"Toutes",nq:"",noteOpen:null};
 var dirty={}, noteTimers={}, lastNoteIds=null;
 var lastDeleted=null, toastTimer=null, focusAfter=null;
-var sheet=null, sheetOpener=null, orderGroups={};
+var sheet=null, sheetOpener=null, orderGroups={}, orderModes={};
 var prevPct={}, prevDone=null, curView=null, EASE="cubic-bezier(0.23,1,0.32,1)";
 var reduce=window.matchMedia?window.matchMedia("(prefers-reduced-motion: reduce)"):{matches:false};
 
@@ -126,12 +126,16 @@ function taskSide(d,hideDate,hideCat){
   var late=isDate(d.due)&&d.due<today()&&!d.done, dt=(!hideDate||late)?sideDue(d.due,d.done):"", c=hideCat?"":esc(taskCat(d));
   if(d.time&&isDate(d.due)&&!d.done&&!late)dt=dt?dt+" · "+esc(d.time):esc(d.time);   // heure du rappel
   if(d.rep&&!d.done)dt=REP_ICON+(dt||"");
+  if(goalOf(d)&&!d.done)c=GOAL_ICON+c;                                          // repère : fait avancer un objectif
   if(!dt&&!c)return "";
   return '<span class="side">'+(dt?'<span class="sd">'+dt+'</span>':"")+(c?'<span class="sc">'+c+'</span>':"")+'</span>';
 }
+/* objectif relié à une tâche (s'il existe encore) */
+function goalOf(d){var g=d&&d.goal&&state.items.get(d.goal);return g&&g.kind==="goal"?g:null;}
+var GOAL_ICON='<svg class="goali" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".6"/></svg>';
 var LATE_BTN='<button type="button" class="btn ghost small latebtn" data-act="late-today">Tout reporter à aujourd\'hui</button>';
 /* tâches qui se répètent : rep = "day" | "wdays" (lundi-vendredi) | "week" | "month" */
-var REPS=[["","Non"],["day","Tous les jours"],["wdays","Du lundi au vendredi"],["week","Toutes les semaines"],["month","Tous les mois"]];
+var REPS=[["","Non"],["day","Chaque jour"],["wdays","Du lun. au ven."],["week","Chaque semaine"],["month","Chaque mois"]];
 function repLabel(r){for(var i=0;i<REPS.length;i++)if(REPS[i][0]===r)return REPS[i][1];return "";}
 function stepRep(d,rep,anchor){
   var p=parse(d);
@@ -150,18 +154,18 @@ function emptyState(title,text,label){
   return '<div class="emptyst"><b>'+esc(title)+'</b><p>'+esc(text)+'</p>'+(label?'<button type="button" class="btn small" data-act="add">'+esc(label)+'</button>':"")+'</div>';
 }
 var BANG='<i class="bang" aria-hidden="true">!</i>';
-var UP='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 10L8 5.5 12.5 10"/></svg>', DOWN='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 6L8 10.5 12.5 6"/></svg>';
-function mvBtn(a,id,dir,ti){
-  var ok=dir<0?a.up:a.down;
-  return '<button type="button" class="mv" id="mv-'+esc(id)+(dir<0?"-u":"-d")+'" data-act="mv" data-k="'+a.v+'" data-g="'+a.g+'" data-dir="'+dir+'" data-id="'+esc(id)+'" aria-label="'+(dir<0?"Monter : ":"Descendre : ")+esc(ti)+'"'+(ok?"":" disabled")+'>'+(dir<0?UP:DOWN)+'</button>';
+var GRIP='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14M5 12h14M5 16h14"/></svg>';
+/* mode « Ranger » : une poignée à faire glisser (ou flèches haut et bas au clavier) */
+function gripBtn(a,id,ti){
+  return '<button type="button" class="grip" id="grip-'+esc(id)+'" data-act="grip" data-k="'+a.v+'" data-g="'+a.g+'" data-id="'+esc(id)+'" aria-label="Déplacer : '+esc(ti)+'" aria-describedby="arr-help-'+a.v+'">'+GRIP+'</button>';
 }
 function taskRow(t,hideDate,a,hideCat){
   var d=t.d,ti=cap(d.title), tl='<span class="title">'+(d.prio?BANG:"")+esc(ti)+'</span>', lab=(d.prio?"Important. ":"");
-  if(a)return '<div class="row'+(d.prio?" prio":"")+'" style="padding-left:16px"><div class="body tline" style="padding-right:8px">'+tl+taskSide(d,hideDate,hideCat)+'</div>'+
-    '<span class="mvs">'+mvBtn(a,t.id,-1,ti)+mvBtn(a,t.id,1,ti)+'</span></div>';
+  if(a)return '<div class="row'+(d.prio?" prio":"")+'" data-rid="'+esc(t.id)+'" style="padding-left:16px"><div class="body tline" style="padding-right:8px">'+tl+taskSide(d,hideDate,hideCat)+'</div>'+
+    '<span class="mvs">'+gripBtn(a,t.id,ti)+'</span></div>';
   return '<div class="row'+(d.prio?" prio":"")+(d.done?" done":"")+'">'+
     checkBtn("task",t.id,d.done,(d.done?"Marquer non fait : ":"Marquer fait : ")+ti)+
-    '<button type="button" class="body tline" data-act="edit" data-id="'+esc(t.id)+'" aria-label="'+esc(lab)+'Modifier : '+esc(ti)+'">'+tl+taskSide(d,hideDate,hideCat)+'</button></div>';
+    '<button type="button" class="body tline" data-act="edit" data-id="'+esc(t.id)+'" aria-label="'+esc(lab)+'Modifier : '+esc(ti)+(goalOf(d)&&!d.done?". Fait avancer « "+esc(cap(goalOf(d).title))+" »":"")+'">'+tl+taskSide(d,hideDate,hideCat)+'</button></div>';
 }
 /* section repliable (Tâches) : l'état est gardé sur l'appareil */
 var FOLD_KEY="closer-fold", FOLD_DEF={"taches:later":true,"taches:done":true,"devoirs:later":true,"devoirs:done":true};

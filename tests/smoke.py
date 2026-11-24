@@ -389,6 +389,57 @@ with sync_playwright() as p:
     check('répétition, habitudes, premiers pas : aucune erreur', not errs)
     c.close()
 
+    # 7 nonies. Jours passés, journée bouclée, répétitions manquées, repère d'objectif, ranger en glissant, fiche compacte
+    c, pg, errs = device(cfg=False)
+    pg.evaluate("""(()=>{const t=today(),y=shift(t,-1),add=(id,d)=>state.items.set(id,Object.assign({created:Date.now()},d));
+      add('g1',{kind:'goal',title:'Stage',target:'',steps:[],reached:false});
+      add('r1',{kind:'task',title:'Ranger',cat:'Perso',due:shift(t,-3),rep:'day',done:false});
+      add('r2',{kind:'task',title:'Payer',cat:'Perso',due:shift(t,-3),rep:'week',done:false});
+      add('h1',{kind:'daily',title:'Lire',lastDone:y,streak:1,dones:[y]});
+      add('d1',{kind:'task',title:'Rendre le livre',cat:'Perso',due:y,done:true,doneOn:y,doneAt:1});
+      add('a1',{kind:'task',title:'Alpha',cat:'Perso',due:shift(t,2),done:false,goal:'g1',created:1});
+      add('a2',{kind:'task',title:'Bravo',cat:'Perso',due:shift(t,2),done:false,created:2});
+      add('a3',{kind:'task',title:'Charlie',cat:'Perso',due:shift(t,2),done:false,created:3});
+      localStorage.setItem(LS_KEY,JSON.stringify([...state.items]));})()""")
+    pg.reload(); pg.wait_for_timeout(600)
+    dd = pg.evaluate("[get('r1').due,get('r2').due,today()]")
+    check('tâche répétée chaque jour manquée : revenue à aujourd\'hui', dd[0] == dd[2])
+    check('tâche répétée chaque semaine manquée : reste en retard', dd[1] < dd[2])
+    tb = pg.evaluate("(()=>{const w=$('week'),b=w.querySelector('[data-id=\"'+today()+'\"]');return [w.scrollLeft>0,Math.abs(b.getBoundingClientRect().left-w.getBoundingClientRect().left)<14,w.querySelectorAll('.day.past').length]})()")
+    check('bande des jours : s\'ouvre sur aujourd\'hui, 7 jours passés à gauche', tb[0] and tb[1] and tb[2] == 7)
+    pg.evaluate("document.querySelector('#week [data-id=\"'+shift(today(),-1)+'\"]').click()"); pg.wait_for_timeout(300)
+    lj = pg.inner_text('#l-jour')
+    check('jour passé : habitude et tâche faites ce jour-là', 'Lire' in lj and 'Rendre le livre' in lj and '2 faites' in lj)
+    pg.evaluate("document.querySelector('#week [data-id=\"'+today()+'\"]').click()"); pg.wait_for_timeout(200)
+    pg.evaluate("location.hash='#taches'"); pg.wait_for_timeout(300)
+    lab = pg.get_attribute('#l-tasks [data-act="edit"][data-id="a1"]', 'aria-label') or ''
+    check('repère discret : la tâche reliée à un objectif le montre', pg.query_selector('#l-tasks [data-id="a1"] .goali') is not None and 'Stage' in lab)
+    pg.click('#tsort'); pg.wait_for_timeout(150); pg.click('#tmenu [data-act="arr"]'); pg.wait_for_timeout(250)
+    check('ranger : une poignée par ligne, plus de flèches', pg.query_selector('#l-tasks .grip') is not None and pg.query_selector('#l-tasks .mv') is None)
+    order = lambda: pg.evaluate("orderGroups.taches.flat().filter(i=>['a1','a2','a3'].includes(i))")
+    pg.focus('#grip-a1'); pg.keyboard.press('ArrowDown'); pg.wait_for_timeout(200)
+    check('ranger au clavier : flèche bas', order() == ['a2', 'a1', 'a3'] and pg.evaluate("document.activeElement.id") == 'grip-a1')
+    b1 = pg.query_selector('#grip-a3').bounding_box(); b0 = pg.query_selector('#grip-a2').bounding_box()
+    pg.mouse.move(b1['x'] + 20, b1['y'] + 20); pg.mouse.down()
+    for k in range(1, 9): pg.mouse.move(b1['x'] + 20, b1['y'] + 20 - (b1['y'] - b0['y'] + 10) * k / 8); pg.wait_for_timeout(20)
+    pg.mouse.up(); pg.wait_for_timeout(300)
+    check('ranger en faisant glisser la poignée', order() == ['a3', 'a2', 'a1'])
+    pg.click('#l-tasks [data-act="arr"]'); pg.wait_for_timeout(200)
+    pg.evaluate("location.hash='#jour'"); pg.wait_for_timeout(300)
+    pg.evaluate("byKind('task').concat(byKind('daily')).forEach(x=>{const d=get(x.id);if(d.kind==='daily'){d.lastDone=today();}else if(d.due<=today()){d.done=true;d.doneOn=today();}save(x.id,d);})"); pg.wait_for_timeout(300)
+    check('tout est fait : « Journée bouclée » avec un mot', 'Journée bouclée' in pg.inner_text('#hero') and pg.evaluate("CHEERS.some(c=>$('hero').innerText.includes(c))"))
+    pg.click('#fab'); pg.wait_for_timeout(350)
+    ys = pg.evaluate("[...document.querySelectorAll('#sheet .segt button')].map(b=>Math.round(b.getBoundingClientRect().top))")
+    check('fiche : le type tient sur une ligne en 4 segments', len(ys) == 4 and len(set(ys)) == 1)
+    pg.click('#sheet [data-act="sdate"]:nth-child(2)'); pg.wait_for_timeout(150)
+    t2 = pg.evaluate("[$('sh-time').getBoundingClientRect().top,$('sh-rep').getBoundingClientRect().top].map(Math.round)")
+    check('fiche : « Rappel à » et « Répéter » côte à côte', abs(t2[0] - t2[1]) < 4)
+    check('fiche : catégories sur une rangée qui défile', pg.evaluate("getComputedStyle(document.querySelector('#sheet [aria-label=\"Catégorie\"]')).flexWrap") == 'nowrap')
+    pg.fill('#sh-time', '09:00'); pg.dispatch_event('#sh-time', 'change'); pg.wait_for_timeout(200)
+    check('fiche compacte : l\'avertissement « notifications » reste affiché', pg.is_visible('#sheet .pushwarn'))
+    check('nouveautés du 24 nov. (2) : aucune erreur', not errs)
+    c.close()
+
     # 7 sexies. Apparence : clair par défaut, Sombre ou Auto dans les Réglages
     c, pg, errs = device(cfg=False)
     bg = lambda: pg.evaluate("getComputedStyle(document.body).backgroundColor")
