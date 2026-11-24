@@ -262,6 +262,8 @@ document.addEventListener("submit",function(ev){
 });
 document.addEventListener("keydown",function(ev){if(ev.key==="Escape"&&sheet)closeSheet();});
 document.addEventListener("change",function(ev){
+  // heure du rappel choisie : la fiche se redessine pour afficher (ou retirer) l'avertissement « notifications non activées »
+  if(ev.target&&ev.target.id==="sh-time"&&sheet){syncDraft();var hadWarn=!!document.querySelector("#sheet .pushwarn");if(hadWarn!==(!!sheet.draft.time&&!pushOn()))renderSheet();return;}
   if(sheet&&ev.target&&ev.target.id==="sh-import"){
     var file=ev.target.files&&ev.target.files[0];if(!file)return;
     file.text().then(function(txt){

@@ -132,7 +132,9 @@ function renderSheet(){
       (dr.other?'<input type="date" id="sh-due" value="'+esc(dr.due)+'" aria-label="Autre date">':"")+'</div>';
     // heure du rappel : seulement quand il y a une date
     if(isDate(dr.due))h+='<div class="field timefield"><label for="sh-time">Rappel à</label><div class="trow"><input type="time" id="sh-time" value="'+esc(dr.time||"")+'">'+
-      (dr.time?'<button type="button" class="linkbtn" data-act="stime-clear">Sans rappel</button>':'<span class="thint">Facultatif</span>')+'</div></div>';
+      (dr.time?'<button type="button" class="linkbtn" data-act="stime-clear">Sans rappel</button>':'<span class="thint">Facultatif</span>')+'</div>'+
+      // sans abonnement sur cet appareil, le rappel ne peut pas arriver : on le dit tout de suite
+      (dr.time&&!pushOn()?'<div class="pushwarn" role="note">Les notifications ne sont pas activées sur cet appareil : ce rappel n\'arrivera pas. Active-les dans Réglages › Notifications.</div>':"")+'</div>';
     more+='<label class="tick" for="sh-prio"><input type="checkbox" id="sh-prio"'+(dr.prio?" checked":"")+'> Important</label>'+
       '<div class="hint">Passe en tête de sa date et s\'affiche en gras avec une pastille « ! ».</div>';
   }

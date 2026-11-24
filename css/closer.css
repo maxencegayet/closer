@@ -460,3 +460,5 @@ body.editing .dock{display:none}
 /* fiche : options rares repliées */
 .moreopt{align-self:flex-start;margin:0 4px}
 .list{position:relative}
+.pushwarn{font-size:14px;line-height:1.35;background:var(--warm-bg);color:var(--warm-ink);border-radius:12px;padding:10px 12px;margin-top:2px}
+.pushwarn .linkbtn{color:var(--warm-ink);font-size:14px;padding:0;margin-top:4px;display:block}
