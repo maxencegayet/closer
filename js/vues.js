@@ -3,6 +3,10 @@
 /* ---------- Jour ---------- */
 function renderJour(){
   var t=today();
+  // la date a changé depuis le dernier affichage (Closer resté ouvert la nuit) : si on regardait « aujourd'hui »,
+  // on passe au nouvel aujourd'hui, et la bande des jours se recale dessus
+  if(shownToday&&shownToday!==t){if(state.day===shownToday)state.day=t;weekPlaced=false;}
+  shownToday=t;
   if(!state.day||state.day<shift(t,-PAST_DAYS)||state.day>shift(t,6))state.day=t;
   var dateTxt=new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
   var dailies=byKind("daily"), tasks=byKind("task");
@@ -95,7 +99,7 @@ function renderJour(){
   $("l-jour").innerHTML=html;
 }
 
-var PAST_DAYS=7, weekPlaced=false, prevRest=null;
+var PAST_DAYS=7, weekPlaced=false, prevRest=null, shownToday=null;
 // ce qui a été coché un jour donné : habitudes faites ce jour-là, puis tâches terminées ce jour-là
 function doneOnDay(day){
   var hb=byKind("daily").concat(byKind("weekly")).filter(function(x){return histOf(x.d).indexOf(day)>=0;});

@@ -326,6 +326,8 @@ window.addEventListener("hashchange",route);
 document.addEventListener("visibilitychange",function(){
   if(document.hidden)Object.keys(dirty).forEach(flushNote);else render();
 });
+// Closer affiché au passage de minuit : on redessine dès que la date change
+setInterval(function(){if(!document.hidden&&shownToday&&today()!==shownToday)render();},30000);
 document.addEventListener("input",function(ev){
   var ta=ev.target;if(!ta)return;
   if(ta.id==="nb-q"){state.nq=ta.value;renderNoteList();return;}

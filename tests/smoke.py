@@ -807,6 +807,36 @@ with sync_playwright() as p:
     check('aucune erreur (lot 5)', not errs)
     c.close()
 
+    # 7 quaterdecies. Closer resté ouvert la nuit : au retour, le Jour passe au nouvel aujourd'hui (piste n° 55)
+    c, pg, errs = device(cfg=False)
+    pg.evaluate("""()=>{const t=today();state.items=new Map();
+      state.items.set('a',{kind:'task',title:'Hier fait',done:true,doneOn:t,due:t,cat:'Perso',created:1});
+      state.items.set('b',{kind:'task',title:'Pour demain',done:false,due:shift(t,1),cat:'Perso',created:2});
+      localStorage.setItem(LS_KEY,JSON.stringify([...state.items]));}""")
+    pg.reload(); pg.wait_for_timeout(500)
+    NT = pg.evaluate("shift(today(),1)")
+    pg.evaluate("(nt)=>{window.__rt=today;today=function(){return nt;};document.dispatchEvent(new Event('visibilitychange'));}", NT)
+    pg.wait_for_timeout(300)
+    jt = pg.inner_text('#l-jour')
+    check('le lendemain, au retour sur l\'appli : le Jour affiche aujourd\'hui, pas la veille',
+          pg.evaluate("state.day") == NT and 'Pour demain' in jt and 'Hier fait' not in jt and 'Prévu, pas encore fait' not in jt)
+    check('la bande des jours se recale sur le nouvel aujourd\'hui', pg.get_attribute('#week [data-id="%s"]' % NT, 'aria-pressed') == 'true')
+    # on regardait un autre jour : on y reste
+    pg.click('#week [data-id="%s"]' % pg.evaluate("shift(today(),2)")); pg.wait_for_timeout(200)
+    N2 = pg.evaluate("shift(today(),1)")
+    pg.evaluate("(n2)=>{today=function(){return n2;};document.dispatchEvent(new Event('visibilitychange'));}", N2)
+    pg.wait_for_timeout(300)
+    check('un autre jour choisi dans la bande reste affiché', pg.evaluate("state.day") == pg.evaluate("shift(today(),1)"))
+    # minuit pendant que Closer est affiché : redessiné sans toucher à rien (vérification toutes les 30 s)
+    pg.evaluate("()=>{state.day=today();render();}")
+    N3 = pg.evaluate("shift(today(),1)")
+    pg.evaluate("(n3)=>{today=function(){return n3;};}", N3)
+    pg.wait_for_timeout(31000)
+    check('minuit pendant que Closer est affiché : le Jour passe au lendemain tout seul', pg.evaluate("state.day") == N3)
+    pg.evaluate("()=>{today=window.__rt;}")
+    check('aucune erreur (passage de minuit)', not errs)
+    c.close()
+
     # 8. Bandeau de mise à jour quand une nouvelle version est en ligne
     c, pg, errs = device(appv_online='9999')
     pg.wait_for_timeout(3200)
