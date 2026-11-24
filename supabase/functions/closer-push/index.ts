@@ -2,7 +2,7 @@
 // Appelée chaque minute par pg_cron. Envoie :
 //   - les rappels des tâches qui ont une heure (le jour J, à l'heure dite, une seule fois) ;
 //   - les rappels des habitudes qui ont une heure (chaque jour où elles ne sont pas encore faites) ;
-//   - le récap du matin, à l'heure choisie dans les Réglages de Closer.
+//   - le récap du matin et le récap du soir (ce qui est prévu demain), aux heures choisies dans les Réglages de Closer.
 // GET  -> renvoie la clé publique (et crée les clés au tout premier appel).
 // POST {"test": "<endpoint>"} -> envoie une notification d'essai à cet appareil.
 import webpush from "npm:web-push@3.6.7";
@@ -58,7 +58,15 @@ function monday(date: string) {
   return d.toISOString().slice(0, 10);
 }
 
-type Sub = { endpoint: string; user_id: string; p256dh: string; auth: string; tz: string; morning: string | null; last_morning: string | null };
+type Sub = { endpoint: string; user_id: string; p256dh: string; auth: string; tz: string; morning: string | null; last_morning: string | null; evening?: string | null };
+// lendemain d'une date « AAAA-MM-JJ »
+function nextDay(date: string) {
+  const d = new Date(date + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+const capFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const short = (s: string) => (s.length > 28 ? s.slice(0, 27).trimEnd() + "…" : s);
 type Msg = { title: string; body: string; tag: string; url: string };
 
 async function send(sub: Sub, m: Msg) {
@@ -117,7 +125,7 @@ Deno.serve(async (req) => {
       if (late < 0 || late > 60) continue;
       if (!(await claim(uid, r.id, `${d.due} ${d.time}`))) continue;
       const t = String(d.title || "Tâche");
-      msgs.push({ title: t.charAt(0).toUpperCase() + t.slice(1), body: `Rappel de ${d.time}${d.cat === "Devoir" && d.subject ? " · " + d.subject : ""}`, tag: "t-" + r.id, url: "./#taches" });
+      msgs.push({ title: t.charAt(0).toUpperCase() + t.slice(1), body: `Rappel de ${d.time}${d.cat === "Devoir" && d.subject ? " · " + d.subject : ""}`, tag: "t-" + r.id, url: "./#ouvrir/" + encodeURIComponent(r.id) });
     }
 
     // Rappels des habitudes : chaque jour à l'heure dite, tant que ce n'est pas fait
@@ -140,7 +148,7 @@ Deno.serve(async (req) => {
       }
       if (!(await claim(uid, r.id, `${L.date} ${d.time}`))) continue;
       const t = String(d.title || "Habitude");
-      msgs.push({ title: t.charAt(0).toUpperCase() + t.slice(1), body, tag: "h-" + r.id, url: "./#jour" });
+      msgs.push({ title: t.charAt(0).toUpperCase() + t.slice(1), body, tag: "h-" + r.id, url: "./#ouvrir/" + encodeURIComponent(r.id) });
     }
 
     // Récap du matin : une fois par jour, à l'heure choisie (ou jusqu'à 2 h après)
@@ -154,6 +162,21 @@ Deno.serve(async (req) => {
         if (today) parts.push(`${today} ${today > 1 ? "tâches" : "tâche"} pour aujourd'hui`);
         if (late) parts.push(`${late} en retard`);
         msgs.push({ title: "Ta journée", body: parts.join(" et ") + ".", tag: "matin", url: "./#jour" });
+      }
+    }
+
+    // Récap du soir : ce qui est prévu demain, une fois par soir, à l'heure choisie (ou jusqu'à 2 h après).
+    // (colonne « evening » : si elle n'existe pas encore dans la base, il n'y a simplement pas de récap du soir)
+    const ev = list.find((s) => isHM(s.evening))?.evening;
+    if (ev && now >= mins(ev) && now - mins(ev) <= 120) {
+      const tmw = nextDay(L.date);
+      const next = open.filter((r) => r.data.due === tmw)
+        .sort((a, b) => (b.data.prio ? 1 : 0) - (a.data.prio ? 1 : 0) || String(a.data.time || "99").localeCompare(String(b.data.time || "99")));
+      if (next.length && (await claim(uid, "soir", L.date))) {
+        const names = next.slice(0, 3).map((r) => short(capFirst(String(r.data.title || "Tâche"))));
+        const rest = next.length - names.length;
+        const list2 = rest > 0 ? names.join(", ") + ` et ${rest} ${rest > 1 ? "autres" : "autre"}` : names.length > 1 ? names.slice(0, -1).join(", ") + " et " + names[names.length - 1] : names[0];
+        msgs.push({ title: next.length > 1 ? `Demain : ${next.length} tâches` : "Demain : 1 tâche", body: list2 + ".", tag: "soir", url: "./#jour/" + tmw });
       }
     }
 

@@ -76,11 +76,14 @@ function syncDraft(){
 // « Rappel à » : heure facultative, avec un avertissement si l'appareil ne reçoit pas les notifications
 function pushWarn(dr){return dr.time&&!pushOn()?'<div class="pushwarn" role="note">Les notifications ne sont pas activées sur cet appareil : ce rappel n\'arrivera pas. Active-les dans Réglages › Notifications.</div>':"";}
 // compact : sur une moitié de ligne, à côté de « Répéter » (l'avertissement passe en dessous, sur toute la largeur)
+// heures rapides sous « Rappel à » : un toucher au lieu du sélecteur ; retoucher la même heure l'enlève
+var QUICK_TIMES=[["09:00","9 h"],["12:00","12 h"],["18:00","18 h"]];
+function timeQuick(dr){return '<div class="chips tquick" role="group" aria-label="Heures rapides pour le rappel">'+QUICK_TIMES.map(function(o){return sChip("stime",o[0],o[1],dr.time===o[0]);}).join("")+'</div>';}
 function timeField(dr,compact){
   if(compact)return '<div class="field timefield"><div class="flab"><label for="sh-time">Rappel à</label>'+(dr.time?'<button type="button" class="linkbtn tiny" data-act="stime-clear" aria-label="Retirer le rappel">Retirer</button>':"")+'</div>'+
     '<input type="time" id="sh-time" value="'+esc(dr.time||"")+'"></div>';
   return '<div class="field timefield"><label for="sh-time">Rappel à</label><div class="trow"><input type="time" id="sh-time" value="'+esc(dr.time||"")+'">'+
-    (dr.time?'<button type="button" class="linkbtn" data-act="stime-clear">Sans rappel</button>':'<span class="thint">Facultatif</span>')+'</div>'+pushWarn(dr)+'</div>';
+    (dr.time?'<button type="button" class="linkbtn" data-act="stime-clear">Sans rappel</button>':'<span class="thint">Facultatif</span>')+'</div>'+timeQuick(dr)+pushWarn(dr)+'</div>';
 }
 function sChip(act,val,label,on){return '<button type="button" class="chip" aria-pressed="'+on+'" data-act="'+act+'" data-v="'+esc(val)+'">'+esc(label)+'</button>';}
 function renderSheet(){
@@ -145,7 +148,7 @@ function renderSheet(){
     // heure du rappel et répétition : seulement quand il y a une date
     if(isDate(dr.due)){
       h+='<div class="two eq">'+timeField(dr,true)+
-        '<div class="field"><label for="sh-rep">Répéter</label><select id="sh-rep">'+REPS.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===(dr.rep||"")?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select></div></div>'+pushWarn(dr);
+        '<div class="field"><label for="sh-rep">Répéter</label><select id="sh-rep">'+REPS.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===(dr.rep||"")?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select></div></div>'+timeQuick(dr)+pushWarn(dr);
     }
     more+='<label class="tick" for="sh-prio"><input type="checkbox" id="sh-prio"'+(dr.prio?" checked":"")+'> Important</label>'+
       '<div class="hint">Passe en tête de sa date et s\'affiche en gras avec une pastille « ! ».</div>';

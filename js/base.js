@@ -18,7 +18,7 @@ var state={items:new Map(),filter:"Tout",tmenu:false,day:"",showDone:{taches:fal
 var dirty={}, noteTimers={}, lastNoteIds=null;
 var lastDeleted=null, toastTimer=null, focusAfter=null;
 var sheet=null, sheetOpener=null, orderGroups={}, orderModes={};
-var prevPct={}, prevDone=null, curView=null, EASE="cubic-bezier(0.23,1,0.32,1)";
+var prevPct={}, prevDone=null, heroPct=null, SEG_MAX=10, curView=null, EASE="cubic-bezier(0.23,1,0.32,1)";
 var reduce=window.matchMedia?window.matchMedia("(prefers-reduced-motion: reduce)"):{matches:false};
 
 function $(id){return document.getElementById(id);}

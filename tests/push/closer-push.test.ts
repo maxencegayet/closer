@@ -30,10 +30,10 @@ function eq(a: unknown, b: unknown, what: string) {
   if (A !== B) throw new Error(`${what}\n  obtenu : ${A}\n  attendu : ${B}`);
 }
 // remet tout à zéro : un utilisateur, un iPhone abonné, l'heure du matin choisie
-function base(opts: { morning?: string | null; tz?: string; devices?: number } = {}) {
+function base(opts: { morning?: string | null; evening?: string | null; tz?: string; devices?: number } = {}) {
   reset(); sent.length = 0; for (const k in fail) delete fail[k];
   for (let i = 1; i <= (opts.devices || 1); i++)
-    db.closer_push.push({ endpoint: "https://push/" + i, user_id: "u1", p256dh: "p", auth: "a", tz: opts.tz || "Europe/Paris", morning: opts.morning === undefined ? null : opts.morning, last_morning: null });
+    db.closer_push.push({ endpoint: "https://push/" + i, user_id: "u1", p256dh: "p", auth: "a", tz: opts.tz || "Europe/Paris", morning: opts.morning === undefined ? null : opts.morning, last_morning: null, evening: opts.evening ?? null });
 }
 let nid = 0;
 const item = (data: Record<string, unknown>, user = "u1", deleted = false) =>
@@ -56,7 +56,7 @@ Deno.test("rappel de tâche : à l'heure dite, une seule fois", async () => {
   eq(titles(), ["Appeler la banque | Rappel de 08:00"], "premier passage");
   at("2026-11-24T08:01"); await cron();
   eq(sent.length, 1, "pas de deuxième envoi la minute suivante");
-  eq(sent[0].msg.url, "./#taches", "la notification ouvre Tâches");
+  eq(sent[0].msg.url, "./#ouvrir/" + db.closer_items[0].id, "la notification ouvre la tâche");
 });
 
 Deno.test("rappel de tâche : rattrapé jusqu'à 1 h après, jamais avant ni plus tard", async () => {
@@ -94,7 +94,7 @@ Deno.test("habitude du jour : rappel si pas faite, avec la série en cours", asy
   item({ kind: "daily", title: "eau", time: "18:00" });
   await cron();
   eq(titles().sort(), ["Eau | À faire aujourd'hui", "Muscu | Garde ta série de 5 jours"], "seules les habitudes pas faites");
-  eq(sent[0].msg.url, "./#jour", "la notification ouvre le Jour");
+  eq(sent[0].msg.url.startsWith("./#ouvrir/i"), true, "la notification ouvre l'habitude");
   at("2026-11-24T18:30"); await cron();
   eq(sent.length, 2, "une fois par jour");
   at("2026-11-25T18:00"); await cron();
@@ -170,4 +170,54 @@ Deno.test("ménage : les envois de plus de 30 jours sont effacés", async () => 
   db.closer_push_sent.push({ user_id: "u1", item_id: "récent", slot: "s", sent_at: "2026-11-20T08:00:00.000Z" });
   await cron();
   eq(db.closer_push_sent.map((r) => r.item_id), ["récent"], "seul le récent reste");
+});
+
+Deno.test("récap du soir : ce qui est prévu demain, une fois par soir, ouvre le Jour sur demain", async () => {
+  base({ evening: "21:00" }); at("2026-11-24T21:00");
+  item({ kind: "task", title: "dentiste", due: "2026-11-25", time: "09:00", done: false });
+  item({ kind: "task", title: "réviser la finance d'entreprise pour le partiel", due: "2026-11-25", done: false, prio: true });
+  item({ kind: "task", title: "courses", due: "2026-11-25", done: false });
+  item({ kind: "task", title: "banque", due: "2026-11-25", done: false });
+  item({ kind: "task", title: "déjà faite", due: "2026-11-25", done: true });
+  item({ kind: "task", title: "aujourd'hui", due: "2026-11-24", done: false });
+  await cron();
+  eq(titles(), ["Demain : 4 tâches | Réviser la finance d'entrep…, Dentiste, Courses et 1 autre."], "important d'abord, puis par heure ; titres raccourcis");
+  eq(sent[0].msg.url, "./#jour/2026-11-25", "ouvre le Jour sur demain");
+  at("2026-11-24T22:30"); await cron();
+  eq(sent.length, 1, "une seule fois par soir");
+});
+
+Deno.test("récap du soir : une ou deux tâches ; rien prévu = rien d'envoyé ; désactivé ; trop tard", async () => {
+  base({ evening: "20:00" }); at("2026-11-24T20:00");
+  item({ kind: "task", title: "dentiste", due: "2026-11-25", done: false });
+  await cron();
+  eq(titles(), ["Demain : 1 tâche | Dentiste."], "une tâche");
+  base({ evening: "20:00" }); at("2026-11-24T20:10");
+  item({ kind: "task", title: "a", due: "2026-11-25", done: false });
+  item({ kind: "task", title: "b", due: "2026-11-25", done: false });
+  await cron();
+  eq(titles(), ["Demain : 2 tâches | A et B."], "deux tâches");
+  base({ evening: "20:00" }); at("2026-11-24T20:00");
+  item({ kind: "task", title: "plus tard", due: "2026-11-27", done: false });
+  await cron();
+  eq(sent.length, 0, "rien de prévu demain");
+  base({ evening: null }); at("2026-11-24T20:00");
+  item({ kind: "task", title: "a", due: "2026-11-25", done: false });
+  await cron();
+  eq(sent.length, 0, "récap du soir désactivé");
+  base({ evening: "20:00" }); at("2026-11-24T22:01");
+  item({ kind: "task", title: "a", due: "2026-11-25", done: false });
+  await cron();
+  eq(sent.length, 0, "plus de 2 h après l'heure choisie");
+});
+
+Deno.test("récap du soir : fin de mois et colonne absente de la base", async () => {
+  base({ evening: "21:00" }); at("2026-11-30T21:00");
+  item({ kind: "task", title: "loyer", due: "2026-12-01", done: false });
+  await cron();
+  eq(sent[0]?.msg.url, "./#jour/2026-12-01", "le lendemain du 30 novembre est le 1er décembre");
+  base(); delete db.closer_push[0].evening; at("2026-11-24T21:00");
+  item({ kind: "task", title: "a", due: "2026-11-25", done: false });
+  const r = await cron();
+  eq([r.status, sent.length], [200, 0], "sans la colonne « evening », la fonction marche quand même");
 });

@@ -54,7 +54,8 @@ export function createClient(){
   };
   function from(){const q={};const b={select(){return b;},gt(c,v){q.gt=v;return b;},order(){return b;},
     range(a,z){q.range=[a,z];q.uid=cur();return call('select',q);},
-    upsert(rows){return call('upsert',{rows,uid:cur()});}};return b;}
+    upsert(rows){return call('upsert',{rows,uid:cur()});},
+    update(v){return {eq(){(window.__upd=window.__upd||[]).push(v);return Promise.resolve({error:null});}};}};return b;}
   return {auth,from,rpc:async(n)=>call('rpc',{n,uid:cur()})};
 }
 """
@@ -664,6 +665,71 @@ with sync_playwright() as p:
     r = merge(local={'a': vl}, known={'a': v0}, remote=[], failUp=True)
     check('fusion : envoi en échec → erreur remontée, l\'élément reste à renvoyer', r['err'] == 'panne' and r['items']['a']['title'] == 'Courses ici' and pg.evaluate("SY.h.a!==hOf(state.items.get('a'))"))
     check('aucune erreur (fusion)', not errs)
+    c.close()
+
+    # 7 duodecies. Lot 4 : heures rapides, barre continue, notifications qui ouvrent la tâche, récap du soir
+    SEED = """(a)=>{state.items=new Map();const t=today();
+      a.forEach(([id,d])=>state.items.set(id,Object.assign({created:Date.now(),cat:'Perso',done:false,kind:'task'},d,
+        {due:d.due==='T'?t:d.due==='T+1'?shift(t,1):d.due},d.done?{doneOn:t}:{})));
+      localStorage.setItem(LS_KEY,JSON.stringify([...state.items]));}"""
+    c, pg, errs = device(cfg=False)
+    # n° 5 : heures rapides
+    pg.click('#fab'); pg.wait_for_timeout(300)
+    check('fiche tâche : 3 heures rapides sous « Rappel à »', pg.eval_on_selector_all('#sheet .tquick .chip', 'n=>n.map(e=>e.textContent)') == ['9 h', '12 h', '18 h'])
+    pg.click('#sheet .tquick [data-v="12:00"]'); pg.wait_for_timeout(150)
+    check('toucher « 12 h » remplit l\'heure', pg.input_value('#sh-time') == '12:00' and pg.get_attribute('#sheet .tquick [data-v="12:00"]', 'aria-pressed') == 'true')
+    check('le focus reste sur l\'heure touchée', pg.evaluate("document.activeElement.dataset.v")=='12:00')
+    pg.click('#sheet .tquick [data-v="12:00"]'); pg.wait_for_timeout(150)
+    check('retoucher la même heure enlève le rappel', pg.input_value('#sh-time') == '')
+    pg.fill('#sh-time', '18:00'); pg.dispatch_event('#sh-time', 'change'); pg.wait_for_timeout(150)
+    pg.click('#sheet [data-act="stype"][data-v="daily"]'); pg.wait_for_timeout(200)
+    check('heure tapée à la main : la bonne heure rapide s\'allume (habitude aussi)', pg.get_attribute('#sheet .tquick [data-v="18:00"]', 'aria-pressed') == 'true')
+    pg.click('#sheet .tquick [data-v="09:00"]'); pg.fill('#sh-title', 'Lire'); pg.press('#sh-title', 'Enter'); pg.wait_for_timeout(300)
+    check('l\'heure rapide est enregistrée', pg.evaluate("[...state.items.values()].some(d=>d.title==='lire'||d.title==='Lire'?d.time==='09:00':false)"))
+    # n° 11 : barre de la carte noire
+    pg.evaluate(SEED, [[f't{i}', {'title': f'Tâche {i}', 'due': 'T', 'done': i < 3}] for i in range(12)])
+    pg.reload(); pg.wait_for_timeout(500)
+    check('plus de 10 éléments : barre continue au bon niveau', not pg.query_selector('#hero .segs') and pg.get_attribute('#hero .pbar i', 'style') == 'width:25.0%'
+          and pg.get_attribute('#hero .pbar', 'aria-label') == '3 sur 12 faites')
+    pg.click('#v-jour [data-act="done"][data-id="t5"], #v-jour .check[data-id="t5"]'); pg.wait_for_timeout(400)
+    check('cocher fait avancer la barre continue', pg.get_attribute('#hero .pbar i', 'style') == 'width:33.3%')
+    pg.evaluate(SEED, [[f't{i}', {'title': f'Tâche {i}', 'due': 'T', 'done': i < 1}] for i in range(4)])
+    pg.reload(); pg.wait_for_timeout(500)
+    check('10 éléments ou moins : un segment chacun', pg.eval_on_selector_all('#hero .segs i', 'n=>[n.length,n.filter(e=>e.classList.contains("on")).length]') == [4, 1] and not pg.query_selector('#hero .pbar'))
+    # n° 52 : la notification ouvre la tâche ; n° 3 : le récap du soir ouvre demain
+    pg.evaluate(SEED, [['a1', {'title': 'Appeler la banque', 'due': 'T', 'time': '09:00'}], ['u1', {'title': 'Trier les photos', 'due': ''}],
+                       ['h1', {'kind': 'daily', 'title': 'Muscu', 'time': '18:00'}], ['d1', {'title': 'Dentiste', 'due': 'T+1'}]])
+    pg.goto(URL + '#taches'); pg.goto(URL + '#ouvrir/a1'); pg.wait_for_timeout(600)
+    check('lien d\'un rappel, appli fermée : le Jour s\'ouvre sur la tâche, mise en avant', pg.evaluate("location.hash") == '#jour' and not pg.is_hidden('#v-jour')
+          and pg.evaluate("document.querySelector('#v-jour [data-id=\"a1\"]').closest('.row').classList.contains('flash')")
+          and not pg.evaluate("document.body.classList.contains('sheet-open')"))
+    check('… et le focus est sur la tâche', pg.evaluate("document.activeElement&&document.activeElement.dataset.id")=='a1')
+    pg.evaluate("navigator.serviceWorker.dispatchEvent(new MessageEvent('message',{data:{open:'#ouvrir/h1'}}))"); pg.wait_for_timeout(400)
+    check('appli déjà ouverte : le message du service worker met l\'habitude en avant',
+          pg.evaluate("document.querySelector('#v-jour [data-id=\"h1\"]').closest('.row').classList.contains('flash')"))
+    pg.evaluate("location.hash='#ouvrir/u1'"); pg.wait_for_timeout(600)
+    check('tâche pas visible sur le Jour (repliée) : sa fiche s\'ouvre', pg.evaluate("document.body.classList.contains('sheet-open')") and pg.input_value('#sh-title') == 'Trier les photos')
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(450)
+    pg.evaluate("location.hash='#ouvrir/inconnu'"); pg.wait_for_timeout(300)
+    check('lien vers un élément supprimé : rien ne casse, on reste sur le Jour', pg.evaluate("location.hash") == '#jour' and not pg.evaluate("document.body.classList.contains('sheet-open')"))
+    pg.evaluate("location.hash='#jour/'+shift(today(),1)"); pg.wait_for_timeout(400)
+    check('lien du récap du soir : le Jour s\'ouvre sur demain', pg.evaluate("state.day===shift(today(),1)&&location.hash==='#jour'") and 'Dentiste' in pg.inner_text('#v-jour'))
+    check('aucune erreur (lot 4)', not errs)
+    c.close()
+    # n° 3 : réglage du récap du soir (connecté, notifications activées)
+    USERS['soir@test.fr'] = {'pw': 'Motdepasse1', 'id': 'u-soir', 'conf': True}
+    c, pg, errs = device()
+    pg.evaluate("""()=>{Object.defineProperty(window,'Notification',{value:{permission:'granted',requestPermission:async()=>'granted'},configurable:true});
+      if(!window.PushManager)window.PushManager=function(){};localStorage.setItem('closer-push','https://push/test');}""")
+    login(pg, 'soir@test.fr', 'Motdepasse1')
+    open_account(pg) if not pg.evaluate("document.body.classList.contains('sheet-open')") else None
+    pg.wait_for_timeout(300)
+    check('Réglages : « Récap du soir » désactivé par défaut', pg.get_attribute('#sheet [data-act="set-evening"][data-v=""]', 'aria-checked') == 'true' and 'Ce qui est prévu demain' in pg.inner_text('#sheet'))
+    pg.click('#sheet [data-act="set-evening"][data-v="21:00"]'); pg.wait_for_timeout(300)
+    check('choisir 21 h : enregistré sur l\'appareil et envoyé au serveur', pg.get_attribute('#sheet [data-act="set-evening"][data-v="21:00"]', 'aria-checked') == 'true'
+          and pg.evaluate("localStorage.getItem('closer-evening')") == '21:00' and pg.evaluate("(window.__upd||[]).some(v=>v.evening==='21:00')"))
+    check('le focus reste sur l\'heure choisie', pg.evaluate("document.activeElement.dataset.v") == '21:00')
+    check('aucune erreur (récap du soir)', not errs)
     c.close()
 
     # 8. Bandeau de mise à jour quand une nouvelle version est en ligne

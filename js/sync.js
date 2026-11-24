@@ -167,11 +167,13 @@ function hm(t){return new Date(t).toLocaleTimeString("fr-FR",{hour:"2-digit",min
    L'appareil s'abonne avec la clé publique de Supabase ; la fonction « closer-push »
    (supabase/functions/closer-push) envoie les notifications. iPhone : iOS 16.4 ou plus,
    Closer ajouté à l'écran d'accueil. */
-var PUSH_URL=SB_URL+"/functions/v1/closer-push", PUSH_KEY="closer-push", MORNING_KEY="closer-morning", pushBusy=false;
+var PUSH_URL=SB_URL+"/functions/v1/closer-push", PUSH_KEY="closer-push", MORNING_KEY="closer-morning", EVENING_KEY="closer-evening", pushBusy=false;
 function pushOk(){return "serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;}
 function pushEndpoint(){try{return localStorage.getItem(PUSH_KEY)||"";}catch(e){return "";}}
 function pushOn(){return pushOk()&&Notification.permission==="granted"&&!!pushEndpoint();}
 function pushMorning(){try{var v=localStorage.getItem(MORNING_KEY);return v===null?"08:00":v;}catch(e){return "08:00";}}
+// récap du soir : désactivé tant qu'on ne choisit pas d'heure
+function pushEvening(){try{return localStorage.getItem(EVENING_KEY)||"";}catch(e){return "";}}
 function b64uBytes(s){s=s.replace(/-/g,"+").replace(/_/g,"/");s+="===".slice((s.length+3)%4);var r=atob(s),a=new Uint8Array(r.length);for(var i=0;i<r.length;i++)a[i]=r.charCodeAt(i);return a;}
 async function pushPublicKey(){
   var r=await SB.rpc("closer_vapid_public");
@@ -182,7 +184,9 @@ async function pushPublicKey(){
 async function pushSave(sub){
   var j=sub.toJSON(), tz="Europe/Paris";
   try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||tz;}catch(e){}
-  var r=await SB.from("closer_push").upsert({endpoint:j.endpoint,user_id:SU.id,p256dh:j.keys.p256dh,auth:j.keys.auth,tz:tz,morning:pushMorning()||null});
+  var row={endpoint:j.endpoint,user_id:SU.id,p256dh:j.keys.p256dh,auth:j.keys.auth,tz:tz,morning:pushMorning()||null};
+  if(pushEvening())row.evening=pushEvening();
+  var r=await SB.from("closer_push").upsert(row);
   if(r.error)throw r.error;
   try{localStorage.setItem(PUSH_KEY,j.endpoint);}catch(e){}
 }
@@ -214,6 +218,13 @@ async function pushSetMorning(v){
   try{localStorage.setItem(MORNING_KEY,v);}catch(e){}
   var ep=pushEndpoint();
   if(ep&&SB){var r=await SB.from("closer_push").update({morning:v||null}).eq("endpoint",ep);if(r.error)logErr("notifications",r.error);}
+}
+async function pushSetEvening(v){
+  var old=pushEvening();
+  try{localStorage.setItem(EVENING_KEY,v);}catch(e){}
+  var ep=pushEndpoint();
+  if(ep&&SB){var r=await SB.from("closer_push").update({evening:v||null}).eq("endpoint",ep);
+    if(r.error){logErr("notifications",r.error);try{localStorage.setItem(EVENING_KEY,old);}catch(e){}showToast("Le récap du soir n'a pas pu être enregistré. Réessaie plus tard.",true);}}
 }
 async function pushTest(){
   var ep=pushEndpoint();if(!ep)return;

@@ -21,7 +21,7 @@ Les applications existantes (to-do, agenda, suivi d'habitudes) séparaient ce qu
 - **Sauvegarde** : export et import des données dans un fichier.
 - **Mises à jour** : un bandeau « Nouvelle version » apparaît dès qu'une version est mise en ligne.
 - **Installable** : s'ajoute à l'écran d'accueil du téléphone et s'ouvre hors connexion.
-- **Notifications** : rappel à l'heure choisie pour une tâche et récap du matin, envoyés par une fonction Supabase (Web Push, sans service tiers).
+- **Notifications** : rappel à l'heure choisie pour une tâche ou une habitude, récap du matin et récap du soir (ce qui est prévu demain), envoyés par une fonction Supabase (Web Push, sans service tiers). Toucher une notification ouvre la tâche concernée.
 - **Apparence** : clair par défaut, sombre ou automatique (comme le téléphone), au choix dans les Réglages.
 
 ## Choix techniques
@@ -51,7 +51,8 @@ Les applications existantes (to-do, agenda, suivi d'habitudes) séparaient ce qu
 | `js/sync.js` | Mises à jour, compte et synchronisation Supabase |
 | `js/reglages.js` | Réglages et statistiques |
 | `js/demarrage.js` | Geste de fermeture des fiches et lancement (chargé en dernier) |
-| `sw.js` | Mode hors ligne et mises à jour |
+| `sw.js` | Mode hors ligne, mises à jour, notifications (un toucher ouvre la tâche concernée) |
+| `splash/` | Écrans de lancement iPhone, un par taille d'écran, fabriqués par `splash/fabriquer.py` |
 | `supabase/closer.sql` | Tables, règles d'accès, suppression de compte et statistiques (à exécuter une fois dans Supabase) |
 | `tests/smoke.py` | Tests de fumée, avec un faux Supabase (aucun réseau nécessaire) ; `ENGINE=webkit` pour le moteur de Safari |
 | `tests/push/` | Tests de la fonction de notifications `closer-push` (faux Supabase, faux service de notifications, horloge réglable) |
@@ -84,4 +85,4 @@ J'ai conçu ce projet en dirigeant un assistant IA (Claude, d'Anthropic) : j'ai 
 
 - Si une même tâche ou un même objectif est modifié sur deux appareils hors connexion, la version de l'appareil qui se synchronise en dernier est conservée (pour les notes, les deux versions sont gardées).
 - Les fichiers JavaScript partagent des variables globales (pas de modules) : simple à lire et sans outil, au prix d'un ordre de chargement à respecter.
-- Pas de notifications de rappel.
+- Les notifications demandent un compte et, sur iPhone, Closer ajouté à l'écran d'accueil (iOS 16.4 ou plus).

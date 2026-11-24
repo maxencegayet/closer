@@ -84,6 +84,8 @@ nav.tabs a:focus-visible{outline-color:var(--surface);outline-offset:-3px}
 .segs{display:flex;gap:4px;height:12px}
 .segs i{flex:1;border-radius:6px;background:var(--hero-off)}
 .segs i.on{background:var(--surface)}
+.pbar{height:12px;border-radius:6px;background:var(--hero-off);overflow:hidden}
+.pbar i{display:block;height:100%;border-radius:6px;background:var(--surface)}
 
 /* les 7 prochains jours */
 /* 7 jours passés à gauche, hors champ : on les voit en faisant glisser la bande */
@@ -505,4 +507,7 @@ body.arr-drag .list{overflow:visible}
 .flab label{font-size:13px;font-weight:600;color:var(--muted)}
 .linkbtn.tiny{font-size:13px;padding:0}
 .two.eq .timefield input[type="time"]{width:100%;min-width:0}
+.tquick{margin-top:-4px}
+.timefield .tquick{margin-top:8px}
+.tquick .chip{padding:6px 14px;font-size:13px;font-variant-numeric:tabular-nums}
 .two.eq select{width:100%;min-width:0}

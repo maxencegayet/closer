@@ -14,6 +14,10 @@ function route(){
   var h=(location.hash||"").slice(1), parts=h.split("/");
   // ancien onglet Devoirs : c'est maintenant un filtre de Tâches
   if(parts[0]==="devoirs"){state.filter="Devoirs";parts=["taches"];try{history.replaceState(null,"","#taches");}catch(e){}}
+  // liens des notifications : #ouvrir/<id> (un rappel : montre la tâche ou l'habitude) et #jour/AAAA-MM-JJ (récap du soir : demain)
+  var openId=null;
+  if(parts[0]==="ouvrir"){openId=decodeURIComponent(parts[1]||"");state.day=today();parts=["jour"];try{history.replaceState(null,"","#jour");}catch(e){}}
+  else if(parts[0]==="jour"&&isDate(parts[1])){state.day=parts[1];parts=["jour"];try{history.replaceState(null,"","#jour");}catch(e){}}
   var v=TABS.indexOf(parts[0])>=0?parts[0]:"jour";
   state.tmenu=false;
   var want=v==="brouillon"&&parts[1]?decodeURIComponent(parts[1]):null;
@@ -30,6 +34,22 @@ function route(){
   $("fab").setAttribute("aria-label",v==="brouillon"?"Nouvelle note":"Ajouter");
   render();
   document.querySelectorAll("nav.tabs a").forEach(function(a){if(a.dataset.tab===v)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");});
+  if(openId)showItem(openId);
+}
+// la ligne est visible sur le Jour : on la met en avant (elle se coche d'un toucher) ; sinon on ouvre sa fiche
+function showItem(id){
+  if(!state.items.has(id))return;
+  if(sheet)closeSheet();
+  var q='[data-id="'+(window.CSS&&CSS.escape?CSS.escape(id):id)+'"]';
+  var el=document.querySelector("#v-jour "+q), row=el&&(el.closest(".row")||el.closest(".hab"));
+  if(row&&row.getClientRects().length){
+    row.scrollIntoView({block:"center"});
+    row.classList.remove("flash");void row.offsetWidth;row.classList.add("flash");
+    var f=row.querySelector('[data-act="edit"]')||el;if(f)f.focus({preventScroll:true});
+    return;
+  }
+  var ed=document.querySelector('[data-act="edit"]'+q);
+  if(ed)ed.click();
 }
 
 /* ---------- actions ---------- */
@@ -193,11 +213,12 @@ document.addEventListener("click",function(ev){
     dr=blankDraft();dr.title=cap(d.steps[i].t);
     openSheet({mode:"edit",kind:"step",id:id,i:i,draft:dr},b);return;
   }
-  if(sheet&&(act==="stype"||act==="scat"||act==="sdate"||act==="sfreq")){
+  if(sheet&&(act==="stype"||act==="scat"||act==="sdate"||act==="sfreq"||act==="stime")){
     syncDraft();var v=b.dataset.v;
     if(act==="stype")sheet.kind=v;
     else if(act==="scat"){if(v==="__new")sheet.draft.newCat=true;else{sheet.draft.newCat=false;sheet.draft.cat=v;}}
     else if(act==="sfreq"){sheet.draft.freq=+v;}
+    else if(act==="stime"){sheet.draft.time=sheet.draft.time===v?"":v;}
     else if(v==="other"){sheet.draft.other=true;}
     else{sheet.draft.other=false;sheet.draft.due=v;}
     renderSheet();
@@ -213,6 +234,7 @@ document.addEventListener("click",function(ev){
   if(act==="stime-clear"){syncDraft();sheet.draft.time="";renderSheet();return;}
   if(act==="set-push"){if(pushOn())pushDisable();else pushEnable();return;}
   if(act==="set-morning"){pushSetMorning(b.dataset.v);renderSheet();return;}
+  if(act==="set-evening"){pushSetEvening(b.dataset.v).then(function(){if(sheet&&sheet.kind==="account"){renderSheet();var nb=$("sheet").querySelector('[data-act="set-evening"][aria-checked="true"]');if(nb)nb.focus();}});renderSheet();var eb=$("sheet").querySelector('[data-act="set-evening"][data-v="'+b.dataset.v+'"]');if(eb)eb.focus();return;}
   if(act==="set-push-test"){pushTest();return;}
   if(act==="set-badge"){
     var pm=("Notification" in window)?Notification.permission:"";

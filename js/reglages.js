@@ -4,6 +4,7 @@
 var IC={
   tag:'<path d="M3 12V4h8l9 9-8 8z"/><circle cx="7.5" cy="7.5" r="1.2"/>',
   folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  moon:'<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',
   sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
   send:'<path d="M21 3 10 14M21 3l-7 18-4-7-7-4z"/>',
   bell:'<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
@@ -23,6 +24,7 @@ var IC={
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["24 nov.","Toucher une notification ouvre directement la tâche ou l'habitude concernée. Heures rapides (9 h, 12 h, 18 h) sous « Rappel à ». Nouveau récap du soir, avec ce qui est prévu demain (Réglages › Notifications). Barre de la journée continue quand il y a plus de 10 choses à faire, et écran de lancement aux couleurs de Closer sur iPhone."],
   ["24 nov.","Sur le Jour, « Sans date, à caser » est repliée par défaut : touche le titre pour l'ouvrir. Closer est maintenant testé aussi dans le moteur de Safari, et les rappels sont vérifiés automatiquement à chaque mise en ligne."],
   ["24 nov.","Fais glisser la bande des jours vers la droite pour revoir la semaine passée. Une tâche répétée chaque jour qu'on a manquée revient d'elle-même à aujourd'hui. « Ranger à la main » se fait en faisant glisser la poignée. Petit repère sur les tâches qui font avancer un objectif. Fiche plus compacte : le type en une barre, « Rappel à » et « Répéter » côte à côte."],
   ["24 nov.","Tâches qui se répètent (tous les jours, du lundi au vendredi, chaque semaine ou chaque mois) : cocher garde une trace et passe à la prochaine date. Rappel à l'heure pour les habitudes. Premiers pas guidés et écrans vides plus clairs."],
@@ -117,16 +119,19 @@ function acHTML(){
   /* 3 bis. Notifications : rappels à l'heure + récap du matin */
   if(acOn()){
     var nr="", note="";
-    if(!pushOk())nr=sRow("set-a2hs","bell","Rappels et récap du matin",{sub:isIOS()?"Ajoute d'abord Closer à l'écran d'accueil (iOS 16.4 ou plus)":"Ce navigateur ne reçoit pas les notifications",noChev:true});
-    else if(!SU)nr=sRow("ac-open","bell","Rappels et récap du matin",{sub:"Connecte-toi pour les activer",noChev:true});
-    else if(perm==="denied")nr=sRow("set-push","bell","Rappels et récap du matin",{sub:"Refusées : autorise Closer dans Réglages › Notifications du téléphone",noChev:true});
+    if(!pushOk())nr=sRow("set-a2hs","bell","Rappels et récaps",{sub:isIOS()?"Ajoute d'abord Closer à l'écran d'accueil (iOS 16.4 ou plus)":"Ce navigateur ne reçoit pas les notifications",noChev:true});
+    else if(!SU)nr=sRow("ac-open","bell","Rappels et récaps",{sub:"Connecte-toi pour les activer",noChev:true});
+    else if(perm==="denied")nr=sRow("set-push","bell","Rappels et récaps",{sub:"Refusées : autorise Closer dans Réglages › Notifications du téléphone",noChev:true});
     else{
       var on=pushOn();
-      nr=sRow("set-push","bell","Rappels et récap du matin",{sub:on?"Activés sur cet appareil":"Une notification à l'heure de tes tâches",sw:on});
+      nr=sRow("set-push","bell","Rappels et récaps",{sub:on?"Activés sur cet appareil":"Une notification à l'heure de tes tâches",sw:on});
       if(on){
         var mo=pushMorning();
         nr+='<div class="srow segrow">'+sIcon("sun")+'<span class="sl">Récap du matin</span><span class="segc" role="radiogroup" aria-label="Récap du matin">'+
           [["","Non"],["07:00","7 h"],["08:00","8 h"],["09:00","9 h"]].map(function(o){return '<button type="button" role="radio" aria-checked="'+(mo===o[0])+'" data-act="set-morning" data-v="'+o[0]+'">'+o[1]+'</button>';}).join("")+'</span></div>';
+        var ev=pushEvening();
+        nr+='<div class="srow segrow">'+sIcon("moon")+'<span class="sl">Récap du soir<small>Ce qui est prévu demain</small></span><span class="segc" role="radiogroup" aria-label="Récap du soir">'+
+          [["","Non"],["20:00","20 h"],["21:00","21 h"],["22:00","22 h"]].map(function(o){return '<button type="button" role="radio" aria-checked="'+(ev===o[0])+'" data-act="set-evening" data-v="'+o[0]+'">'+o[1]+'</button>';}).join("")+'</span></div>';
         nr+=sRow("set-push-test","send","Envoyer une notification d'essai",{noChev:true});
       }
       note="Pour être prévenu, choisis une heure dans « Rappel à » en ajoutant ou en modifiant une tâche.";

@@ -12,8 +12,11 @@ create table if not exists public.closer_push (
   tz text not null default 'Europe/Paris',   -- fuseau de l'appareil
   morning text,                              -- heure du récap du matin « HH:MM », ou null = désactivé
   last_morning date,                         -- dernier récap envoyé (jour local)
+  evening text,                              -- heure du récap du soir « HH:MM », ou null = désactivé
   created_at timestamptz not null default now()
 );
+-- ajoutée le 24 nov. 2026 (récap du soir) : sans effet si la colonne existe déjà
+alter table public.closer_push add column if not exists evening text;
 create index if not exists closer_push_user on public.closer_push (user_id);
 alter table public.closer_push enable row level security;
 drop policy if exists "push lire" on public.closer_push;

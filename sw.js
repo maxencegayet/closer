@@ -1,7 +1,7 @@
 /* Closer : hors ligne.
    Réseau d'abord (sans cache HTTP) pour toujours avoir la dernière version,
    copie locale en secours quand il n'y a pas de réseau. */
-const CACHE = "closer-v22";
+const CACHE = "closer-v23";
 const CORE = [
   "./",
   "index.html",
@@ -79,9 +79,10 @@ self.addEventListener("push", (e) => {
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
   const url = new URL((e.notification.data && e.notification.data.url) || "./", self.registration.scope).href;
+  // Closer déjà ouvert : on lui dit quoi montrer (pas de rechargement) ; sinon on l'ouvre sur ce lien
   e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
     for (const c of list) {
-      if ("focus" in c) { if ("navigate" in c) c.navigate(url).catch(() => {}); return c.focus(); }
+      if ("focus" in c) { c.postMessage({ open: new URL(url).hash }); return c.focus(); }
     }
     return self.clients.openWindow(url);
   }));

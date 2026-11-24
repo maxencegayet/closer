@@ -23,22 +23,28 @@ function renderJour(){
       if(dRest.length)parts.push(dRest.length+(dRest.length>1?" habitudes":" habitude"));
       h+='<div class="count"><div class="num">'+rest+'</div><div class="lbl">'+(rest>1?"restantes":"restante")+'<span>'+parts.join(" et ")+'</span></div></div>';
     }
-    var n=Math.min(total,40), on=Math.round(done/total*n), segs="";
-    for(var i=0;i<n;i++)segs+='<i'+(i<on?' class="on"':"")+'></i>';
-    h+='<div class="segs" role="img" aria-label="'+done+' sur '+total+' faites">'+segs+'</div>';
+    // jusqu'à 10 éléments : un segment chacun ; au-delà, les segments deviennent trop fins : une barre continue
+    if(total<=SEG_MAX){
+      var segs="";
+      for(var i=0;i<total;i++)segs+='<i'+(i<done?' class="on"':"")+'></i>';
+      h+='<div class="segs" role="img" aria-label="'+done+' sur '+total+' faites">'+segs+'</div>';
+    }else h+='<div class="pbar" role="img" aria-label="'+done+' sur '+total+' faites"><i style="width:'+(done/total*100).toFixed(1)+'%"></i></div>';
   }
   $("hero").innerHTML=h;
   if(state.mode!=="loading")setBadge(rest);
-  if(prevDone!==null&&done>prevDone&&total&&total<=40&&!reduce.matches){
+  if(prevDone!==null&&done>prevDone&&total&&total<=SEG_MAX&&!reduce.matches){
     var seg=$("hero").querySelectorAll(".segs i")[done-1];
     if(seg&&seg.animate)seg.animate([{transform:"scaleY(.35)",opacity:.35},{transform:"none",opacity:1}],{duration:260,easing:EASE});
   }
+  var pb=$("hero").querySelector(".pbar i");
+  if(pb&&heroPct!==null&&pb.animate&&!reduce.matches&&Math.abs(heroPct-done/total)>0.001)
+    pb.animate([{width:(heroPct*100).toFixed(1)+"%"},{width:pb.style.width}],{duration:320,easing:EASE});
   // tout vient d'être fini : petit moment de fête (pas au chargement)
   if(state.mode!=="loading"&&prevRest>0&&!rest&&total&&!reduce.matches&&$("hero").animate){
     $("hero").animate([{transform:"scale(1)"},{transform:"scale(1.025)"},{transform:"scale(1)"}],{duration:420,easing:EASE});
     var mg=$("hero").querySelector(".msg");if(mg&&mg.animate)mg.animate([{opacity:0,transform:"translateY(8px)"},{opacity:1,transform:"none"}],{duration:320,easing:EASE});
   }
-  if(state.mode!=="loading"){prevDone=done;prevRest=rest;}
+  if(state.mode!=="loading"){prevDone=done;prevRest=rest;heroPct=total?done/total:0;}
 
   // bande des jours : la semaine passée à gauche (en faisant glisser), aujourd'hui et les 6 suivants
   var w="";

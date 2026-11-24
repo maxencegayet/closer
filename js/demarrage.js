@@ -42,6 +42,11 @@
 route();render();
 if(navigator.storage&&navigator.storage.persist){navigator.storage.persist().catch(function(){});}
 if("serviceWorker" in navigator&&location.protocol==="https:"){navigator.serviceWorker.register("sw.js").catch(function(){});}
+// notification touchée alors que Closer était déjà ouvert : le service worker dit quoi montrer
+if("serviceWorker" in navigator)navigator.serviceWorker.addEventListener("message",function(e){
+  var h=e.data&&e.data.open;if(typeof h!=="string"||h.charAt(0)!=="#")return;
+  if(location.hash===h)route();else location.hash=h;
+});
 localMode();
 
 /* stockage durable : demande au navigateur de ne pas effacer les données de Closer (Safari peut le faire sinon) */
