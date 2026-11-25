@@ -45,12 +45,13 @@ function hlSnippet(d,q){
 }
 function noteRow(x,showFolder,q){
   var d=x.d,pv=notePreview(d),sn=q?hlSnippet(d,q):null;
-  // la ligne : toucher = ouvrir ; glisser vers la gauche = supprimer (iPhone) ; corbeille au survol (ordinateur)
-  return '<div class="nwrap"><button type="button" class="nrow" data-act="note-open" data-id="'+esc(x.id)+'">'+
+  // la ligne : toucher = ouvrir ; glisser vers la gauche = supprimer (iPhone) ; « Faire le tri » = cocher (ordinateur)
+  var T=state.ntri, on=!!(T&&T[x.id]);
+  return '<div class="nwrap'+(T?" picking":"")+'"><button type="button" class="nrow" data-act="'+(T?"ntri-pick":"note-open")+'" data-id="'+esc(x.id)+'"'+(T?' role="checkbox" aria-checked="'+on+'"':"")+'>'+
+    (T?'<span class="npick" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 12.5l3.2 3.2L17 9"/></svg></span>':"")+
     '<span class="nt">'+(d.pinned?PIN:"")+'<span>'+(q?hlHtml(noteTitle(d),q):esc(noteTitle(d)))+'</span></span>'+
     '<span class="np'+(sn?" hit":"")+'"><b>'+esc(noteWhen(noteTs(d)))+'</b>'+(sn||esc(pv||"Pas de texte"))+'</span>'+
-    (showFolder&&d.folder?'<span class="nf">'+esc(d.folder)+'</span>':"")+'</button>'+
-    '<button type="button" class="ndel" data-act="note-del-row" data-id="'+esc(x.id)+'" aria-label="Supprimer la note « '+esc(noteTitle(d))+' »" title="Supprimer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button></div>';
+    (showFolder&&d.folder?'<span class="nf">'+esc(d.folder)+'</span>':"")+'</button></div>';
 }
 function renderNoteList(){
   var all=byKind("note"), q=norm(state.nq.trim());
@@ -58,10 +59,14 @@ function renderNoteList(){
   if(q)notes=notes.filter(function(x){return norm((x.d.title||"")+"\n"+(x.d.text||"")+"\n"+(x.d.folder||"")).indexOf(q)>=0;});
   notes.sort(function(a,b){return noteTs(b.d)-noteTs(a.d);});
   $("nb-count").textContent=all.length?all.length+(all.length>1?" notes":" note"):"";
+  // « Faire le tri » (ordinateur) : cocher des notes puis les supprimer d'un coup, avec « Annuler »
+  if(state.ntri)Object.keys(state.ntri).forEach(function(k){if(!state.items.has(k))delete state.ntri[k];});
+  var tb=$("nb-tri");if(tb){tb.hidden=!all.length&&!state.ntri;tb.textContent=state.ntri?"Terminé":"Faire le tri";tb.setAttribute("aria-pressed",String(!!state.ntri));}
+  renderTriBar(notes);
   if(state.mode==="loading"){$("l-notes").innerHTML='<div class="list"><div class="empty">Chargement…</div></div>';return;}
   if(!notes.length){
     $("l-notes").innerHTML='<div class="list"><div class="empty">'+(q?"Aucune note ne contient « "+esc(state.nq.trim())+" ».":state.nfolder!=="Toutes"?"Ce dossier est vide. Touche + pour y écrire une note.":"")+'</div></div>';
-    if(!q&&state.nfolder==="Toutes")$("l-notes").innerHTML=emptyState("Ton brouillon est vide","Cours, idées, listes : écris ce que tu veux, c'est enregistré tout seul. Une ligne peut ensuite devenir une tâche.","Écrire une note");
+    if(!q&&state.nfolder==="Toutes")$("l-notes").innerHTML=emptyState("Ton brouillon est vide","Cours, idées, listes : écris ce que tu veux, c'est enregistré tout seul.","Écrire une note");
     return;
   }
   if(q){$("l-notes").innerHTML=block("Résultats",notes.length,notes.map(function(x){return noteRow(x,true,state.nq.trim());}).join(""));return;}
@@ -366,4 +371,30 @@ document.addEventListener("keydown",function(ev){
   if(!ev.shiftKey&&(k==="b"||k==="i"||k==="u")){ev.preventDefault();rteCmd(k==="b"?"bold":k==="i"?"italic":"underline");return;}
   if(ev.shiftKey&&k==="x"){ev.preventDefault();rteCmd("strikeThrough");return;}
   if(ev.shiftKey&&k==="h"){ev.preventDefault();rteHl(rteHlAt()?"":"y");}
+});
+
+/* ---------- « Faire le tri » (ordinateur, 25 nov.) : remplace la corbeille au survol, trop facile à toucher par erreur ---------- */
+function triIds(){return state.ntri?Object.keys(state.ntri):[];}
+function renderTriBar(shown){
+  var bar=$("nb-tribar");if(!bar)return;
+  if(!state.ntri||state.noteOpen){bar.hidden=true;bar.innerHTML="";document.body.classList.remove("tri");return;}
+  document.body.classList.add("tri");
+  var n=triIds().length, allOn=shown&&shown.length&&shown.every(function(x){return state.ntri[x.id];});
+  bar.hidden=false;
+  bar.innerHTML='<button type="button" class="tb-all" data-act="ntri-all">'+(allOn?"Tout désélectionner":"Tout sélectionner")+'</button>'+
+    '<span class="tb-n" aria-live="polite">'+(n?n+(n>1?" notes sélectionnées":" note sélectionnée"):"Clique sur les notes à supprimer")+'</span>'+
+    '<button type="button" class="tb-del" data-act="ntri-del"'+(n?"":" disabled")+'>Supprimer'+(n?" ("+n+")":"")+'</button>';
+}
+function triDel(){
+  var ids=triIds();if(!ids.length)return;
+  var undo=ids.map(function(i){return {id:i,data:get(i)};}).filter(function(u){return u.data;});
+  ids.forEach(function(i){remove(i);});
+  state.ntri={};render();
+  lastDeleted=undo;showToast(undo.length+(undo.length>1?" notes supprimées":" note supprimée"));
+}
+document.addEventListener("keydown",function(ev){
+  if(!state.ntri||state.noteOpen||sheet||curView!=="brouillon")return;
+  var t=ev.target&&ev.target.tagName;if(t==="INPUT"||t==="TEXTAREA")return;
+  if(ev.key==="Escape"){state.ntri=null;render();var tb=$("nb-tri");if(tb)tb.focus();}
+  else if((ev.key==="Backspace"||ev.key==="Delete")&&triIds().length){ev.preventDefault();triDel();}
 });

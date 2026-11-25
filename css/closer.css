@@ -564,13 +564,6 @@ body.arr-drag .list{overflow:visible}
 .list .nwrap:first-child .nrow{border-top:0}
 .nwrap.swiping{z-index:1;will-change:transform}
 .swbg.del{background:var(--late);color:#fff;justify-content:flex-end}
-.ndel{display:none}
-@media (hover:hover) and (pointer:fine){
-  .ndel{display:flex;position:absolute;top:50%;right:10px;transform:translateY(-50%);width:36px;height:36px;align-items:center;justify-content:center;border:0;border-radius:10px;background:var(--bg);color:var(--muted);opacity:0;transition:opacity 120ms ease,color 120ms ease}
-  .ndel svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-  .nwrap:hover .ndel,.ndel:focus-visible{opacity:1}
-  .ndel:hover{color:var(--late)}
-}
 
 /* Brouillon : texte enrichi */
 .ne-body.rte{white-space:pre-wrap;overflow-wrap:anywhere;-webkit-user-modify:read-write;cursor:text;padding-bottom:96px}
@@ -601,3 +594,32 @@ body.arr-drag .list{overflow:visible}
 #l-notes .list{overflow:hidden}
 .list .nwrap .nrow{border-top:0}
 .list .nwrap+.nwrap .nrow{border-top:1px solid var(--line)}
+
+/* liste des notes sans marge interne : au glissement, le rouge prend toute la place de la note */
+#l-notes .list{padding:0}
+#l-notes .nrow{padding:16px 16px}
+.nwrap.swiping .nrow{background:var(--surface)}
+/* « Faire le tri » : seulement sur ordinateur (souris ou pavé tactile) ; l'iPhone garde le glissement */
+.nb-head{align-items:center}
+.nb-tri{display:none;margin-left:auto;border:0;background:none;padding:6px 2px;font:inherit;font-size:14px;font-weight:600;color:var(--muted);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.nb-tri:hover{color:var(--ink)}
+.nb-tri[aria-pressed="true"]{color:var(--ink);text-decoration:none;background:var(--surface);border-radius:999px;padding:6px 14px}
+@media (hover:hover) and (pointer:fine){.nb-tri:not([hidden]){display:inline-block}}
+.nwrap.picking .nrow{flex-direction:row;flex-wrap:wrap;align-items:center;column-gap:12px;padding-left:14px}
+.nwrap.picking .nrow>.nt,.nwrap.picking .nrow>.np,.nwrap.picking .nrow>.nf{flex:1 1 calc(100% - 40px);margin-left:36px}
+.nwrap.picking .nrow>.nt{margin-top:-1px}
+.npick{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:22px;height:22px;border-radius:50%;border:1.5px solid var(--check-line);display:flex;align-items:center;justify-content:center;transition:background-color 120ms ease,border-color 120ms ease}
+.npick svg{width:14px;height:14px;fill:none;stroke:var(--surface);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;opacity:0}
+.nrow[aria-checked="true"] .npick{background:var(--ink);border-color:var(--ink)}
+.nrow[aria-checked="true"] .npick svg{opacity:1}
+.nwrap.picking .nrow{position:relative}
+.nwrap.picking .nrow:hover{background:var(--bg)}
+.tribar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:6;display:flex;align-items:center;gap:6px;background:var(--ink);color:var(--surface);border-radius:999px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,.18);max-width:calc(100% - 24px)}
+.tribar[hidden]{display:none}
+.tribar button{border:0;border-radius:999px;font:inherit;font-size:14px;font-weight:600;padding:10px 16px;cursor:pointer;white-space:nowrap}
+.tribar .tb-all{background:transparent;color:var(--surface)}
+.tribar .tb-all:hover{background:var(--solid-press)}
+.tribar .tb-n{padding:0 10px;font-size:14px;opacity:.75;white-space:nowrap}
+.tribar .tb-del{background:var(--late);color:#fff}
+.tribar .tb-del:disabled{opacity:.4;cursor:default}
+body.tri nav.tabs,body.tri .dock{visibility:hidden}

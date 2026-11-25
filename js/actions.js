@@ -13,6 +13,7 @@ function render(){
 function route(){
   var h=(location.hash||"").slice(1), parts=h.split("/");
   // ancien onglet Devoirs : c'est maintenant un filtre de Tâches
+  if(parts[0]!=="brouillon"&&state.ntri){state.ntri=null;document.body.classList.remove("tri");}   // « Faire le tri » se ferme en changeant d'onglet
   if(parts[0]==="devoirs"){state.filter="Devoirs";parts=["taches"];try{history.replaceState(null,"","#taches");}catch(e){}}
   // liens des notifications : #ouvrir/<id> (un rappel : ouvre simplement le Jour) et #jour/AAAA-MM-JJ (récap du soir : demain)
   if(parts[0]==="ouvrir"){state.day=today();parts=["jour"];try{history.replaceState(null,"","#jour");}catch(e){}}
@@ -211,7 +212,11 @@ document.addEventListener("click",function(ev){
   if(act==="fmt"){rteCmd(b.dataset.v);return;}
   if(act==="hl-open"){var hp=$("hl-pop");if(hp){hp.hidden=!hp.hidden;b.setAttribute("aria-expanded",String(!hp.hidden));}rteMode();return;}
   if(act==="hl"){rteHl(b.dataset.v);var hp2=$("hl-pop");if(hp2)hp2.hidden=true;var ho=document.querySelector('[data-act="hl-open"]');if(ho)ho.setAttribute("aria-expanded","false");rteMode();return;}
-  if(act==="note-del-row"){var dn=get(id);if(dn)delItem(id,dn);return;}
+  if(act==="ntri"){state.ntri=state.ntri?null:{};render();return;}
+  if(act==="ntri-pick"){if(state.ntri){if(state.ntri[id])delete state.ntri[id];else state.ntri[id]=1;render();var pb=document.querySelector('#l-notes .nrow[data-id="'+(window.CSS&&CSS.escape?CSS.escape(id):id)+'"]');if(pb)pb.focus({preventScroll:true});}return;}
+  if(act==="ntri-all"){if(state.ntri){var shown=Array.prototype.map.call(document.querySelectorAll("#l-notes .nrow[data-id]"),function(e){return e.dataset.id;});
+    var allOn=shown.every(function(k){return state.ntri[k];});shown.forEach(function(k){if(allOn)delete state.ntri[k];else state.ntri[k]=1;});render();}return;}
+  if(act==="ntri-del"){triDel();return;}
   if(act==="sheet-again"&&sheet){sheet.again=true;saveSheet();if(sheet)sheet.again=false;return;}
   if(act==="nlp-off"&&sheet){syncDraft();sheet.draft.nlpOff=true;var nl=$("sh-nlp");if(nl)nl.innerHTML="";var tt=$("sh-title");if(tt)tt.focus();return;}
   if(act==="stime-clear"){syncDraft();sheet.draft.time="";renderSheet();return;}

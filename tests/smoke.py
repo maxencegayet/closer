@@ -114,8 +114,11 @@ with sync_playwright() as p:
     b = getattr(p, ENGINE).launch(**LAUNCH)
     print('Moteur :', ENGINE)
 
-    def device(cfg=True, appv_online=None):
-        c = b.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True, locale='fr-FR', timezone_id='Europe/Paris')
+    def device(cfg=True, appv_online=None, desktop=False):
+        if desktop:   # ordinateur : souris, pas d'écran tactile
+            c = b.new_context(viewport={'width': 1280, 'height': 800}, locale='fr-FR', timezone_id='Europe/Paris')
+        else:
+            c = b.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True, locale='fr-FR', timezone_id='Europe/Paris')
         c.route('https://fonts.googleapis.com/**', lambda r: r.abort())
         c.route('https://fonts.gstatic.com/**', lambda r: r.abort())
         c.route('https://cdn.jsdelivr.net/**', lambda r: r.fulfill(status=200, content_type='application/javascript', body=MOCK_JS))
@@ -395,9 +398,7 @@ with sync_playwright() as p:
     check('note glissée vers la gauche : supprimée', not pg.evaluate("state.items.has('n1')") and pg.evaluate("state.items.has('n2')") and not pg.evaluate("state.noteOpen"))
     pg.click('#toast [data-act="undo"]'); pg.wait_for_timeout(300)
     check('« Annuler » remet la note', pg.evaluate("state.items.has('n1')"))
-    check('corbeille de la ligne cachée sur écran tactile', not pg.is_visible('#l-notes .ndel'))
-    pg.evaluate("document.querySelector('#l-notes .ndel[data-id=\"n1\"]').click()"); pg.wait_for_timeout(300)
-    check('corbeille de la ligne (ordinateur) : supprime la note', not pg.evaluate("state.items.has('n1')"))
+    check('« Faire le tri » caché sur écran tactile (l\'iPhone garde le glissement)', not pg.is_visible('#nb-tri'))
     # fiche : options rares repliées ; titre de l'onglet dans l'en-tête ; le + ne recouvre pas la liste
     pg.evaluate("location.hash='#taches'"); pg.wait_for_timeout(300)
     check('en-tête : « Tâches » à la place de « Closer »', pg.inner_text('#top .brand') == 'Tâches')
@@ -551,6 +552,32 @@ with sync_playwright() as p:
     pg.go_back(); pg.wait_for_timeout(350)
     check('bouton précédent du navigateur : retour à la liste', pg.is_visible('#nb-list') and pg.is_hidden('#nb-ed'))
     check('Brouillon : aucune erreur', not errs)
+    c.close()
+
+    # 7 quater ter. Brouillon sur ordinateur : « Faire le tri » (cocher puis supprimer, avec « Annuler ») ; plus de corbeille au survol
+    c, pg, errs = device(cfg=False, desktop=True)
+    pg.evaluate("""()=>{[['a','Copie 1'],['b','Copie 2'],['k','À garder']].forEach(([i,t],n)=>state.items.set(i,{kind:'note',title:t,text:'x',folder:'',pinned:false,created:1,updated:Date.now()-n*1000}));persistLocal();location.hash='#brouillon';}""")
+    pg.wait_for_timeout(400)
+    pg.hover('#l-notes .nrow[data-id="a"]')
+    check('ordinateur : plus de corbeille au survol', not pg.query_selector('#l-notes .ndel'))
+    check('ordinateur : bouton « Faire le tri »', pg.is_visible('#nb-tri') and pg.inner_text('#nb-tri') == 'Faire le tri')
+    pg.click('#nb-tri'); pg.wait_for_timeout(200)
+    check('mode tri : cases à cocher, barre en bas, « Supprimer » grisé', len(pg.query_selector_all('#l-notes .npick')) == 3 and pg.is_visible('#nb-tribar') and pg.is_disabled('#nb-tribar .tb-del'))
+    pg.click('#l-notes .nrow[data-id="a"]'); pg.click('#l-notes .nrow[data-id="b"]'); pg.wait_for_timeout(150)
+    check('cliquer une note la coche au lieu de l\'ouvrir', not pg.evaluate("state.noteOpen") and pg.get_attribute('#l-notes .nrow[data-id="a"]', 'aria-checked') == 'true' and 'Supprimer (2)' in pg.inner_text('#nb-tribar'))
+    pg.click('#nb-tribar .tb-del'); pg.wait_for_timeout(300)
+    check('« Supprimer (2) » : les 2 notes partent, la 3e reste', not pg.evaluate("state.items.has('a')||state.items.has('b')") and pg.evaluate("state.items.has('k')") and '2 notes supprimées' in pg.inner_text('#toast'))
+    pg.click('#toast [data-act="undo"]'); pg.wait_for_timeout(300)
+    check('« Annuler » remet les 2 notes', pg.evaluate("state.items.has('a')&&state.items.has('b')"))
+    pg.click('#nb-tribar .tb-all'); pg.wait_for_timeout(150)
+    check('« Tout sélectionner »', 'Supprimer (3)' in pg.inner_text('#nb-tribar'))
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
+    check('Échap quitte le tri sans rien supprimer', pg.is_hidden('#nb-tribar') and len(pg.query_selector_all('#l-notes .npick')) == 0 and pg.evaluate("state.items.has('k')"))
+    pg.click('#nb-tri'); pg.click('#l-notes .nrow[data-id="k"]'); pg.keyboard.press('Backspace'); pg.wait_for_timeout(300)
+    check('touche Effacer : supprime la sélection', not pg.evaluate("state.items.has('k')"))
+    pg.evaluate("location.hash='#jour'"); pg.wait_for_timeout(300)
+    check('changer d\'onglet ferme le tri', not pg.evaluate("state.ntri") and pg.is_visible('nav.tabs'))
+    check('tri : aucune erreur', not errs)
     c.close()
 
     # 7 quater bis. Brouillon : texte enrichi (gras, italique, souligné, barré, surligné), raccourcis, ancienne version
