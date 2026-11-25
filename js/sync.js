@@ -152,6 +152,7 @@ async function syncNow(){
     try{await syncOnce();}
     catch(e){if(!isAuthErr(e))throw e;await freshSession(true);await syncOnce();}
     cst=1;lastOk=Date.now();syncErr="";syncFails=0;
+    if(typeof phFlush==="function")phFlush();   // photos et fichiers des notes en attente d'envoi
   }catch(e){
     cst=2;syncErr=errText(e);syncFails++;
     logErr("synchro",e);

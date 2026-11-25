@@ -100,7 +100,7 @@ function renderEditor(){
     // déjà affiché : on ne touche pas au champ en cours de frappe
     var a=document.activeElement;
     if(a!==$("ne-title")&&$("ne-title").value!==(d.title||""))$("ne-title").value=d.title||"";
-    if(a!==$("ne-body")){var want=noteHtml(d);if(rteClean($("ne-body").innerHTML)!==want)$("ne-body").innerHTML=want;}
+    if(a!==$("ne-body")){var want=noteHtml(d);if(rteClean($("ne-body").innerHTML)!==want){$("ne-body").innerHTML=want;phHydrate($("ne-body"));}}
     $("ne-pin").setAttribute("aria-pressed",String(!!d.pinned));$("ne-pin").setAttribute("aria-label",d.pinned?"Désépingler":"Épingler");
     $("ne-folders").innerHTML=edFolders(d);$("ne-meta").textContent=edMeta(d);autosize();return;
   }
@@ -128,7 +128,7 @@ function renderEditor(){
     '<div class="ne-meta" id="ne-meta">'+esc(edMeta(d))+'</div>'+
     '<div id="ne-body" class="ne-body rte" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Texte de la note" data-ph="Écris ici…" autocapitalize="sentences" spellcheck="true">'+noteHtml(d)+'</div></div>'+
     '<div class="ne-tools compact" id="ne-tools">'+fmtBar()+'</div>';
-  autosize();placeTools();
+  autosize();placeTools();phHydrate($("ne-body"));
 }
 function nfMarks(){return Array.prototype.slice.call(document.querySelectorAll("#nb-ed mark"));}
 function nfGo(i,smooth){
@@ -185,15 +185,17 @@ function newNote(){
   save(nid,{kind:"note",title:"",text:"",folder:state.nfolder!=="Toutes"?state.nfolder:"",pinned:false,created:now,updated:now});
   openNote(nid,"ne-title");
 }
-// la barre « Faire de la ligne une tâche » reste au-dessus du clavier
+// barre à la Notion (25 nov.) : collée au-dessus du clavier tant qu'on écrit dans la note
+var IS_IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
 function placeTools(){
   var el=$("ne-tools"),vv=window.visualViewport;if(!el)return;
-  var kb=vv?Math.max(0,window.innerHeight-vv.height-vv.offsetTop):0;
-  // clavier ouvert : la barre va en haut de l'écran visible. En bas, elle se retrouvait collée au mot sélectionné,
-  // sous le menu Couper/Copier, ou derrière la barre d'iOS au-dessus du clavier (captures de Maxence du 25 nov.)
-  var top=kb>40;
-  el.classList.toggle("top",top);
-  el.style.transform=top?"translateY("+Math.round(vv.offsetTop)+"px)":"";
+  var kb=vv?Math.max(0,window.innerHeight-vv.height-vv.offsetTop):0, open=kb>40||(vv&&window.innerHeight-vv.height>40);
+  el.classList.toggle("kb",!!open);
+  if(!open||!vv){el.style.transform="";return;}
+  // on part du bas de la zone visible (visualViewport), pas de innerHeight ; sur iPhone, la barre d'iOS
+  // au-dessus du clavier (flèches et ✓, iOS 26) flotte dans cette zone sans y être comptée : on la laisse dessous
+  var h=el.offsetHeight||52, y=vv.offsetTop+vv.height-h-(IS_IOS?66:10);
+  el.style.transform="translateY("+Math.round(y)+"px)";
 }
 if(window.visualViewport){visualViewport.addEventListener("resize",placeTools);visualViewport.addEventListener("scroll",placeTools);}
 
@@ -224,6 +226,8 @@ function rteText(root,map){
     for(var c=n.firstChild;c;c=c.nextSibling){
       if(c.nodeType===3){var t=c.data.replace(/ /g," ").replace(/​/g,"");if(map)map.push([out.length,c]);if(t){out+=t;start=false;blockEnd=false;}}
       else if(c.nodeType===1){
+        if(c.tagName==="IMG"){start=false;blockEnd=false;continue;}
+        if(c.tagName==="A"&&c.classList.contains("natt")){var nm=c.getAttribute("data-n")||"";out+=nm;start=false;blockEnd=false;continue;}
         if(c.tagName==="BR"){if(c===n.lastChild&&(n===root||rteBlock(n))&&!start)continue;nl(false);}   // <br> de fin de ligne : invisible
         else if(rteBlock(c)){if(!start)nl(false);var b0=out.length;rec(c);if(!start||out.length===b0)nl(true);}
         else rec(c);
@@ -248,6 +252,13 @@ function rteClean(html){
       if(c.nodeType!==1)continue;
       var tag=c.tagName;
       if(tag==="BR"){parent.appendChild(document.createElement("br"));continue;}
+      // photo ou fichier joint : seulement son identifiant (le contenu est rangé à part, voir « pièces jointes »)
+      if((tag==="IMG"||(tag==="A"&&c.classList.contains("natt")))&&/^[a-z0-9]{6,40}$/i.test(c.getAttribute("data-p")||"")){
+        var at=document.createElement(tag==="IMG"?"img":"a");at.setAttribute("data-p",c.getAttribute("data-p"));
+        if(tag==="IMG"){at.className="nimg";at.setAttribute("alt","");}
+        else{at.className="natt";at.setAttribute("data-n",String(c.getAttribute("data-n")||"Fichier").slice(0,120));at.setAttribute("data-s",String(+c.getAttribute("data-s")||0));at.setAttribute("contenteditable","false");at.textContent=at.getAttribute("data-n");}
+        parent.appendChild(at);continue;
+      }
       if(/^(SCRIPT|STYLE|TEMPLATE|IFRAME|OBJECT|EMBED|IMG|SVG|VIDEO|AUDIO|CANVAS|INPUT|BUTTON|SELECT|TEXTAREA|META|LINK|HEAD|TITLE)$/.test(tag))continue;
       var target=parent,st=c.style||{},td=String(st.textDecorationLine||st.textDecoration||""),fw=String(st.fontWeight||"");
       if(rteBlock(c)){var dv=document.createElement("div");parent.appendChild(dv);target=dv;}
@@ -264,7 +275,7 @@ function rteClean(html){
   }
   add(out,tpl.content);
   // mises en forme vides : retirées
-  Array.prototype.slice.call(out.querySelectorAll("b,i,u,s,span")).reverse().forEach(function(e){if(!e.textContent&&!e.querySelector("br"))e.remove();});
+  Array.prototype.slice.call(out.querySelectorAll("b,i,u,s,span")).reverse().forEach(function(e){if(!e.textContent&&!e.querySelector("br,img,a"))e.remove();});
   return out.innerHTML;
 }
 function noteHtml(d){
@@ -331,32 +342,43 @@ function rteHlAt(){
   return "";
 }
 // état des boutons (gras actif, etc.)
-// barre seulement quand des mots sont sélectionnés (ou la palette ouverte) ; cachée sinon (25 nov.)
+// la barre apparaît dès qu'on écrit dans le texte de la note (curseur dedans), comme dans Notion
+var aaOpen=false;
 function rteMode(){
-  var tools=$("ne-tools"),body=$("ne-body"),pop=$("hl-pop");if(!tools||!body)return;
-  var s=window.getSelection(),full=!!(s&&s.rangeCount&&!s.isCollapsed&&body.contains(s.anchorNode)&&body.contains(s.focusNode))||!!(pop&&!pop.hidden);
-  if(tools.classList.contains("full")!==full){tools.classList.toggle("full",full);tools.classList.toggle("compact",!full);if(full)placeTools();}
+  var tools=$("ne-tools"),body=$("ne-body");if(!tools||!body)return;
+  var a=document.activeElement, show=a===body||aaOpen||(a&&tools.contains(a));
+  if(tools.classList.contains("full")!==!!show){tools.classList.toggle("full",!!show);tools.classList.toggle("compact",!show);}
+  var p=$("ne-aa");if(p)p.hidden=!aaOpen;
+  var ab=tools.querySelector('[data-act="aa"]');if(ab)ab.setAttribute("aria-expanded",String(aaOpen));
+  if(show)placeTools();
 }
 function rteState(){
   rteMode();
-  var bar=$("ne-fmt");if(!bar)return;
+  var bar=$("ne-aa");if(!bar)return;
   ["bold","italic","underline","strikeThrough"].forEach(function(c){var b=bar.querySelector('[data-v="'+c+'"]');if(b){var on=false;try{on=document.queryCommandState(c);}catch(e){}b.setAttribute("aria-pressed",String(!!on));}});
-  var hb=bar.querySelector('[data-act="hl-open"]');if(hb){var k=rteHlAt();hb.style.setProperty("--hl",k?hlHex(k):"transparent");hb.setAttribute("aria-pressed",String(!!k));}
+  var k=rteHlAt();Array.prototype.forEach.call(document.querySelectorAll("#ne-aa .hlc"),function(c){c.setAttribute("aria-pressed",String(c.dataset.v===k&&!!k));});
 }
-document.addEventListener("selectionchange",function(){if($("ne-tools"))rteState();});
+document.addEventListener("selectionchange",function(){if($("ne-tools"))rteState();var b=$("ne-body"),sl=window.getSelection();if(b&&sl&&sl.rangeCount&&b.contains(sl.anchorNode))phRange=sl.getRangeAt(0).cloneRange();});
+document.addEventListener("focusin",function(){if($("ne-tools"))rteMode();});
+document.addEventListener("focusout",function(){setTimeout(function(){
+  var t=$("ne-tools"),a=document.activeElement;if(!t)return;
+  if(a!==$("ne-body")&&!(a&&t.contains(a))&&!$("ne-attsheet"))aaOpen=false;   // on a quitté la note : le panneau « Aa » se ferme
+  rteMode();
+},0);});
 var RTE_ICON={
   bold:'<b>B</b>',italic:'<i>I</i>',underline:'<u>U</u>',strikeThrough:'<s>S</s>'
 };
 function fmtBar(){
-  return '<div class="ne-fmt" id="ne-fmt" role="toolbar" aria-label="Mise en forme">'+
-    [["bold","Gras","⌘B"],["italic","Italique","⌘I"],["underline","Souligné","⌘U"],["strikeThrough","Barré","⌘⇧X"]].map(function(x){
-      return '<button type="button" class="fb" data-act="fmt" data-v="'+x[0]+'" aria-pressed="false" aria-label="'+x[1]+'" title="'+x[1]+' ('+x[2]+')">'+RTE_ICON[x[0]]+'</button>';}).join("")+
-    '<button type="button" class="fb hlb" data-act="hl-open" aria-pressed="false" aria-expanded="false" aria-label="Surligner" title="Surligner (⌘⇧H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4l6 6-9 9H5v-6z"/><path d="M4 21h16" class="hlbar"/></svg></button>'+
-
-    '<div class="hlpop" id="hl-pop" hidden role="group" aria-label="Couleur de surlignage">'+
-      HL.map(function(h){return '<button type="button" class="hlc" data-act="hl" data-v="'+h[0]+'" style="background:'+h[1]+'" aria-label="Surligner en '+h[2].toLowerCase()+'" title="'+h[2]+'"></button>';}).join("")+
-      '<button type="button" class="hlc none" data-act="hl" data-v="" aria-label="Enlever le surlignage" title="Sans surlignage"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>'+
-    '</div></div>';
+  return '<div class="ne-aa" id="ne-aa" hidden role="group" aria-label="Mise en forme du texte">'+
+      '<div class="aa-row">'+[["bold","Gras","⌘B"],["italic","Italique","⌘I"],["underline","Souligné","⌘U"],["strikeThrough","Barré","⌘⇧X"]].map(function(x){
+        return '<button type="button" class="fb" data-act="fmt" data-v="'+x[0]+'" aria-pressed="false" aria-label="'+x[1]+'" title="'+x[1]+' ('+x[2]+')">'+RTE_ICON[x[0]]+'</button>';}).join("")+'</div>'+
+      '<div class="aa-row hlrow" id="hl-pop">'+HL.map(function(h){return '<button type="button" class="hlc" data-act="hl" data-v="'+h[0]+'" style="background:'+h[1]+'" aria-label="Surligner en '+h[2].toLowerCase()+'" title="'+h[2]+'"></button>';}).join("")+
+        '<button type="button" class="hlc none" data-act="hl" data-v="" aria-label="Enlever le surlignage" title="Sans surlignage"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>'+
+    '</div>'+
+    '<div class="ne-fmt" id="ne-fmt" role="toolbar" aria-label="Outils de la note">'+
+      '<button type="button" class="tb" data-act="aa" aria-expanded="false" aria-controls="ne-aa" aria-label="Mise en forme du texte" title="Mise en forme"><span class="aa-ic" aria-hidden="true">Aa</span></button>'+
+      '<button type="button" class="tb" data-act="att-open" aria-haspopup="dialog" aria-label="Ajouter une photo ou un fichier" title="Ajouter une photo ou un fichier"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>'+
+    '</div>';
 }
 // coller : texte seul (pas les styles d'une page web)
 document.addEventListener("paste",function(ev){
@@ -398,3 +420,136 @@ document.addEventListener("keydown",function(ev){
   if(ev.key==="Escape"){state.ntri=null;render();var tb=$("nb-tri");if(tb)tb.focus();}
   else if((ev.key==="Backspace"||ev.key==="Delete")&&triIds().length){ev.preventDefault();triDel();}
 });
+
+/* ---------- photos et fichiers dans une note (25 nov.) ----------
+   Le contenu est rangé sur l'appareil (IndexedDB « closer », magasin « att ») et, une fois connecté, envoyé dans
+   Supabase Storage (seau privé « closer-photos », dossier = id du compte). La note ne garde que l'identifiant :
+   <img class="nimg" data-p="…"> ou <a class="natt" data-p="…" data-n="nom" data-s="taille">. */
+var PH_BUCKET="closer-photos", phDb=null, phUrls={}, phRange=null, PH_MAX=20*1024*1024;
+function phOpen(){
+  if(phDb)return phDb;
+  phDb=new Promise(function(ok,ko){
+    if(!window.indexedDB){ko(new Error("IndexedDB indisponible"));return;}
+    var r=indexedDB.open("closer",1);
+    r.onupgradeneeded=function(){r.result.createObjectStore("att");};
+    r.onsuccess=function(){ok(r.result);};r.onerror=function(){ko(r.error);};
+  });
+  return phDb;
+}
+function phPut(id,rec){return phOpen().then(function(db){return new Promise(function(ok,ko){var t=db.transaction("att","readwrite");t.objectStore("att").put(rec,id);t.oncomplete=function(){ok();};t.onerror=function(){ko(t.error);};});});}
+function phGet(id){return phOpen().then(function(db){return new Promise(function(ok,ko){var q=db.transaction("att").objectStore("att").get(id);q.onsuccess=function(){ok(q.result||null);};q.onerror=function(){ko(q.error);};});});}
+function phPath(id){return SU?SU.id+"/"+id:null;}
+// file d'attente des envois (survit à la fermeture de l'appli)
+function phQ(){try{return JSON.parse(localStorage.getItem("closer-att-up")||"[]");}catch(e){return [];}}
+function phQset(q){try{localStorage.setItem("closer-att-up",JSON.stringify(q));}catch(e){}}
+var phBusy=false;
+function phFlush(){
+  if(phBusy||!SB||!SU||!SB.storage)return Promise.resolve();
+  var q=phQ();if(!q.length)return Promise.resolve();
+  phBusy=true;
+  return q.reduce(function(p,id){return p.then(function(){
+    return phGet(id).then(function(rec){
+      if(!rec){phQset(phQ().filter(function(x){return x!==id;}));return;}
+      return SB.storage.from(PH_BUCKET).upload(phPath(id),rec.blob,{upsert:true,contentType:rec.type||"application/octet-stream"}).then(function(r){
+        if(r&&r.error)throw r.error;
+        phQset(phQ().filter(function(x){return x!==id;}));
+      });
+    });
+  });},Promise.resolve()).catch(function(e){logErr("photos",e);}).then(function(){phBusy=false;});
+}
+// contenu d'une pièce jointe : sur l'appareil, sinon téléchargé depuis le compte
+function phBlob(id){
+  return phGet(id).then(function(rec){
+    if(rec)return rec.blob;
+    if(!SB||!SU||!SB.storage)return null;
+    return SB.storage.from(PH_BUCKET).download(phPath(id)).then(function(r){
+      if(!r||r.error||!r.data)return null;
+      return phPut(id,{blob:r.data,type:r.data.type||""}).then(function(){return r.data;});
+    });
+  }).catch(function(e){logErr("photos",e);return null;});
+}
+function phUrl(id){
+  if(phUrls[id])return Promise.resolve(phUrls[id]);
+  return phBlob(id).then(function(b){if(!b)return null;phUrls[id]=URL.createObjectURL(b);return phUrls[id];});
+}
+function phSize(n){n=+n||0;return n<1024*1024?Math.max(1,Math.round(n/1024))+" Ko":(n/1024/1024).toFixed(1).replace(".",",")+" Mo";}
+// affiche les photos et pièces jointes d'un éditeur
+function phHydrate(root){
+  if(!root)return;
+  Array.prototype.forEach.call(root.querySelectorAll("img.nimg[data-p]"),function(im){
+    if(im.getAttribute("src"))return;
+    im.classList.add("loading");
+    phUrl(im.dataset.p).then(function(u){if(u){im.src=u;im.classList.remove("loading");}else{im.classList.add("missing");}});
+  });
+  Array.prototype.forEach.call(root.querySelectorAll("a.natt[data-p]"),function(a){
+    a.setAttribute("contenteditable","false");a.setAttribute("role","button");a.setAttribute("href","#");
+    a.textContent=a.dataset.n||"Fichier";
+    var sz=document.createElement("small");sz.textContent=phSize(a.dataset.s);a.appendChild(sz);
+  });
+}
+document.addEventListener("click",function(ev){
+  var a=ev.target.closest&&ev.target.closest("#ne-body a.natt");if(!a)return;
+  ev.preventDefault();
+  var w=window.open("","_blank");
+  phUrl(a.dataset.p).then(function(u){if(u&&w)w.location.href=u;else{if(w)w.close();showToast("Fichier introuvable sur cet appareil",true);}});
+});
+// photo : réduite à 1600 px de côté, en JPEG
+function phShrink(file){
+  return new Promise(function(ok){
+    var u=URL.createObjectURL(file),im=new Image();
+    im.onload=function(){
+      var k=Math.min(1,1600/Math.max(im.naturalWidth,im.naturalHeight)),w=Math.round(im.naturalWidth*k),h=Math.round(im.naturalHeight*k);
+      var cv=document.createElement("canvas");cv.width=w;cv.height=h;cv.getContext("2d").drawImage(im,0,0,w,h);URL.revokeObjectURL(u);
+      cv.toBlob(function(b){ok(b||file);},"image/jpeg",0.82);
+    };
+    im.onerror=function(){URL.revokeObjectURL(u);ok(file);};
+    im.src=u;
+  });
+}
+function phInsert(node){
+  var body=$("ne-body");if(!body)return;
+  body.focus({preventScroll:true});
+  var s=window.getSelection(),r=phRange&&body.contains(phRange.startContainer)?phRange:null;
+  if(!r){r=document.createRange();r.selectNodeContents(body);r.collapse(false);}
+  // dans son propre bloc, après la ligne du curseur
+  var blk=r.startContainer;while(blk&&blk.parentNode!==body)blk=blk.parentNode;
+  var wrap=document.createElement("div");wrap.appendChild(node);
+  var after=document.createElement("div");after.appendChild(document.createElement("br"));
+  if(blk&&blk!==body){body.insertBefore(wrap,blk.nextSibling);}else body.appendChild(wrap);
+  body.insertBefore(after,wrap.nextSibling);
+  var nr=document.createRange();nr.setStart(after,0);nr.collapse(true);s.removeAllRanges();s.addRange(nr);
+  rteSave(body);phHydrate(body);
+  try{wrap.scrollIntoView({block:"center",behavior:"smooth"});}catch(e){}
+}
+function phAdd(files,kind){
+  files=Array.prototype.slice.call(files||[]);if(!files.length)return;
+  files.reduce(function(p,f){return p.then(function(){
+    var isImg=/^image\//.test(f.type)&&kind!=="file";
+    if(!isImg&&f.size>PH_MAX){showToast("« "+shortT(f.name)+" » dépasse 20 Mo",true);return;}
+    return (isImg?phShrink(f):Promise.resolve(f)).then(function(b){
+      var id=newId(),type=isImg?"image/jpeg":(f.type||"application/octet-stream");
+      return phPut(id,{blob:b,type:type,name:f.name}).then(function(){
+        var q=phQ();q.push(id);phQset(q);
+        if(isImg){var im=document.createElement("img");im.className="nimg";im.setAttribute("data-p",id);im.alt="";phInsert(im);}
+        else{var a=document.createElement("a");a.className="natt";a.setAttribute("data-p",id);a.setAttribute("data-n",f.name||"Fichier");a.setAttribute("data-s",String(b.size||f.size||0));phInsert(a);}
+      });
+    });
+  });},Promise.resolve()).then(function(){phFlush();}).catch(function(e){logErr("photos",e);showToast("Impossible d'ajouter ce fichier",true);});
+}
+// panneau « Ajouter » : Photos, Appareil photo, Fichiers (comme dans Notion)
+function attSheet(open){
+  var el=$("ne-attsheet");
+  if(!open){if(el){el.classList.remove("open");setTimeout(function(){if(el&&!el.classList.contains("open"))el.remove();},220);}return;}
+  if(el)el.remove();
+  el=document.createElement("div");el.id="ne-attsheet";el.className="attsheet";el.setAttribute("role","dialog");el.setAttribute("aria-label","Ajouter à la note");
+  var IC={photos:'<rect x="3.5" y="5" width="17" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M5 17l4.5-4.5 3 3 2.5-2.5L19.5 17"/>',
+    cam:'<path d="M4 8.5h3l1.6-2.5h6.8L17 8.5h3v10H4z"/><circle cx="12" cy="13.3" r="3.3"/>',
+    file:'<path d="M20 11.5l-7.8 7.8a5 5 0 0 1-7-7l8-8a3.4 3.4 0 0 1 4.8 4.8l-8 8a1.7 1.7 0 0 1-2.4-2.4l7.3-7.3"/>'};
+  function row(k,t,sub){return '<button type="button" class="attrow" data-act="att-pick" data-v="'+k+'"><svg viewBox="0 0 24 24" aria-hidden="true">'+IC[k]+'</svg><span><b>'+t+'</b><small>'+sub+'</small></span></button>';}
+  el.innerHTML='<div class="attback" data-act="att-close"></div><div class="attpanel"><span class="attgrip" aria-hidden="true"></span>'+
+    row("photos","Photos","Choisis dans ta photothèque")+row("cam","Appareil photo","Prends une photo")+row("file","Fichiers","PDF, documents, présentations…")+
+    '<input type="file" id="att-photos" accept="image/*" multiple hidden><input type="file" id="att-cam" accept="image/*" capture="environment" hidden><input type="file" id="att-file" multiple hidden></div>';
+  document.body.appendChild(el);
+  ["photos","cam","file"].forEach(function(k){$("att-"+k).addEventListener("change",function(ev){var fs=ev.target.files;attSheet(false);phAdd(fs,k==="file"?"file":"img");});});
+  requestAnimationFrame(function(){el.classList.add("open");});
+}

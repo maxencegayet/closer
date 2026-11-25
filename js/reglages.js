@@ -27,6 +27,7 @@ var IC={
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["25 nov.","Brouillon : nouvelle barre au-dessus du clavier, comme dans Notion. « Aa » pour le gras, l'italique, le souligné, le barré et le surlignage ; « + » pour ajouter une photo (photothèque ou appareil photo) ou un fichier (PDF, documents…)."],
   ["25 nov.","Brouillon sur ordinateur : la corbeille au survol est remplacée par « Faire le tri ». Coche les notes, puis « Supprimer » (« Annuler » les remet ; Échap pour sortir). Sur iPhone, glisser une note vers la gauche colore maintenant toute sa place en rouge."],
   ["25 nov.","Brouillon : la barre de mise en forme n'apparaît qu'avec une sélection, en haut de l'écran quand le clavier est ouvert, loin du mot sélectionné. Le bouton « Tâche » est retiré. Les coins arrondis de la liste des notes sont corrigés."],
   ["25 nov.","Brouillon : la barre de mise en forme n'apparaît que quand tu sélectionnes des mots. En écrivant, il ne reste que le bouton « Tâche », discret, à droite. Sur iPhone, elle ne passe plus sous la barre d'iOS au-dessus du clavier."],
