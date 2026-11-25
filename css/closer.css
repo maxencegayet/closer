@@ -740,6 +740,12 @@ html.ne-lock #nb-ed .ne-top{top:0;margin:0 -16px;padding:calc(8px + env(safe-are
 /* survol (ordinateur) et appui */
 @media (hover:hover){
   :root[data-pal] .row:hover,:root[data-pal] .srow:hover,:root[data-pal] .nrow:hover,:root[data-pal] .catrow:hover{background:var(--t0)}
+  /* survol d'une ligne de tâche ou d'habitude : il suit la forme de la carte. La carte a 4 px de marge en haut et en bas :
+     la première et la dernière ligne les comblent (ombre décalée de la même couleur) et prennent l'arrondi de la carte (20 px) ;
+     entre deux lignes, bord droit. */
+  :root[data-pal] .list > .row:first-child:hover{border-top-left-radius:20px;border-top-right-radius:20px;box-shadow:0 -4px 0 var(--t0)}
+  :root[data-pal] .list > .row:last-child:hover{border-bottom-left-radius:20px;border-bottom-right-radius:20px;box-shadow:0 4px 0 var(--t0)}
+  :root[data-pal] .list > .row:first-child:last-child:hover{box-shadow:0 -4px 0 var(--t0),0 4px 0 var(--t0)}
   :root[data-pal] .chip:not([aria-pressed="true"]):hover,:root[data-pal] .gear:hover,:root[data-pal] .sortbtn:hover,:root[data-pal] .btn.ghost:hover{background:var(--t2)}
 }
 :root[data-pal] .nrow:active,:root[data-pal] .catrow:active{background:var(--t1)}

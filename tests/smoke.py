@@ -1188,6 +1188,15 @@ with sync_playwright() as p:
     check('table absente : on n\'insiste pas avant le lendemain', pg.evaluate("localStorage.getItem('closer-err-off')===today()"))
     c.close()
 
+    # 7 survol. Ordinateur, univers : le survol d'une ligne remplit la carte jusqu'à ses bords arrondis
+    c, pg, errs = device(cfg=False, desktop=True)
+    pg.evaluate("""()=>{localStorage.setItem('closer-palette','powder');localStorage.setItem('cap-items-v1',JSON.stringify([['s1',{kind:'task',title:'Seule',cat:'Perso',due:today(),done:false,created:1}]]))}""")
+    pg.reload(); pg.wait_for_timeout(500)
+    bb = pg.query_selector('.list > .row').bounding_box(); pg.mouse.move(bb['x'] + bb['width'] / 2, bb['y'] + bb['height'] / 2); pg.wait_for_timeout(200)
+    st = pg.evaluate("(()=>{const r=getComputedStyle(document.querySelector('.list > .row'));return [r.boxShadow,r.borderTopLeftRadius,r.borderBottomRightRadius]})()")
+    check('survol d\'une ligne seule : toute la carte, coins compris', '-4px' in st[0] and ' 4px' in st[0] and st[1] == '20px' and st[2] == '20px', st)
+    c.close()
+
     # 7 sauvegarde. Rappel discret d'exporter une sauvegarde (jamais ou plus de 30 jours, à partir de 10 éléments)
     c, pg, errs = device(cfg=False)
     pg.evaluate("""()=>{const l=[];for(let i=0;i<12;i++)l.push(['t'+i,{kind:'task',title:'T'+i,cat:'Perso',due:'',done:false,created:i}]);
