@@ -107,6 +107,7 @@ function renderSheet(){
   if(!sheet)return;
   var k=sheet.kind, dr=sheet.draft, isNew=sheet.mode==="new", h="";
   if(k==="account"){$("sheet").innerHTML=acHTML();return;}
+  if(k==="palette"){$("sheet").innerHTML=palHTML();return;}
   if(k==="backup"){
     var last="";try{last=localStorage.getItem("closer-last-export")||"";}catch(e){}
     h='<div class="sh-head"><button type="button" class="btn ghost small" data-act="ac-open">Retour</button><h2 id="sh-h">Sauvegarde</h2><span style="width:78px"></span></div>'+

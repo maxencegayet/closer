@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="color-scheme" content="light dark">
-<script>try{document.documentElement.dataset.theme=localStorage.getItem("closer-theme")||"light";}catch(e){document.documentElement.dataset.theme="light";}</script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem("closer-theme")||"light";var p=localStorage.getItem("closer-palette");if(p)document.documentElement.dataset.pal=p;}catch(e){document.documentElement.dataset.theme="light";}</script>
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Closer</title>
 <meta name="description" content="Closer : tâches, devoirs, habitudes et objectifs au même endroit, avec des rappels à l'heure et la synchronisation entre tes appareils.">
@@ -110,7 +110,7 @@
   <svg class="tk" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M7.5 12.5l3 3 6-6.5"/></svg><span id="toast-txt"></span><button type="button" data-act="undo" id="toast-undo">Annuler</button>
 </div>
 
-<script>var APPV="2026-11-25.16";</script>
+<script>var APPV="2026-11-25.17";</script>
 <script src="js/base.js"></script>
 <script src="js/vues.js"></script>
 <script src="js/brouillon.js"></script>

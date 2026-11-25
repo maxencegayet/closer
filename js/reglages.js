@@ -20,6 +20,7 @@ var IC={
   home:'<rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M12 9v6M9 12h6"/>',
   sync:'<path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/>',
   theme:'<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>',
+  pal:'<path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-1.2-1-1.6-1-2.6 0-.9.7-1.5 1.7-1.5H17a4 4 0 0 0 4-4c0-4.5-4-8.2-9-8.2z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor"/><circle cx="10.5" cy="7.3" r="1.2" fill="currentColor"/><circle cx="15" cy="7.8" r="1.2" fill="currentColor"/>',
   cal:'<rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
   link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   fx:'<path d="M4 10v4h3l5 4V6L7 10z"/><path d="M16 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/>',
@@ -27,6 +28,7 @@ var IC={
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["25 nov.","Nouveau : Réglages › Univers. Six ambiances de couleurs douces (Sauge, Nude, Bleu poudré, Lavande, Vieux rose, Nuit), chacune avec sa matière (marbre, ardoise, chêne, terre cuite…), en clair comme en sombre, déclinées dans toute l'appli : carte du jour, titres, filtres, étiquettes, jauges, grille des habitudes, réglages."],
   ["25 nov.","Brouillon sur iPhone : pendant que tu écris, la page ne bouge plus, seule la note défile, et l'en-tête reste fixe en haut. Les photos et fichiers que tu enlèves d'une note (ou d'une note supprimée) sont aussi effacés de ton téléphone et de ton compte, et tout part avec le compte si tu le supprimes."],
   ["25 nov.","Brouillon : l'en-tête de la note suit le clavier sans retard et ne laisse plus voir le texte derrière lui."],
   ["25 nov.","Brouillon : « Aa » et « + » sont maintenant en haut de la note, à côté de l'épingle, toujours à portée et jamais cachés par le clavier. « + » propose Photothèque, Prendre une photo ou Choisir les fichiers. Pour supprimer une note : glisse-la vers la gauche dans la liste."],
@@ -153,6 +155,7 @@ function acHTML(){
   var th=themeChoice();
   rows+='<div class="srow segrow">'+sIcon("theme")+'<span class="sl">Apparence</span><span class="segc" role="radiogroup" aria-label="Apparence">'+
     [["light","Clair"],["dark","Sombre"],["auto","Auto"]].map(function(o){return '<button type="button" role="radio" aria-checked="'+(th===o[0])+'" data-act="set-theme" data-v="'+o[0]+'"'+(o[0]==="auto"?' aria-label="Auto, comme le téléphone"':"")+'>'+o[1]+'</button>';}).join("")+'</span></div>';
+  rows+=sRow("set-pal","pal","Univers",{val:palInfo(palChoice())[1]});
   rows+=sRow("set-fx","fx","Son et vibration",{sub:"Quand tu enregistres une tâche",sw:!fxOff()});
   rows+=sRow("set-allopts","opts","Toutes les options d'un coup",{sub:"Dans la fiche d'une tâche, sans passer par « Plus d'options »",sw:allOpts()});
   if(acOn())rows+=sRow("ac-stats","chart","Statistiques anonymes",{sub:statsOff()?"désactivées":"activées · aucun contenu envoyé",sw:!statsOff()});
@@ -303,3 +306,15 @@ function stat(ev){
 function stat1(ev){try{if(localStorage.getItem("closer-ev-"+ev))return;localStorage.setItem("closer-ev-"+ev,"1");}catch(e){return;}stat(ev);}
 function stat1Day(ev){var k="closer-ev-"+ev+"-day",t=today();try{if(localStorage.getItem(k)===t)return;localStorage.setItem(k,t);}catch(e){return;}stat(ev);}
 function statDay(ev){stat1Day(ev);}
+
+/* page « Univers » : un aperçu par univers, appliqué dès qu'on le touche */
+function palHTML(){
+  var cur=palChoice(), d=isDark()?4:3;
+  return '<div class="sh-head"><button type="button" class="btn ghost small" data-act="ac-open">Retour</button><h2 id="sh-h">Univers</h2><span style="width:78px"></span></div>'+
+    '<div class="hint" style="margin-top:0">Les couleurs de toute l\'appli. Chaque univers a sa couleur et sa matière, comme une planche de matériaux. Clair, Sombre ou Auto (dans Apparence) s\'appliquent à chacun.</div>'+
+    '<div class="pals" role="radiogroup" aria-label="Univers">'+PALETTES.map(function(p){var c=p[d];
+      return '<button type="button" class="pal" role="radio" aria-checked="'+(p[0]===cur)+'" data-act="pick-pal" data-v="'+p[0]+'" style="--pv-bg:'+c[0]+';--pv-hbg:'+c[1]+';--pv-hink:'+c[2]+';--pv-surface:'+c[3]+';--pv-line:'+c[4]+'">'+
+        '<span class="pv" aria-hidden="true"><b>3</b><i></i><u>'+[c[0],c[6],c[7],c[8],c[5]].map(function(x){return '<s style="background:'+x+'"></s>';}).join("")+'</u><span class="ok"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></span>'+
+        '<span class="pn">'+esc(p[1])+'<span class="pw">'+esc(p[2])+'</span>'+(PAL_MAT[p[0]]?'<span class="pm">'+esc(PAL_MAT[p[0]])+'</span>':'')+'</span></button>';}).join("")+'</div>'+
+    '<div class="hint" style="margin-top:0">L\'univers est gardé sur cet appareil, comme l\'apparence.</div>';
+}

@@ -53,11 +53,22 @@ addEventListener("unhandledrejection",function(e){logErr("promesse",e.reason);})
 /* ---------- apparence : clair par défaut, sombre ou comme le téléphone ---------- */
 var THEME_KEY="closer-theme", darkMQ=window.matchMedia?matchMedia("(prefers-color-scheme: dark)"):{matches:false};
 function themeChoice(){try{var t=localStorage.getItem(THEME_KEY);return t==="dark"||t==="auto"?t:"light";}catch(e){return "light";}}
+/* univers de couleurs (Réglages › Univers) : [id, nom, mots, [fond, carte du jour, texte de la carte, carte, trait, bloc fort, t1, t2, t3] clair, idem sombre]
+   les couleurs complètes sont dans css/closer.css ; "" = Closer d'origine, noir */
+var PALETTES=[["", "Closer", "Noir · Net", ["#eff0f2", "#000000", "#ffffff", "#ffffff", "#ecedf0", "#000000", "#e3e5e9", "#d9dbe1", "#a3a7b0"], ["#000000", "#f5f5f7", "#000000", "#1c1c1e", "#2c2c2e", "#f5f5f7", "#2c2c2e", "#3a3a3e", "#62666e"]], ["sage", "Sauge", "Naturel · Apaisant", ["#ecf3ea", "#cedac9", "#252a23", "#ffffff", "#e8ece7", "#455747", "#eaeeeb", "#d3dad4", "#889989"], ["#0e130c", "#c9d6c3", "#161915", "#1e271c", "#2f3b2b", "#c9d6c3", "#2f332e", "#434941", "#909e8a"]], ["nude", "Nude", "Chic · Intemporel", ["#f4ede9", "#e6d6cb", "#2d251f", "#fdfcfb", "#ede8e5", "#5c4940", "#eeebe9", "#dbd4d1", "#a18f87"], ["#140e0b", "#e3d0c4", "#1a1614", "#281f1a", "#3d3029", "#e3d0c4", "#362f2b", "#4c433d", "#a79081"]], ["powder", "Bleu poudré", "Frais · Clair", ["#e8eef4", "#ccdbeb", "#1e262f", "#ffffff", "#e5e9ee", "#3b5674", "#e7ecf1", "#cdd6e0", "#7c93ab"], ["#0b0f14", "#c5d6e8", "#13171b", "#192129", "#28333e", "#c5d6e8", "#2a3037", "#3c454e", "#7d93ab"]], ["lavender", "Lavande", "Doux · Sophistiqué", ["#ece9f4", "#dcd6e9", "#24202c", "#ffffff", "#e8e6ed", "#4d4563", "#ebe9ee", "#d4d1db", "#8e87a1"], ["#0e0b13", "#d6cfe6", "#161419", "#1f1b27", "#302a3c", "#d6cfe6", "#2f2c35", "#423e4b", "#8d83a5"]], ["rose", "Vieux rose", "Élégant · Délicat", ["#f4e9ea", "#efd1d4", "#2f1d1f", "#fdfbfc", "#ede6e7", "#6c434a", "#efe9ea", "#ddcfd2", "#a58389"], ["#130b0c", "#ecc9cd", "#1a1415", "#281a1c", "#3d292c", "#ecc9cd", "#37292b", "#4f3b3d", "#ae7a80"]], ["midnight", "Nuit", "Sobre · Contrasté", ["#e7ebf5", "#24396e", "#ffffff", "#ffffff", "#e4e7ef", "#24396e", "#e5e9f2", "#c9d1e3", "#7386b5"], ["#0a0d15", "#bccbea", "#12151c", "#171d2b", "#252c41", "#bccbea", "#292e38", "#3a4150", "#788ab0"]]];
+var PAL_KEY="closer-palette";
+var PAL_MAT={sage:"Grès moucheté",nude:"Chêne blanchi",powder:"Marbre veiné",lavender:"Albâtre",rose:"Terre cuite",midnight:"Ardoise"};
+var PAL_OLD={matcha:"sage",sand:"nude"}; // univers fusionnés le 25 nov.
+function palChoice(){try{var p=localStorage.getItem(PAL_KEY)||"";if(PAL_OLD[p])p=PAL_OLD[p];return PALETTES.some(function(x){return x[0]===p;})?p:"";}catch(e){return "";}}
+function palInfo(id){for(var i=0;i<PALETTES.length;i++)if(PALETTES[i][0]===id)return PALETTES[i];return PALETTES[0];}
+function isDark(){var t=themeChoice();return t==="dark"||(t==="auto"&&darkMQ.matches);}
 function applyTheme(){
-  var t=themeChoice(), dark=t==="dark"||(t==="auto"&&darkMQ.matches);
-  document.documentElement.dataset.theme=t;
-  var m=$("theme-color");if(m)m.setAttribute("content",dark?"#000000":"#eff0f2");
+  var t=themeChoice(), p=palChoice(), root=document.documentElement;
+  root.dataset.theme=t;
+  if(p)root.dataset.pal=p;else delete root.dataset.pal;
+  var m=$("theme-color");if(m)m.setAttribute("content",palInfo(p)[isDark()?4:3][0]);
 }
+function setPalette(p){try{if(!p)localStorage.removeItem(PAL_KEY);else localStorage.setItem(PAL_KEY,p);}catch(e){}applyTheme();}
 function setTheme(t){try{if(t==="light")localStorage.removeItem(THEME_KEY);else localStorage.setItem(THEME_KEY,t);}catch(e){}applyTheme();}
 if(darkMQ.addEventListener)darkMQ.addEventListener("change",applyTheme);
 applyTheme();
