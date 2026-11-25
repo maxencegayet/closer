@@ -330,8 +330,18 @@ function rteCmd(cmd){
   rteState();
 }
 // surlignage de la sélection (k = clé de couleur, "" = enlever)
+// curseur dans un passage surligné, sans sélection : on en sort, la suite s'écrit sans surlignage
+function rteHlEscape(){
+  var el=$("ne-body"),s=window.getSelection();if(!el||!s.rangeCount||!s.isCollapsed)return false;
+  var sp=null;for(var n=s.anchorNode;n&&n!==el;n=n.parentNode)if(n.nodeType===1&&n.style&&hlKey(n.style.backgroundColor))sp=n;
+  if(!sp)return false;
+  var z=document.createTextNode("\u200b");sp.parentNode.insertBefore(z,sp.nextSibling);
+  var r=document.createRange();r.setStart(z,1);r.collapse(true);s.removeAllRanges();s.addRange(r);
+  rteState();return true;
+}
 function rteHl(k){
   var el=rteFocus();if(!el)return;
+  if(!k&&rteHlEscape())return;
   try{document.execCommand("styleWithCSS",false,true);}catch(e){}
   document.execCommand("hiliteColor",false,k?hlHex(k):"transparent");
   try{document.execCommand("styleWithCSS",false,false);}catch(e){}
@@ -357,8 +367,21 @@ function rteMode(){
   var ab=tools.querySelector('[data-act="aa"]');if(ab)ab.setAttribute("aria-expanded",String(aaOpen));
   if(show)placeTools();
 }
+function rteActive(){
+  var box=$("ne-on");if(!box)return;
+  var s=window.getSelection(),b=$("ne-body"),h="";
+  if(s&&s.rangeCount&&s.isCollapsed&&b&&b.contains(s.anchorNode)){
+    [["bold","<b>B</b>","Gras"],["italic","<i>I</i>","Italique"],["underline","<u>U</u>","Souligné"],["strikeThrough","<s>S</s>","Barré"]].forEach(function(x){
+      var on=false;try{on=document.queryCommandState(x[0]);}catch(e){}
+      if(on)h+='<button type="button" class="onchip" data-act="fmt" data-v="'+x[0]+'" aria-label="'+x[2]+' activé, toucher pour arrêter">'+x[1]+'<span aria-hidden="true">×</span></button>';
+    });
+    var k=rteHlAt();
+    if(k)h+='<button type="button" class="onchip" data-act="hl" data-v="" aria-label="Surlignage activé, toucher pour arrêter"><i class="dot" style="background:'+hlHex(k)+'"></i>Surligné<span aria-hidden="true">×</span></button>';
+  }
+  if(box.innerHTML!==h)box.innerHTML=h;
+}
 function rteState(){
-  rteMode();
+  rteMode();rteActive();
   var bar=$("ne-aa");if(!bar)return;
   ["bold","italic","underline","strikeThrough"].forEach(function(c){var b=bar.querySelector('[data-v="'+c+'"]');if(b){var on=false;try{on=document.queryCommandState(c);}catch(e){}b.setAttribute("aria-pressed",String(!!on));}});
   var k=rteHlAt();Array.prototype.forEach.call(document.querySelectorAll("#ne-aa .hlc"),function(c){c.setAttribute("aria-pressed",String(c.dataset.v===k&&!!k));});
@@ -370,26 +393,50 @@ document.addEventListener("focusout",function(){setTimeout(function(){
   if(a!==$("ne-body")&&!(a&&t.contains(a))&&!$("ne-attsheet"))aaOpen=false;   // on a quitté la note : le panneau « Aa » se ferme
   rteMode();
 },0);});
+// raccourcis : ⌘ sur Mac, Ctrl ailleurs ; affichés dans le panneau « Aa » sur ordinateur
+var IS_MAC=/Mac/.test(navigator.platform||"")&&!IS_IOS;
+function kbd(s){return IS_MAC?s:s.replace("⌘","Ctrl ").replace("⇧","Maj ");}
 var RTE_ICON={
   bold:'<b>B</b>',italic:'<i>I</i>',underline:'<u>U</u>',strikeThrough:'<s>S</s>'
 };
 function fmtBar(){
   return '<div class="ne-aa" id="ne-aa" hidden role="group" aria-label="Mise en forme du texte">'+
       '<div class="aa-row">'+[["bold","Gras","⌘B"],["italic","Italique","⌘I"],["underline","Souligné","⌘U"],["strikeThrough","Barré","⌘⇧X"]].map(function(x){
-        return '<button type="button" class="fb" data-act="fmt" data-v="'+x[0]+'" aria-pressed="false" aria-label="'+x[1]+'" title="'+x[1]+' ('+x[2]+')">'+RTE_ICON[x[0]]+'</button>';}).join("")+'</div>'+
+        return '<button type="button" class="fb" data-act="fmt" data-v="'+x[0]+'" aria-pressed="false" aria-label="'+x[1]+'" title="'+x[1]+' ('+kbd(x[2])+')">'+RTE_ICON[x[0]]+'<kbd>'+kbd(x[2])+'</kbd></button>';}).join("")+'</div>'+
       '<div class="aa-row hlrow" id="hl-pop">'+HL.map(function(h){return '<button type="button" class="hlc" data-act="hl" data-v="'+h[0]+'" style="background:'+h[1]+'" aria-label="Surligner en '+h[2].toLowerCase()+'" title="'+h[2]+'"></button>';}).join("")+
-        '<button type="button" class="hlc none" data-act="hl" data-v="" aria-label="Enlever le surlignage" title="Sans surlignage"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>'+
+        '<span class="hlk"><kbd>'+kbd("⌘⇧H")+'</kbd></span><button type="button" class="hlc none" data-act="hl" data-v="" aria-label="Enlever le surlignage" title="Sans surlignage"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>'+
     '</div>'+
     '<div class="ne-fmt" id="ne-fmt" role="toolbar" aria-label="Outils de la note">'+
       '<button type="button" class="tb" data-act="aa" aria-expanded="false" aria-controls="ne-aa" aria-label="Mise en forme du texte" title="Mise en forme"><span class="aa-ic" aria-hidden="true">Aa</span></button>'+
+      '<span class="ne-on" id="ne-on" aria-live="polite"></span>'+
       '<button type="button" class="tb" data-act="att-open" aria-haspopup="dialog" aria-label="Ajouter une photo ou un fichier" title="Ajouter une photo ou un fichier"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>'+
     '</div>';
 }
 // coller : texte seul (pas les styles d'une page web)
 document.addEventListener("paste",function(ev){
   if(!ev.target||!ev.target.closest||!ev.target.closest("#ne-body"))return;
-  var t=ev.clipboardData&&ev.clipboardData.getData("text/plain");if(t==null)return;
+  var cd=ev.clipboardData;if(!cd)return;
+  // une capture d'écran ou une image copiée : ajoutée comme photo (⌘V sur Mac)
+  var fs=Array.prototype.filter.call(cd.files||[],function(f){return f&&f.size;});
+  if(!fs.length&&cd.items)Array.prototype.forEach.call(cd.items,function(it){if(it.kind==="file"){var f=it.getAsFile();if(f)fs.push(f);}});
+  if(fs.length){ev.preventDefault();var s=window.getSelection();if(s.rangeCount)phRange=s.getRangeAt(0).cloneRange();phAdd(fs,"img");return;}
+  var t=cd.getData("text/plain");if(t==null)return;
   ev.preventDefault();document.execCommand("insertText",false,t);
+});
+// glisser des photos ou des fichiers dans la note (ordinateur)
+document.addEventListener("dragover",function(ev){
+  if(!ev.target||!ev.target.closest||!ev.target.closest("#nb-ed"))return;
+  if(ev.dataTransfer&&Array.prototype.indexOf.call(ev.dataTransfer.types||[],"Files")>=0){ev.preventDefault();ev.dataTransfer.dropEffect="copy";$("nb-ed").classList.add("dropping");}
+});
+document.addEventListener("dragleave",function(ev){if(ev.target&&ev.target.id==="nb-ed")$("nb-ed").classList.remove("dropping");});
+document.addEventListener("drop",function(ev){
+  var ed=$("nb-ed");if(ed)ed.classList.remove("dropping");
+  if(!ev.target||!ev.target.closest||!ev.target.closest("#nb-ed"))return;
+  var fs=ev.dataTransfer&&ev.dataTransfer.files;if(!fs||!fs.length)return;
+  ev.preventDefault();
+  var r=document.caretRangeFromPoint?document.caretRangeFromPoint(ev.clientX,ev.clientY):null,b=$("ne-body");
+  if(r&&b&&b.contains(r.startContainer))phRange=r;
+  phAdd(fs,"img");
 });
 // raccourcis : ⌘/Ctrl B, I, U (navigateur), ⌘/Ctrl ⇧ X (barré), ⌘/Ctrl ⇧ H (surligner en jaune ou enlever)
 document.addEventListener("keydown",function(ev){
@@ -493,17 +540,28 @@ function phHydrate(root){
   Array.prototype.forEach.call(root.querySelectorAll("img.nimg[data-p]"),function(im){
     if(im.getAttribute("src"))return;
     im.classList.add("loading");
-    phUrl(im.dataset.p).then(function(u){if(u){im.src=u;im.classList.remove("loading");}else{im.classList.add("missing");}});
+    phUrl(im.dataset.p).then(function(u){
+      if(u){im.src=u;im.classList.remove("loading","missing");if(im.parentNode&&im.parentNode.removeAttribute)im.parentNode.removeAttribute("data-wait");}
+      else{im.classList.remove("loading");im.classList.add("missing");phWait(im);}
+    });
   });
   Array.prototype.forEach.call(root.querySelectorAll("a.natt[data-p]"),function(a){
     a.setAttribute("contenteditable","false");a.setAttribute("role","button");a.setAttribute("href","#");
     a.textContent=a.dataset.n||"Fichier";
     var sz=document.createElement("small");sz.textContent=phSize(a.dataset.s);a.appendChild(sz);
+    // gardé prêt en mémoire : sur iPhone, la feuille de partage doit s'ouvrir dans le geste même
+    var id=a.dataset.p,nm=a.dataset.n||"Fichier";
+    if(!phFiles[id])phBlob(id).then(function(bl){if(bl)phFiles[id]=new File([bl],nm,{type:bl.type||""});});
+  });
+  Array.prototype.forEach.call(root.querySelectorAll("img.nimg[data-p]"),function(im){
+    var id=im.dataset.p;if(!phFiles[id])phBlob(id).then(function(bl){if(bl)phFiles[id]=new File([bl],"photo.jpg",{type:"image/jpeg"});});
   });
 }
 document.addEventListener("click",function(ev){
   var a=ev.target.closest&&ev.target.closest("#ne-body a.natt");if(!a)return;
   ev.preventDefault();
+  var f=phFiles[a.dataset.p];
+  if(f&&("ontouchstart" in window)&&navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f]}).catch(function(){});return;}
   var w=window.open("","_blank");
   phUrl(a.dataset.p).then(function(u){if(u&&w)w.location.href=u;else{if(w)w.close();showToast("Fichier introuvable sur cet appareil",true);}});
 });
@@ -567,3 +625,41 @@ function attSheet(open){
   ["photos","cam","file"].forEach(function(k){$("att-"+k).addEventListener("change",function(ev){var fs=ev.target.files;attSheet(false);phAdd(fs,k==="file"?"file":"img");});});
   requestAnimationFrame(function(){el.classList.add("open");});
 }
+
+/* ---------- retours des tests utilisateurs (25 nov.) ---------- */
+// photo pas encore là : un message à la place du rectangle gris vide
+function phWait(im){
+  var w=im.parentNode;if(!w||w.id==="ne-body")return;
+  w.setAttribute("data-wait",SU?"Photo pas encore arrivée : elle s'affichera dès qu'elle aura été envoyée depuis l'autre appareil.":"Photo enregistrée sur un autre appareil. Connecte-toi pour la voir ici.");
+}
+// toucher une photo : plein écran, avec Supprimer et Enregistrer
+var phFiles={};
+function phView(im){
+  var u=im.getAttribute("src");if(!u)return;
+  var b=$("ne-body");if(b)b.blur();
+  var v=document.createElement("div");v.id="ph-view";v.className="phview";v.setAttribute("role","dialog");v.setAttribute("aria-label","Photo");
+  v.innerHTML='<img alt="" src="'+u+'"><div class="pvbar">'+
+    '<button type="button" data-act="pv-close">Fermer</button>'+
+    (navigator.canShare?'<button type="button" data-act="pv-share">Enregistrer</button>':'')+
+    '<button type="button" class="del" data-act="pv-del">Supprimer</button></div>';
+  v._img=im;document.body.appendChild(v);
+  requestAnimationFrame(function(){v.classList.add("open");});
+}
+function phViewClose(){var v=$("ph-view");if(!v)return;v.classList.remove("open");setTimeout(function(){v.remove();},180);}
+document.addEventListener("click",function(ev){
+  var im=ev.target.closest&&ev.target.closest("#ne-body img.nimg");
+  if(im){ev.preventDefault();phView(im);return;}
+  var a=ev.target.closest&&ev.target.closest("[data-act]");if(!a)return;
+  var act=a.dataset.act,v=$("ph-view");
+  if(act==="pv-close"){phViewClose();}
+  else if(act==="pv-del"&&v){
+    var im2=v._img,w=im2&&im2.parentNode,b=$("ne-body");
+    if(w&&w!==b&&w.childNodes.length===1)w.remove();else if(im2)im2.remove();
+    if(b)rteSave(b);phViewClose();showToast("Photo retirée de la note",true);
+  }
+  else if(act==="pv-share"&&v){
+    var f=phFiles[v._img.dataset.p];
+    if(f&&navigator.canShare&&navigator.canShare({files:[f]}))navigator.share({files:[f]}).catch(function(){});
+  }
+});
+document.addEventListener("keydown",function(ev){if(ev.key==="Escape"&&$("ph-view")){ev.stopPropagation();phViewClose();}},true);

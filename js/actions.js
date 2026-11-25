@@ -330,7 +330,7 @@ document.addEventListener("input",function(ev){
     });
     return;
   }
-  if(ta.id==="ne-body"&&ta.isContentEditable){rteSave(ta);return;}
+  if(ta.id==="ne-body"&&ta.isContentEditable){rteSave(ta);if(aaOpen&&ev.inputType&&/^insert(Text|Paragraph|LineBreak)/.test(ev.inputType)){aaOpen=false;rteMode();}rteActive();return;}
   if(ta.id!=="ne-title"&&ta.id!=="ne-body")return;
   var id=state.noteOpen,d=get(id);if(!d)return;
   if(ta.id==="ne-title"){if(/\n/.test(ta.value))ta.value=ta.value.replace(/\n/g," ");d.title=ta.value;}else d.text=ta.value;

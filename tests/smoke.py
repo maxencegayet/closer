@@ -554,6 +554,57 @@ with sync_playwright() as p:
     check('Brouillon : aucune erreur', not errs)
     c.close()
 
+    # 7 quater quater. Retours des tests utilisateurs : styles actifs, panneau qui se ferme en tapant, photo en plein écran,
+    # photo pas encore arrivée, coller une capture et glisser un fichier (ordinateur)
+    c, pg, errs = device(cfg=False)
+    PNG = __import__('base64').b64decode('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFklEQVR42mP8z8DwnwEJMDKgCxADAH1RA/1o3lYcAAAAAElFTkSuQmCC')
+    pg.goto(URL + '#brouillon'); pg.wait_for_timeout(400)
+    pg.click('#fab'); pg.wait_for_timeout(300); pg.keyboard.type('Test'); pg.keyboard.press('Enter')
+    pg.click('#ne-fmt [data-act="aa"]'); pg.click('#ne-aa [data-v="bold"]'); pg.wait_for_timeout(100)
+    pg.keyboard.type('Gras')
+    pg.wait_for_timeout(150)
+    check('en tapant, le panneau « Aa » se ferme (plus de place pour le texte)', pg.is_hidden('#ne-aa'))
+    check('pastille « B » dans la barre : le gras est actif', pg.is_visible('#ne-on [data-v="bold"]'))
+    pg.click('#ne-on [data-v="bold"]'); pg.keyboard.type(' normal'); pg.wait_for_timeout(150)
+    check('toucher la pastille arrête le gras', pg.evaluate("document.getElementById('ne-body').innerHTML").endswith('<b>Gras</b> normal') and not pg.query_selector('#ne-on [data-v="bold"]'))
+    pg.click('#ne-fmt [data-act="aa"]'); pg.click('#hl-pop [data-v="g"]'); pg.keyboard.type(' vert'); pg.wait_for_timeout(150)
+    check('pastille « Surligné » quand on tape surligné', 'Surligné' in pg.inner_text('#ne-on'))
+    pg.click('#ne-on [data-act="hl"]'); pg.keyboard.type(' fin'); pg.wait_for_timeout(150)
+    h = pg.evaluate("state.items.get(state.noteOpen).html")
+    check('toucher « Surligné × » : la suite s\'écrit sans surlignage', h.count('background') == 1 and h.rstrip().endswith('fin') and not pg.query_selector('#ne-on [data-act="hl"]'))
+    check('le caractère invisible ne pollue pas le texte brut', '\u200b' not in pg.evaluate("state.items.get(state.noteOpen).text"))
+    # photo en plein écran, puis Supprimer
+    pg.click('#ne-fmt [data-act="att-open"]'); pg.wait_for_timeout(200)
+    pg.set_input_files('#att-photos', files=[{'name': 'p.png', 'mimeType': 'image/png', 'buffer': PNG}]); pg.wait_for_timeout(800)
+    pg.click('#ne-body img.nimg'); pg.wait_for_timeout(250)
+    check('toucher une photo : plein écran avec Fermer et Supprimer', pg.is_visible('#ph-view img') and pg.is_visible('#ph-view [data-act="pv-del"]'))
+    pg.click('#ph-view [data-act="pv-del"]'); pg.wait_for_timeout(300)
+    check('« Supprimer » retire la photo de la note', not pg.query_selector('#ne-body img.nimg') and '<img' not in pg.evaluate("state.items.get(state.noteOpen).html") and not pg.query_selector('#ph-view'))
+    # photo pas encore arrivée
+    pg.evaluate("""()=>{state.items.set('zz',{kind:'note',title:'Depuis le Mac',text:'',html:'<div><img class="nimg" data-p="labsente123" alt=""></div>',hk:hsh(''),folder:'',pinned:false,created:1,updated:Date.now()});persistLocal();}""")
+    pg.click('[data-act="note-close"]'); pg.wait_for_timeout(300); pg.click('#l-notes .nrow[data-id="zz"]'); pg.wait_for_timeout(700)
+    check('photo pas encore arrivée : un message à la place du rectangle vide', 'autre appareil' in (pg.get_attribute('#ne-body div[data-wait]', 'data-wait') or ''))
+    check('styles et photos : aucune erreur', not errs)
+    c.close()
+    c, pg, errs = device(cfg=False, desktop=True)
+    pg.goto(URL + '#brouillon'); pg.wait_for_timeout(400)
+    pg.click('#fab'); pg.wait_for_timeout(300); pg.keyboard.type('Capture'); pg.keyboard.press('Enter'); pg.keyboard.type('Avant')
+    pg.click('#ne-fmt [data-act="aa"]'); pg.wait_for_timeout(100)
+    check('ordinateur : raccourcis affichés dans le panneau « Aa »', pg.is_visible('#ne-aa [data-v="bold"] kbd') and pg.is_visible('#ne-aa .hlk kbd'))
+    pg.evaluate("""(b64)=>{const bin=atob(b64),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+      const dt=new DataTransfer();dt.items.add(new File([u],'capture.png',{type:'image/png'}));
+      document.getElementById('ne-body').dispatchEvent(new ClipboardEvent('paste',{clipboardData:dt,bubbles:true,cancelable:true}));}""", __import__('base64').b64encode(PNG).decode())
+    pg.wait_for_timeout(800)
+    check('⌘V d\'une capture d\'écran : ajoutée comme photo', pg.evaluate("document.querySelectorAll('#ne-body img.nimg').length") == 1)
+    pg.evaluate("""()=>{const dt=new DataTransfer();dt.items.add(new File(['%PDF-1.4'],'Plan.pdf',{type:'application/pdf'}));
+      const b=document.getElementById('ne-body'),r=b.getBoundingClientRect();
+      b.dispatchEvent(new DragEvent('dragover',{dataTransfer:dt,bubbles:true,cancelable:true,clientX:r.left+5,clientY:r.top+5}));
+      b.dispatchEvent(new DragEvent('drop',{dataTransfer:dt,bubbles:true,cancelable:true,clientX:r.left+5,clientY:r.top+5}));}""")
+    pg.wait_for_timeout(800)
+    check('glisser un PDF sur la note : ajouté comme fichier', 'Plan.pdf' in pg.inner_text('#ne-body'))
+    check('coller, glisser : aucune erreur', not errs)
+    c.close()
+
     # 7 quater ter. Brouillon sur ordinateur : « Faire le tri » (cocher puis supprimer, avec « Annuler ») ; plus de corbeille au survol
     c, pg, errs = device(cfg=False, desktop=True)
     pg.evaluate("""()=>{[['a','Copie 1'],['b','Copie 2'],['k','À garder']].forEach(([i,t],n)=>state.items.set(i,{kind:'note',title:t,text:'x',folder:'',pinned:false,created:1,updated:Date.now()-n*1000}));persistLocal();location.hash='#brouillon';}""")

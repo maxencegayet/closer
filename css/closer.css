@@ -643,3 +643,37 @@ body.tri nav.tabs,body.tri .dock{visibility:hidden}
 .attrow svg{width:26px;height:26px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .attrow b{display:block;font-size:17px;font-weight:600}
 .attrow small{display:block;font-size:14px;color:var(--muted);margin-top:2px}
+
+/* retours des tests utilisateurs (25 nov.) */
+/* panneau « Aa » plus compact */
+.ne-aa{padding:8px;gap:8px;border-radius:18px}
+.ne-tools .fb{height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;line-height:1}
+.ne-tools .hlc{width:32px;height:32px}
+.ne-tools kbd{display:none;font:500 10px/1 var(--font);color:var(--muted);margin-top:3px;letter-spacing:.02em}
+.ne-tools .fb[aria-pressed="true"] kbd{color:inherit;opacity:.7}
+.hlk{display:none;align-items:center;margin-left:auto}
+@media (hover:hover) and (pointer:fine){.ne-tools kbd{display:block}.ne-tools .fb{height:46px}.hlk{display:flex}.hlk kbd{margin:0 4px 0 0}}
+/* styles actifs au curseur */
+.ne-on{display:flex;gap:6px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none;padding-left:4px}
+.ne-on::-webkit-scrollbar{display:none}
+.ne-tools .onchip{display:inline-flex;align-items:center;gap:6px;flex:none;height:30px;padding:0 10px;border-radius:999px;background:var(--bg);color:var(--ink);font-size:13px;font-weight:600}
+.ne-tools .onchip span{color:var(--muted);font-weight:500;font-size:15px;line-height:1}
+.ne-tools .onchip .dot{width:12px;height:12px;border-radius:50%;border:1px solid rgba(0,0,0,.08)}
+.ne-tools .tb[data-act="att-open"]{margin-left:auto}
+/* photo pas encore là */
+.ne-body div[data-wait]{position:relative}
+.ne-body div[data-wait]::after{content:attr(data-wait);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 24px;color:var(--muted);font-size:14px;line-height:1.4;pointer-events:none}
+.ne-body img.nimg{cursor:zoom-in}
+/* photo en plein écran */
+.phview{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;transition:opacity 160ms ease;padding:calc(env(safe-area-inset-top,0px) + 16px) 12px calc(env(safe-area-inset-bottom,0px) + 16px)}
+.phview.open{opacity:1}
+.phview img{max-width:100%;max-height:calc(100% - 80px);object-fit:contain;border-radius:10px}
+.pvbar{display:flex;gap:10px;margin-top:18px}
+.pvbar button{border:0;border-radius:999px;padding:12px 20px;font:inherit;font-size:15px;font-weight:600;background:rgba(255,255,255,.14);color:#fff;cursor:pointer}
+.pvbar button.del{background:var(--late);color:#fff}
+/* glisser un fichier sur la note */
+#nb-ed.dropping .ne-body{outline:2px dashed var(--muted);outline-offset:8px;border-radius:12px}
+/* photo en cours de chargement ou pas encore arrivée : pas de cadre d'image vide, un fond uni */
+.ne-body img.nimg:not([src]){visibility:hidden}
+.ne-body div:has(> img.nimg:not([src])){background:var(--line);border-radius:14px;margin:6px 0}
+.ne-body div:has(> img.nimg:not([src])) img.nimg{margin:0}
