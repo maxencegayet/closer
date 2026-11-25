@@ -197,9 +197,10 @@ function placeTools(){
   var kb=vv?Math.max(0,window.innerHeight-vv.height-vv.offsetTop):0, open=kb>40||(vv&&window.innerHeight-vv.height>40);
   el.classList.toggle("kb",!!open);
   if(!open||!vv){el.style.transform="";return;}
-  // on part du bas de la zone visible (visualViewport) ; sur iPhone (capture du 25 nov., 12 h 08), ce bas est
-  // déjà au-dessus de la barre d'iOS (flèches et ✓) : la nôtre se pose juste dessus, à 6 px
-  var h=el.offsetHeight||52, y=vv.offsetTop+vv.height-h-6;
+  // on part du bas de la zone visible (visualViewport). Sur iPhone (iOS 26), la barre d'iOS au-dessus du clavier
+  // (flèches et ✓, ~48 px) flotte DANS cette zone : 3 captures de Maxence sur 4 le montrent (25 nov., la dernière à
+  // 12 h 26 : avec 6 px, notre barre passait dessous). On la laisse dessous : 60 px sur iOS.
+  var h=el.offsetHeight||52, y=vv.offsetTop+vv.height-h-(IS_IOS?60:8);
   el.style.transform="translateY("+Math.round(y)+"px)";
 }
 if(window.visualViewport){visualViewport.addEventListener("resize",placeTools);visualViewport.addEventListener("scroll",placeTools);}
