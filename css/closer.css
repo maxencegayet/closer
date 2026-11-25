@@ -584,17 +584,20 @@ body.arr-drag .list{overflow:visible}
 .ne-tools .fb{flex:1 1 0;min-width:0;padding:10px 6px;border-radius:16px;font-size:17px;font-weight:600;font-family:var(--font)}
 .ne-tools .fb[aria-pressed="true"]{background:var(--solid-press)}
 .ne-tools .fb b{font-weight:800}.ne-tools .fb i{font-style:italic;font-family:Georgia,serif}
-.ne-tools .ftask{flex:1.6 1 0;gap:6px;font-size:14px}
 .ne-tools .hlb .hlbar{stroke:var(--hl,transparent);stroke-width:3}
-.fsep{width:1px;align-self:stretch;margin:8px 2px;background:var(--solid-press)}
 .hlpop{position:absolute;left:0;right:0;bottom:calc(100% + 10px);display:flex;justify-content:center;gap:10px;padding:10px;background:var(--ink);border-radius:18px}
 .hlpop[hidden]{display:none}
 .ne-tools .hlc{flex:none;width:34px;height:34px;padding:0;border-radius:50%;border:2px solid rgba(255,255,255,.25)}
 .ne-tools .hlc.none{background:transparent;color:var(--surface)}
 
-/* barre de mise en forme : au repos, seulement « Tâche », à droite ; complète quand des mots sont sélectionnés */
-.ne-tools.compact{left:auto;right:12px;margin-inline:0;max-width:none}
-.ne-tools.compact .fb:not(.ftask),.ne-tools.compact .fsep,.ne-tools.compact .hlpop{display:none}
-.ne-tools.compact .ftask{padding:10px 16px}
 @media (prefers-reduced-motion:no-preference){.ne-tools.full .fb{animation:fbin 140ms ease-out}}
 @keyframes fbin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* 25 nov. : barre cachée sans sélection ; en haut de l'écran visible quand le clavier est ouvert */
+.ne-tools.compact{display:none}
+.ne-tools.top{top:calc(env(safe-area-inset-top,0px) + 8px);bottom:auto}
+.ne-tools.top .hlpop{bottom:auto;top:calc(100% + 10px)}
+/* liste des notes : la ligne reste dans les coins arrondis (aussi pendant le glissement) ; un trait entre deux notes */
+#l-notes .list{overflow:hidden}
+.list .nwrap .nrow{border-top:0}
+.list .nwrap+.nwrap .nrow{border-top:1px solid var(--line)}

@@ -155,20 +155,11 @@ document.addEventListener("click",function(ev){
     if(state.nfolder===gone)state.nfolder="Toutes";
     persistLocal();render();renderSheet();$("sheet").focus();return;
   }
-  if(state.noteOpen&&(act==="note-pin"||act==="note-folder"||act==="note-del"||act==="note-task")){
+  if(state.noteOpen&&(act==="note-pin"||act==="note-folder"||act==="note-del")){
     var nid=state.noteOpen,nd2=get(nid);if(!nd2)return;
     if(act==="note-pin"){nd2.pinned=!nd2.pinned;save(nid,nd2);showToast(nd2.pinned?"Note épinglée en haut du Brouillon":"Note désépinglée",true);return;}
     if(act==="note-folder"){nd2.folder=b.dataset.v;save(nid,nd2);return;}
     if(act==="note-del"){state.noteOpen=null;try{history.replaceState(null,"","#brouillon");}catch(e){}delItem(nid,nd2);return;}
-    if(act==="note-task"){
-      var ta=$("ne-body"),v0=ta?rteText(ta):"",so=ta?rteOffsets(ta):[0,0],a0=so[0],b0=so[1],line="";
-      if(b0>a0)line=(v0.slice(a0,b0).split("\n").map(function(x){return x.trim();}).filter(Boolean)[0])||"";
-      else{var s0=v0.lastIndexOf("\n",a0-1)+1,e0=v0.indexOf("\n",a0);if(e0<0)e0=v0.length;line=v0.slice(s0,e0);}
-      line=line.replace(/^\s*([-*•–]|\d+[.)]|\[[ xX]?\])\s*/,"").trim();
-      if(!line){showToast("Place le curseur sur une ligne de la note",true);return;}
-      dr=blankDraft();dr.title=cap(line).slice(0,200);
-      openSheet({mode:"new",kind:"task",draft:dr,fromNote:nid},b);return;
-    }
   }
   if(act==="add"){
     if(curView==="brouillon"){if(!state.noteOpen)newNote();return;}

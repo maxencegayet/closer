@@ -181,13 +181,14 @@ function newNote(){
   openNote(nid,"ne-title");
 }
 // la barre « Faire de la ligne une tâche » reste au-dessus du clavier
-var IS_IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
 function placeTools(){
   var el=$("ne-tools"),vv=window.visualViewport;if(!el)return;
   var kb=vv?Math.max(0,window.innerHeight-vv.height-vv.offsetTop):0;
-  // iPhone : la barre d'iOS au-dessus du clavier (flèches et ✓) flotte par-dessus la page sans être comptée
-  // par visualViewport ; on remonte d'autant (constaté sur la capture de Maxence du 25 nov., iOS 26)
-  el.style.transform=kb>40?"translateY("+(-(kb+(IS_IOS?30:0)))+"px)":"";
+  // clavier ouvert : la barre va en haut de l'écran visible. En bas, elle se retrouvait collée au mot sélectionné,
+  // sous le menu Couper/Copier, ou derrière la barre d'iOS au-dessus du clavier (captures de Maxence du 25 nov.)
+  var top=kb>40;
+  el.classList.toggle("top",top);
+  el.style.transform=top?"translateY("+Math.round(vv.offsetTop)+"px)":"";
 }
 if(window.visualViewport){visualViewport.addEventListener("resize",placeTools);visualViewport.addEventListener("scroll",placeTools);}
 
@@ -325,11 +326,11 @@ function rteHlAt(){
   return "";
 }
 // état des boutons (gras actif, etc.)
-// barre complète seulement quand des mots sont sélectionnés (ou la palette ouverte) ; sinon juste « Tâche » (25 nov.)
+// barre seulement quand des mots sont sélectionnés (ou la palette ouverte) ; cachée sinon (25 nov.)
 function rteMode(){
   var tools=$("ne-tools"),body=$("ne-body"),pop=$("hl-pop");if(!tools||!body)return;
   var s=window.getSelection(),full=!!(s&&s.rangeCount&&!s.isCollapsed&&body.contains(s.anchorNode)&&body.contains(s.focusNode))||!!(pop&&!pop.hidden);
-  if(tools.classList.contains("full")!==full){tools.classList.toggle("full",full);tools.classList.toggle("compact",!full);}
+  if(tools.classList.contains("full")!==full){tools.classList.toggle("full",full);tools.classList.toggle("compact",!full);if(full)placeTools();}
 }
 function rteState(){
   rteMode();
@@ -346,8 +347,7 @@ function fmtBar(){
     [["bold","Gras","⌘B"],["italic","Italique","⌘I"],["underline","Souligné","⌘U"],["strikeThrough","Barré","⌘⇧X"]].map(function(x){
       return '<button type="button" class="fb" data-act="fmt" data-v="'+x[0]+'" aria-pressed="false" aria-label="'+x[1]+'" title="'+x[1]+' ('+x[2]+')">'+RTE_ICON[x[0]]+'</button>';}).join("")+
     '<button type="button" class="fb hlb" data-act="hl-open" aria-pressed="false" aria-expanded="false" aria-label="Surligner" title="Surligner (⌘⇧H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4l6 6-9 9H5v-6z"/><path d="M4 21h16" class="hlbar"/></svg></button>'+
-    '<span class="fsep" aria-hidden="true"></span>'+
-    '<button type="button" class="fb ftask" data-act="note-task" aria-label="Faire de la ligne une tâche" title="Faire de la ligne une tâche"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="5"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg><span>Tâche</span></button>'+
+
     '<div class="hlpop" id="hl-pop" hidden role="group" aria-label="Couleur de surlignage">'+
       HL.map(function(h){return '<button type="button" class="hlc" data-act="hl" data-v="'+h[0]+'" style="background:'+h[1]+'" aria-label="Surligner en '+h[2].toLowerCase()+'" title="'+h[2]+'"></button>';}).join("")+
       '<button type="button" class="hlc none" data-act="hl" data-v="" aria-label="Enlever le surlignage" title="Sans surlignage"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>'+
