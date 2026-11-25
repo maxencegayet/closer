@@ -181,10 +181,13 @@ function newNote(){
   openNote(nid,"ne-title");
 }
 // la barre « Faire de la ligne une tâche » reste au-dessus du clavier
+var IS_IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
 function placeTools(){
   var el=$("ne-tools"),vv=window.visualViewport;if(!el)return;
   var kb=vv?Math.max(0,window.innerHeight-vv.height-vv.offsetTop):0;
-  el.style.transform=kb>40?"translateY("+(-kb)+"px)":"";
+  // iPhone : la barre d'iOS au-dessus du clavier (flèches et ✓) flotte par-dessus la page sans être comptée
+  // par visualViewport ; on remonte d'autant (constaté sur la capture de Maxence du 25 nov., iOS 26)
+  el.style.transform=kb>40?"translateY("+(-(kb+(IS_IOS?30:0)))+"px)":"";
 }
 if(window.visualViewport){visualViewport.addEventListener("resize",placeTools);visualViewport.addEventListener("scroll",placeTools);}
 
