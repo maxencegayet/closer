@@ -192,12 +192,16 @@ function newNote(){
 // outils de la note dans l'en-tête (25 nov., choix de Maxence) : « Aa » et « + » en haut, à côté de l'épingle.
 // Le haut de l'écran ne bouge pas avec le clavier : l'en-tête suit seulement la zone visible quand iOS la décale.
 var IS_IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
-function placeTools(){
-  var top=document.querySelector("#nb-ed .ne-top"),vv=window.visualViewport;if(!top)return;
-  var off=vv?Math.max(0,Math.round(vv.offsetTop)):0;
-  top.style.transform=off?"translateY("+off+"px)":"";
+// .15 : sans animation (elle donnait l'effet de retard) et une seule mise à jour par image.
+var ptRaf=0;
+function placeToolsNow(){
+  ptRaf=0;var top=document.querySelector("#nb-ed .ne-top"),vv=window.visualViewport;if(!top)return;
+  var off=vv?Math.max(0,Math.round(vv.offsetTop)):0,t=off?"translateY("+off+"px)":"";
+  if(top.style.transform!==t)top.style.transform=t;
 }
+function placeTools(){if(!ptRaf)ptRaf=requestAnimationFrame(placeToolsNow);}
 if(window.visualViewport){visualViewport.addEventListener("resize",placeTools);visualViewport.addEventListener("scroll",placeTools);}
+window.addEventListener("scroll",placeTools,{passive:true});
 
 /* ---------- texte enrichi (25 nov.) : gras, italique, souligné, barré, surligné en 5 couleurs ----------
    d.text reste le texte brut (recherche, aperçu, « Faire de la ligne une tâche », anciennes versions de Closer).
