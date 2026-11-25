@@ -126,13 +126,12 @@ function renderEditor(){
   }
   ed.innerHTML='<div class="ne-top"><button type="button" class="back" data-act="note-close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Brouillon</button><span class="sp"></span>'+
     '<button type="button" class="icon" id="ne-pin" data-act="note-pin" aria-pressed="'+(!!d.pinned)+'" aria-label="'+(d.pinned?"Désépingler":"Épingler")+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8"/></svg></button>'+
-    '<button type="button" class="icon" data-act="note-del" aria-label="Supprimer la note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button></div>'+
+    fmtBar()+'</div>'+
     '<div class="ne'+(reduce.matches?"":" enter")+'">'+
     '<div class="chips scroll ne-folders" id="ne-folders" role="group" aria-label="Dossier de la note">'+edFolders(d)+'</div>'+
     '<textarea id="ne-title" class="ne-title" rows="1" placeholder="Sans titre" maxlength="200" aria-label="Titre de la note" autocapitalize="sentences" enterkeyhint="next">'+esc(d.title||"")+'</textarea>'+
     '<div class="ne-meta" id="ne-meta">'+esc(edMeta(d))+'</div>'+
-    '<div id="ne-body" class="ne-body rte" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Texte de la note" data-ph="Écris ici…" autocapitalize="sentences" spellcheck="true">'+noteHtml(d)+'</div></div>'+
-    '<div class="ne-tools compact" id="ne-tools">'+fmtBar()+'</div>';
+    '<div id="ne-body" class="ne-body rte" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Texte de la note" data-ph="Écris ici…" autocapitalize="sentences" spellcheck="true">'+noteHtml(d)+'</div></div>';
   autosize();placeTools();phHydrate($("ne-body"));
 }
 function nfMarks(){return Array.prototype.slice.call(document.querySelectorAll("#nb-ed mark"));}
@@ -190,18 +189,13 @@ function newNote(){
   save(nid,{kind:"note",title:"",text:"",folder:state.nfolder!=="Toutes"?state.nfolder:"",pinned:false,created:now,updated:now});
   openNote(nid,"ne-title");
 }
-// barre à la Notion (25 nov.) : collée au-dessus du clavier tant qu'on écrit dans la note
+// outils de la note dans l'en-tête (25 nov., choix de Maxence) : « Aa » et « + » en haut, à côté de l'épingle.
+// Le haut de l'écran ne bouge pas avec le clavier : l'en-tête suit seulement la zone visible quand iOS la décale.
 var IS_IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
 function placeTools(){
-  var el=$("ne-tools"),vv=window.visualViewport;if(!el)return;
-  var kb=vv?Math.max(0,window.innerHeight-vv.height-vv.offsetTop):0, open=kb>40||(vv&&window.innerHeight-vv.height>40);
-  el.classList.toggle("kb",!!open);
-  if(!open||!vv){el.style.transform="";return;}
-  // on part du bas de la zone visible (visualViewport). Sur iPhone (iOS 26), la barre d'iOS au-dessus du clavier
-  // (flèches et ✓, ~48 px) flotte DANS cette zone : 3 captures de Maxence sur 4 le montrent (25 nov., la dernière à
-  // 12 h 26 : avec 6 px, notre barre passait dessous). On la laisse dessous : 60 px sur iOS.
-  var h=el.offsetHeight||52, y=vv.offsetTop+vv.height-h-(IS_IOS?60:8);
-  el.style.transform="translateY("+Math.round(y)+"px)";
+  var top=document.querySelector("#nb-ed .ne-top"),vv=window.visualViewport;if(!top)return;
+  var off=vv?Math.max(0,Math.round(vv.offsetTop)):0;
+  top.style.transform=off?"translateY("+off+"px)":"";
 }
 if(window.visualViewport){visualViewport.addEventListener("resize",placeTools);visualViewport.addEventListener("scroll",placeTools);}
 
@@ -358,28 +352,20 @@ function rteHlAt(){
   return "";
 }
 // état des boutons (gras actif, etc.)
-// la barre apparaît dès qu'on écrit dans le texte de la note (curseur dedans), comme dans Notion
+// panneau « Aa » : ouvert ou fermé (les boutons de l'en-tête restent toujours là)
 var aaOpen=false;
 function rteMode(){
-  var tools=$("ne-tools"),body=$("ne-body");if(!tools||!body)return;
-  var a=document.activeElement, show=a===body||aaOpen||(a&&tools.contains(a));
-  if(tools.classList.contains("full")!==!!show){tools.classList.toggle("full",!!show);tools.classList.toggle("compact",!show);}
   var p=$("ne-aa");if(p)p.hidden=!aaOpen;
-  var ab=tools.querySelector('[data-act="aa"]');if(ab)ab.setAttribute("aria-expanded",String(aaOpen));
-  if(show)placeTools();
+  var ab=document.querySelector('#ne-tools [data-act="aa"]');if(ab)ab.setAttribute("aria-expanded",String(aaOpen));
 }
 function rteActive(){
-  var box=$("ne-on");if(!box)return;
-  var s=window.getSelection(),b=$("ne-body"),h="";
-  if(s&&s.rangeCount&&s.isCollapsed&&b&&b.contains(s.anchorNode)){
-    [["bold","<b>B</b>","Gras"],["italic","<i>I</i>","Italique"],["underline","<u>U</u>","Souligné"],["strikeThrough","<s>S</s>","Barré"]].forEach(function(x){
-      var on=false;try{on=document.queryCommandState(x[0]);}catch(e){}
-      if(on)h+='<button type="button" class="onchip" data-act="fmt" data-v="'+x[0]+'" aria-label="'+x[2]+' activé, toucher pour arrêter">'+x[1]+'<span aria-hidden="true">×</span></button>';
-    });
-    var k=rteHlAt();
-    if(k)h+='<button type="button" class="onchip" data-act="hl" data-v="" aria-label="Surlignage activé, toucher pour arrêter"><i class="dot" style="background:'+hlHex(k)+'"></i>Surligné<span aria-hidden="true">×</span></button>';
+  var ab=document.querySelector('#ne-tools [data-act="aa"]');if(!ab)return;
+  var s=window.getSelection(),b=$("ne-body"),on=false;
+  if(s&&s.rangeCount&&b&&b.contains(s.anchorNode)){
+    ["bold","italic","underline","strikeThrough"].forEach(function(c){try{if(document.queryCommandState(c))on=true;}catch(e){}});
+    if(rteHlAt())on=true;
   }
-  if(box.innerHTML!==h)box.innerHTML=h;
+  ab.classList.toggle("on",on);
 }
 function rteState(){
   rteMode();rteActive();
@@ -391,7 +377,7 @@ document.addEventListener("selectionchange",function(){if($("ne-tools"))rteState
 document.addEventListener("focusin",function(){if($("ne-tools"))rteMode();});
 document.addEventListener("focusout",function(){setTimeout(function(){
   var t=$("ne-tools"),a=document.activeElement;if(!t)return;
-  if(a!==$("ne-body")&&!(a&&t.contains(a))&&!document.querySelector("#ne-tools input:focus"))aaOpen=false;   // on a quitté la note : le panneau « Aa » se ferme
+  if(a!==$("ne-body")&&!(a&&t.contains(a))&&!document.querySelector("#ne-tools input:focus")&&!(a&&a.id==="ne-title"))aaOpen=false;   // on a quitté la note : le panneau « Aa » se ferme
   rteMode();
 },0);});
 // raccourcis : ⌘ sur Mac, Ctrl ailleurs ; affichés dans le panneau « Aa » sur ordinateur
@@ -401,22 +387,17 @@ var RTE_ICON={
   bold:'<b>B</b>',italic:'<i>I</i>',underline:'<u>U</u>',strikeThrough:'<s>S</s>'
 };
 function fmtBar(){
-  return '<div class="ne-aa" id="ne-aa" hidden role="group" aria-label="Mise en forme du texte">'+
+  return '<div class="ne-tools" id="ne-tools" role="toolbar" aria-label="Outils de la note">'+
+    '<button type="button" class="icon tb" data-act="aa" aria-expanded="false" aria-controls="ne-aa" aria-label="Mise en forme du texte" title="Mise en forme"><span class="aa-ic" aria-hidden="true">Aa</span><i class="aadot" aria-hidden="true"></i></button>'+
+    '<button type="button" class="icon tb" data-act="att-pick" data-v="any" aria-label="Ajouter une photo ou un fichier" title="Ajouter une photo ou un fichier"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>'+
+    // sans « accept » : iOS propose d'un seul toucher Photothèque, Prendre une photo, Choisir les fichiers
+    '<input type="file" id="att-any" multiple hidden tabindex="-1">'+
+    '<div class="ne-aa" id="ne-aa" hidden role="group" aria-label="Mise en forme du texte">'+
       '<div class="aa-row">'+[["bold","Gras","⌘B"],["italic","Italique","⌘I"],["underline","Souligné","⌘U"],["strikeThrough","Barré","⌘⇧X"]].map(function(x){
         return '<button type="button" class="fb" data-act="fmt" data-v="'+x[0]+'" aria-pressed="false" aria-label="'+x[1]+'" title="'+x[1]+' ('+kbd(x[2])+')">'+RTE_ICON[x[0]]+'<kbd>'+kbd(x[2])+'</kbd></button>';}).join("")+'</div>'+
       '<div class="aa-row hlrow" id="hl-pop">'+HL.map(function(h){return '<button type="button" class="hlc" data-act="hl" data-v="'+h[0]+'" style="background:'+h[1]+'" aria-label="Surligner en '+h[2].toLowerCase()+'" title="'+h[2]+'"></button>';}).join("")+
         '<span class="hlk"><kbd>'+kbd("⌘⇧H")+'</kbd></span><button type="button" class="hlc none" data-act="hl" data-v="" aria-label="Enlever le surlignage" title="Sans surlignage"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>'+
-    '</div>'+
-    '<div class="ne-fmt" id="ne-fmt" role="toolbar" aria-label="Outils de la note">'+
-      '<button type="button" class="tb" data-act="aa" aria-expanded="false" aria-controls="ne-aa" aria-label="Mise en forme du texte" title="Mise en forme"><span class="aa-ic" aria-hidden="true">Aa</span></button>'+
-      '<button type="button" class="tb" data-act="att-pick" data-v="photos" aria-label="Ajouter une photo de la photothèque" title="Photo"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M5 17l4.5-4.5 3 3 2.5-2.5L19.5 17"/></svg></button>'+
-      '<button type="button" class="tb" data-act="att-pick" data-v="cam" aria-label="Prendre une photo" title="Appareil photo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h3l1.6-2.5h6.8L17 8.5h3v10H4z"/><circle cx="12" cy="13.3" r="3.3"/></svg></button>'+
-      '<button type="button" class="tb" data-act="att-pick" data-v="file" aria-label="Joindre un fichier" title="Fichier"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5l-7.8 7.8a5 5 0 0 1-7-7l8-8a3.4 3.4 0 0 1 4.8 4.8l-8 8a1.7 1.7 0 0 1-2.4-2.4l7.3-7.3"/></svg></button>'+
-      '<span class="ne-on" id="ne-on" aria-live="polite"></span>'+
-      '<input type="file" id="att-photos" accept="image/*" multiple hidden tabindex="-1">'+
-      '<input type="file" id="att-cam" accept="image/*" capture="environment" hidden tabindex="-1">'+
-      '<input type="file" id="att-file" accept="'+ATT_DOCS+'" multiple hidden tabindex="-1">'+
-    '</div>';
+    '</div></div>';
 }
 // coller : texte seul (pas les styles d'une page web)
 document.addEventListener("paste",function(ev){
@@ -617,8 +598,8 @@ function phAdd(files,kind){
 // boutons Photos, Appareil photo et Fichiers de la barre (comme Notion) : chacun ouvre directement son sélecteur
 var ATT_DOCS=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.key,.pages,.numbers,.txt,.rtf,.csv,.odt,.ods,.odp,.zip,.epub,.md";
 document.addEventListener("change",function(ev){
-  var t=ev.target;if(!t||!/^att-(photos|cam|file)$/.test(t.id||""))return;
-  var fs=t.files;if(fs&&fs.length)phAdd(fs,t.id==="att-file"?"file":"img");
+  var t=ev.target;if(!t||!/^att-(any|photos|cam|file)$/.test(t.id||""))return;
+  var fs=t.files;if(fs&&fs.length)phAdd(fs,t.id==="att-file"?"file":"img");   // « img » : les images deviennent des photos, le reste des fichiers
 });
 /* ---------- retours des tests utilisateurs (25 nov.) ---------- */
 // photo pas encore là : un message à la place du rectangle gris vide

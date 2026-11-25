@@ -27,6 +27,7 @@ var IC={
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["25 nov.","Brouillon : « Aa » et « + » sont maintenant en haut de la note, à côté de l'épingle, toujours à portée et jamais cachés par le clavier. « + » propose Photothèque, Prendre une photo ou Choisir les fichiers. Pour supprimer une note : glisse-la vers la gauche dans la liste."],
   ["25 nov.","Brouillon : la barre au-dessus du clavier a maintenant ses boutons Photo, Appareil photo et Fichier (trombone), sans étape en plus. Elle est collée au clavier."],
   ["25 nov.","Brouillon : touche une photo pour l'agrandir, la supprimer ou l'enregistrer. Les styles actifs (gras, surligné…) s'affichent dans la barre : touche-les pour les arrêter. Sur Mac, ⌘V colle une capture d'écran et tu peux glisser des photos ou des fichiers dans la note ; les raccourcis sont affichés dans « Aa ». Sur iPhone, un fichier joint s'ouvre avec le menu de partage (Enregistrer dans Fichiers, ouvrir dans…)."],
   ["25 nov.","Brouillon : nouvelle barre au-dessus du clavier, comme dans Notion. « Aa » pour le gras, l'italique, le souligné, le barré et le surlignage ; « + » pour ajouter une photo (photothèque ou appareil photo) ou un fichier (PDF, documents…)."],

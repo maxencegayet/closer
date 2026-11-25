@@ -670,3 +670,16 @@ body.tri nav.tabs,body.tri .dock{visibility:hidden}
 .ne-fmt{gap:2px;padding:4px 6px}
 .ne-tools .tb{width:44px;height:40px}
 .ne-on{margin-left:4px}
+
+/* 25 nov. (choix de Maxence) : « Aa » et « + » dans l'en-tête de la note, à la place de la poubelle */
+.ne-top .ne-tools{position:relative;inset:auto;transform:none;max-width:none;margin:0;display:flex;flex-direction:row;align-items:center;gap:8px;z-index:4}
+.ne-top .ne-tools.compact{display:flex}
+.ne-top .ne-tools .tb{width:42px;height:42px;border-radius:50%;background:var(--surface);color:var(--ink);position:relative}
+.ne-top .ne-tools .tb svg{width:20px;height:20px;stroke-width:2}
+.ne-top .ne-tools .tb[aria-expanded="true"]{background:var(--ink);color:var(--surface)}
+.ne-top .aa-ic{font-size:16px;font-weight:700;letter-spacing:-.02em}
+.aadot{position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--ink);border:2px solid var(--surface);display:none}
+.tb.on .aadot{display:block}
+.tb[aria-expanded="true"] .aadot{background:var(--surface);border-color:var(--ink)}
+.ne-top .ne-aa{position:absolute;top:calc(100% + 8px);right:0;width:min(360px,calc(100vw - 24px));z-index:6}
+.ne-top{transition:transform 120ms ease;will-change:transform}
