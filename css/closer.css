@@ -632,17 +632,6 @@ body.tri nav.tabs,body.tri .dock{visibility:hidden}
 .ne-body a.natt{display:inline-flex;align-items:center;gap:10px;max-width:100%;margin:4px 0;padding:10px 14px 10px 40px;border-radius:14px;background:var(--surface);border:1px solid var(--line);color:var(--ink);text-decoration:none;font-weight:600;font-size:15px;position:relative;cursor:pointer;-webkit-user-modify:read-only}
 .ne-body a.natt::before{content:"";position:absolute;left:13px;top:50%;width:18px;height:18px;transform:translateY(-50%);background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 11.5l-7.8 7.8a5 5 0 0 1-7-7l8-8a3.4 3.4 0 0 1 4.8 4.8l-8 8a1.7 1.7 0 0 1-2.4-2.4l7.3-7.3'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 11.5l-7.8 7.8a5 5 0 0 1-7-7l8-8a3.4 3.4 0 0 1 4.8 4.8l-8 8a1.7 1.7 0 0 1-2.4-2.4l7.3-7.3'/%3E%3C/svg%3E") center/contain no-repeat;color:var(--muted)}
 .ne-body a.natt small{font-weight:500;font-size:13px;color:var(--muted);white-space:nowrap}
-/* panneau « Ajouter » */
-.attsheet{position:fixed;inset:0;z-index:40}
-.attback{position:absolute;inset:0;background:rgba(0,0,0,.35);opacity:0;transition:opacity 200ms ease}
-.attpanel{position:absolute;left:0;right:0;bottom:0;margin-inline:auto;max-width:560px;background:var(--surface);border-radius:26px 26px 0 0;padding:10px 12px calc(18px + env(safe-area-inset-bottom,0px));transform:translateY(100%);transition:transform 220ms var(--ease-out,ease-out)}
-.attsheet.open .attback{opacity:1}.attsheet.open .attpanel{transform:none}
-.attgrip{display:block;width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 10px}
-.attrow{display:flex;align-items:center;gap:16px;width:100%;padding:14px 12px;border:0;border-radius:14px;background:transparent;color:var(--ink);text-align:left;font:inherit;cursor:pointer}
-.attrow:active,.attrow:hover{background:var(--bg)}
-.attrow svg{width:26px;height:26px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.attrow b{display:block;font-size:17px;font-weight:600}
-.attrow small{display:block;font-size:14px;color:var(--muted);margin-top:2px}
 
 /* retours des tests utilisateurs (25 nov.) */
 /* panneau « Aa » plus compact */
@@ -659,7 +648,6 @@ body.tri nav.tabs,body.tri .dock{visibility:hidden}
 .ne-tools .onchip{display:inline-flex;align-items:center;gap:6px;flex:none;height:30px;padding:0 10px;border-radius:999px;background:var(--bg);color:var(--ink);font-size:13px;font-weight:600}
 .ne-tools .onchip span{color:var(--muted);font-weight:500;font-size:15px;line-height:1}
 .ne-tools .onchip .dot{width:12px;height:12px;border-radius:50%;border:1px solid rgba(0,0,0,.08)}
-.ne-tools .tb[data-act="att-open"]{margin-left:auto}
 /* photo pas encore là */
 .ne-body div[data-wait]{position:relative}
 .ne-body div[data-wait]::after{content:attr(data-wait);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 24px;color:var(--muted);font-size:14px;line-height:1.4;pointer-events:none}
@@ -677,3 +665,8 @@ body.tri nav.tabs,body.tri .dock{visibility:hidden}
 .ne-body img.nimg:not([src]){visibility:hidden}
 .ne-body div:has(> img.nimg:not([src])){background:var(--line);border-radius:14px;margin:6px 0}
 .ne-body div:has(> img.nimg:not([src])) img.nimg{margin:0}
+
+/* barre de la note (26 nov. de Maxence : à la Notion, tout à portée sans fermer le clavier) : Aa, photo, appareil, trombone */
+.ne-fmt{gap:2px;padding:4px 6px}
+.ne-tools .tb{width:44px;height:40px}
+.ne-on{margin-left:4px}

@@ -197,9 +197,9 @@ function placeTools(){
   var kb=vv?Math.max(0,window.innerHeight-vv.height-vv.offsetTop):0, open=kb>40||(vv&&window.innerHeight-vv.height>40);
   el.classList.toggle("kb",!!open);
   if(!open||!vv){el.style.transform="";return;}
-  // on part du bas de la zone visible (visualViewport), pas de innerHeight ; sur iPhone, la barre d'iOS
-  // au-dessus du clavier (flèches et ✓, iOS 26) flotte dans cette zone sans y être comptée : on la laisse dessous
-  var h=el.offsetHeight||52, y=vv.offsetTop+vv.height-h-(IS_IOS?66:10);
+  // on part du bas de la zone visible (visualViewport) ; sur iPhone (capture du 25 nov., 12 h 08), ce bas est
+  // déjà au-dessus de la barre d'iOS (flèches et ✓) : la nôtre se pose juste dessus, à 6 px
+  var h=el.offsetHeight||52, y=vv.offsetTop+vv.height-h-6;
   el.style.transform="translateY("+Math.round(y)+"px)";
 }
 if(window.visualViewport){visualViewport.addEventListener("resize",placeTools);visualViewport.addEventListener("scroll",placeTools);}
@@ -390,7 +390,7 @@ document.addEventListener("selectionchange",function(){if($("ne-tools"))rteState
 document.addEventListener("focusin",function(){if($("ne-tools"))rteMode();});
 document.addEventListener("focusout",function(){setTimeout(function(){
   var t=$("ne-tools"),a=document.activeElement;if(!t)return;
-  if(a!==$("ne-body")&&!(a&&t.contains(a))&&!$("ne-attsheet"))aaOpen=false;   // on a quitté la note : le panneau « Aa » se ferme
+  if(a!==$("ne-body")&&!(a&&t.contains(a))&&!document.querySelector("#ne-tools input:focus"))aaOpen=false;   // on a quitté la note : le panneau « Aa » se ferme
   rteMode();
 },0);});
 // raccourcis : ⌘ sur Mac, Ctrl ailleurs ; affichés dans le panneau « Aa » sur ordinateur
@@ -408,8 +408,13 @@ function fmtBar(){
     '</div>'+
     '<div class="ne-fmt" id="ne-fmt" role="toolbar" aria-label="Outils de la note">'+
       '<button type="button" class="tb" data-act="aa" aria-expanded="false" aria-controls="ne-aa" aria-label="Mise en forme du texte" title="Mise en forme"><span class="aa-ic" aria-hidden="true">Aa</span></button>'+
+      '<button type="button" class="tb" data-act="att-pick" data-v="photos" aria-label="Ajouter une photo de la photothèque" title="Photo"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M5 17l4.5-4.5 3 3 2.5-2.5L19.5 17"/></svg></button>'+
+      '<button type="button" class="tb" data-act="att-pick" data-v="cam" aria-label="Prendre une photo" title="Appareil photo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h3l1.6-2.5h6.8L17 8.5h3v10H4z"/><circle cx="12" cy="13.3" r="3.3"/></svg></button>'+
+      '<button type="button" class="tb" data-act="att-pick" data-v="file" aria-label="Joindre un fichier" title="Fichier"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5l-7.8 7.8a5 5 0 0 1-7-7l8-8a3.4 3.4 0 0 1 4.8 4.8l-8 8a1.7 1.7 0 0 1-2.4-2.4l7.3-7.3"/></svg></button>'+
       '<span class="ne-on" id="ne-on" aria-live="polite"></span>'+
-      '<button type="button" class="tb" data-act="att-open" aria-haspopup="dialog" aria-label="Ajouter une photo ou un fichier" title="Ajouter une photo ou un fichier"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>'+
+      '<input type="file" id="att-photos" accept="image/*" multiple hidden tabindex="-1">'+
+      '<input type="file" id="att-cam" accept="image/*" capture="environment" hidden tabindex="-1">'+
+      '<input type="file" id="att-file" accept="'+ATT_DOCS+'" multiple hidden tabindex="-1">'+
     '</div>';
 }
 // coller : texte seul (pas les styles d'une page web)
@@ -608,24 +613,12 @@ function phAdd(files,kind){
     });
   });},Promise.resolve()).then(function(){phFlush();}).catch(function(e){logErr("photos",e&&(e.name+" "+e.message)||e);showToast("Impossible d'ajouter ce fichier",true);});
 }
-// panneau « Ajouter » : Photos, Appareil photo, Fichiers (comme dans Notion)
-function attSheet(open){
-  var el=$("ne-attsheet");
-  if(!open){if(el){el.classList.remove("open");setTimeout(function(){if(el&&!el.classList.contains("open"))el.remove();},220);}return;}
-  if(el)el.remove();
-  el=document.createElement("div");el.id="ne-attsheet";el.className="attsheet";el.setAttribute("role","dialog");el.setAttribute("aria-label","Ajouter à la note");
-  var IC={photos:'<rect x="3.5" y="5" width="17" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M5 17l4.5-4.5 3 3 2.5-2.5L19.5 17"/>',
-    cam:'<path d="M4 8.5h3l1.6-2.5h6.8L17 8.5h3v10H4z"/><circle cx="12" cy="13.3" r="3.3"/>',
-    file:'<path d="M20 11.5l-7.8 7.8a5 5 0 0 1-7-7l8-8a3.4 3.4 0 0 1 4.8 4.8l-8 8a1.7 1.7 0 0 1-2.4-2.4l7.3-7.3"/>'};
-  function row(k,t,sub){return '<button type="button" class="attrow" data-act="att-pick" data-v="'+k+'"><svg viewBox="0 0 24 24" aria-hidden="true">'+IC[k]+'</svg><span><b>'+t+'</b><small>'+sub+'</small></span></button>';}
-  el.innerHTML='<div class="attback" data-act="att-close"></div><div class="attpanel"><span class="attgrip" aria-hidden="true"></span>'+
-    row("photos","Photos","Choisis dans ta photothèque")+row("cam","Appareil photo","Prends une photo")+row("file","Fichiers","PDF, documents, présentations…")+
-    '<input type="file" id="att-photos" accept="image/*" multiple hidden><input type="file" id="att-cam" accept="image/*" capture="environment" hidden><input type="file" id="att-file" multiple hidden></div>';
-  document.body.appendChild(el);
-  ["photos","cam","file"].forEach(function(k){$("att-"+k).addEventListener("change",function(ev){var fs=ev.target.files;attSheet(false);phAdd(fs,k==="file"?"file":"img");});});
-  requestAnimationFrame(function(){el.classList.add("open");});
-}
-
+// boutons Photos, Appareil photo et Fichiers de la barre (comme Notion) : chacun ouvre directement son sélecteur
+var ATT_DOCS=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.key,.pages,.numbers,.txt,.rtf,.csv,.odt,.ods,.odp,.zip,.epub,.md";
+document.addEventListener("change",function(ev){
+  var t=ev.target;if(!t||!/^att-(photos|cam|file)$/.test(t.id||""))return;
+  var fs=t.files;if(fs&&fs.length)phAdd(fs,t.id==="att-file"?"file":"img");
+});
 /* ---------- retours des tests utilisateurs (25 nov.) ---------- */
 // photo pas encore là : un message à la place du rectangle gris vide
 function phWait(im){
