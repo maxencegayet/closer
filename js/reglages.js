@@ -27,6 +27,7 @@ var IC={
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["25 nov.","Brouillon sur iPhone : pendant que tu écris, la page ne bouge plus, seule la note défile, et l'en-tête reste fixe en haut. Les photos et fichiers que tu enlèves d'une note (ou d'une note supprimée) sont aussi effacés de ton téléphone et de ton compte, et tout part avec le compte si tu le supprimes."],
   ["25 nov.","Brouillon : l'en-tête de la note suit le clavier sans retard et ne laisse plus voir le texte derrière lui."],
   ["25 nov.","Brouillon : « Aa » et « + » sont maintenant en haut de la note, à côté de l'épingle, toujours à portée et jamais cachés par le clavier. « + » propose Photothèque, Prendre une photo ou Choisir les fichiers. Pour supprimer une note : glisse-la vers la gauche dans la liste."],
   ["25 nov.","Brouillon : la barre au-dessus du clavier a maintenant ses boutons Photo, Appareil photo et Fichier (trombone), sans étape en plus. Elle est collée au clavier."],
@@ -279,7 +280,8 @@ async function acAct(act,b){
       AS={step:"login",email:"",msg:"Déconnecté : tes éléments restent sur cet appareil."};
     }else if(act==="ac-del"){
       if(!acq){acq=true;return renderSheet();}
-      acq=false;var d=await SB.rpc("delete_my_account");
+      acq=false;if(typeof phWipeAccount==="function")await phWipeAccount();
+      var d=await SB.rpc("delete_my_account");
       if(d.error){AS.msg=errMsg(d.error);return renderSheet();}
       try{await SB.auth.signOut({scope:"local"});}catch(e){}
       SU=null;cst=0;SY={};calTok="";calShow=false;try{localStorage.removeItem(SK);}catch(e){}

@@ -152,7 +152,7 @@ async function syncNow(){
     try{await syncOnce();}
     catch(e){if(!isAuthErr(e))throw e;await freshSession(true);await syncOnce();}
     cst=1;lastOk=Date.now();syncErr="";syncFails=0;
-    if(typeof phFlush==="function")phFlush();   // photos et fichiers des notes en attente d'envoi
+    if(typeof phFlush==="function")phFlush().then(function(){if(typeof phSweep==="function")phSweep();});   // envoi des photos en attente, puis ménage des inutilisées
     if(typeof phHydrate==="function"&&document.getElementById("ne-body"))phHydrate(document.getElementById("ne-body"));   // photos arrivées entre-temps
   }catch(e){
     cst=2;syncErr=errText(e);syncFails++;

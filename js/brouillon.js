@@ -122,7 +122,7 @@ function renderEditor(){
       '<div class="ne-title ro" data-act="nf-edit" data-f="ne-title">'+(hlHtml(d.title||"",F.q,"ne-title")||'<span class="ph">Sans titre</span>')+'</div>'+
       '<div class="ne-meta" id="ne-meta">'+esc(edMeta(d))+'</div>'+
       '<div class="ne-body ro" data-act="nf-edit" data-f="ne-body">'+hlHtml(d.text||"",F.q,"ne-body")+'</div></div>';
-    nfGo(F.i,false);return;
+    edLock(true);nfGo(F.i,false);return;
   }
   ed.innerHTML='<div class="ne-top"><button type="button" class="back" data-act="note-close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Brouillon</button><span class="sp"></span>'+
     '<button type="button" class="icon" id="ne-pin" data-act="note-pin" aria-pressed="'+(!!d.pinned)+'" aria-label="'+(d.pinned?"Désépingler":"Épingler")+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8"/></svg></button>'+
@@ -132,7 +132,7 @@ function renderEditor(){
     '<textarea id="ne-title" class="ne-title" rows="1" placeholder="Sans titre" maxlength="200" aria-label="Titre de la note" autocapitalize="sentences" enterkeyhint="next">'+esc(d.title||"")+'</textarea>'+
     '<div class="ne-meta" id="ne-meta">'+esc(edMeta(d))+'</div>'+
     '<div id="ne-body" class="ne-body rte" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Texte de la note" data-ph="Écris ici…" autocapitalize="sentences" spellcheck="true">'+noteHtml(d)+'</div></div>';
-  autosize();placeTools();phHydrate($("ne-body"));
+  autosize();edLock(true);placeTools();phHydrate($("ne-body"));
 }
 function nfMarks(){return Array.prototype.slice.call(document.querySelectorAll("#nb-ed mark"));}
 function nfGo(i,smooth){
@@ -142,17 +142,17 @@ function nfGo(i,smooth){
   m.forEach(function(x,k){x.classList.toggle("cur",k===i);});
   $("nf-count").textContent=(i+1)+" sur "+m.length;
   requestAnimationFrame(function(){var r=m[i].getBoundingClientRect();
-    if(r.top<130||r.bottom>innerHeight-120)window.scrollTo({top:window.scrollY+r.top-innerHeight*0.38,behavior:smooth&&!reduce.matches?"smooth":"auto"});});
+    if(r.top<130||r.bottom>innerHeight-120)edScrollBy(r.top-innerHeight*0.38);});
 }
 function nfEdit(mark){
   var m=mark||nfMarks()[state.nfind?state.nfind.i:0],f=m?m.dataset.f:"",a=m?+m.dataset.p:0,b=m?+m.dataset.e:0;
-  state.nfind=null;$("nb-ed").dataset.id="";var y=window.scrollY;renderEditor();window.scrollTo(0,y);
+  state.nfind=null;$("nb-ed").dataset.id="";var lk=edLocked(),y=lk?$("nb-ed").scrollTop:window.scrollY;renderEditor();if(lk)$("nb-ed").scrollTop=y;else window.scrollTo(0,y);
   var el=f?$(f):null;if(el){el.focus({preventScroll:true});if(el.isContentEditable)rteSelect(el,a,b);else try{el.setSelectionRange(a,b);}catch(e){}}
 }
 function renderBrouillon(){
   if(state.noteOpen&&!state.items.has(state.noteOpen)){state.noteOpen=null;try{history.replaceState(null,"","#brouillon");}catch(e){}}
   if(state.noteOpen&&curView==="brouillon"){renderEditor();return;}
-  document.body.classList.remove("editing");$("nb-ed").hidden=true;$("nb-ed").dataset.id="";$("nb-ed").innerHTML="";$("nb-list").hidden=false;
+  edLock(false);document.body.classList.remove("editing");$("nb-ed").hidden=true;$("nb-ed").dataset.id="";$("nb-ed").innerHTML="";$("nb-list").hidden=false;
   $("nb-folders").innerHTML=folderChips();
   if($("nb-q").value!==state.nq&&document.activeElement!==$("nb-q"))$("nb-q").value=state.nq;
   renderNoteList();
@@ -175,7 +175,7 @@ function openNote(id,focus){
   var fq=state.nq.trim();
   state.nfind=!focus&&fq&&hlRanges((d.title||"")+"\n"+(d.text||""),fq).length?{q:fq,i:0}:null;
   try{history.pushState(null,"","#brouillon/"+encodeURIComponent(id));}catch(e){}
-  render();window.scrollTo(0,0);
+  render();window.scrollTo(0,0);if($("nb-ed"))$("nb-ed").scrollTop=0;
   if(focus){var el=$(focus);if(el)el.focus();}
 }
 function closeNote(){
@@ -183,6 +183,8 @@ function closeNote(){
   state.noteOpen=null;state.nfind=null;leaveNote(id);
   try{history.replaceState(null,"","#brouillon");}catch(e){}
   render();
+  // ménage de l'appareil une fois passé le délai du « Annuler » (le compte, lui, est rangé après une synchro)
+  setTimeout(function(){if(!state.noteOpen)phSweep(true,true);},7000);
 }
 function newNote(){
   var nid=newId(),now=Date.now();
@@ -193,10 +195,43 @@ function newNote(){
 // Le haut de l'écran ne bouge pas avec le clavier : l'en-tête suit seulement la zone visible quand iOS la décale.
 var IS_IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
 // .15 : sans animation (elle donnait l'effet de retard) et une seule mise à jour par image.
+// .16 : sur iPhone, la page ne défile plus pendant l'écriture. L'éditeur devient un cadre fixe de la hauteur
+// de la zone visible (au-dessus du clavier) et c'est lui seul qui défile : l'en-tête n'a plus à suivre la page.
 var ptRaf=0;
+function edLocked(){return document.documentElement.classList.contains("ne-lock");}
+function edLock(on){
+  var h=document.documentElement,ed=$("nb-ed");
+  on=!!on&&(IS_IOS||!!window.__CLOSER_LOCK);
+  if(on===edLocked())return;
+  h.classList.toggle("ne-lock",on);
+  if(!on){h.style.removeProperty("--vvh");if(ed)ed.style.transform="";var t=document.querySelector("#nb-ed .ne-top");if(t)t.style.transform="";}
+  else{window.scrollTo(0,0);placeToolsNow();}
+}
+// le curseur reste visible au-dessus du clavier quand seul l'éditeur défile
+var caRaf=0;
+document.addEventListener("selectionchange",function(){
+  if(!edLocked()||caRaf)return;
+  caRaf=requestAnimationFrame(function(){
+    caRaf=0;var b=$("ne-body"),s=window.getSelection();if(!b||!s||!s.rangeCount||!b.contains(s.anchorNode))return;
+    var r=s.getRangeAt(0).getClientRects(),rc=r.length?r[r.length-1]:null;if(!rc||!rc.height)return;
+    var ed=$("nb-ed"),er=ed.getBoundingClientRect(),hd=document.querySelector("#nb-ed .ne-top"),ht=hd?hd.getBoundingClientRect().bottom:er.top;
+    if(rc.bottom>er.bottom-24)ed.scrollTop+=rc.bottom-er.bottom+48;
+    else if(rc.top<ht+8)ed.scrollTop-=ht+8-rc.top+24;
+  });
+});
+function edScrollBy(dy){if(edLocked())$("nb-ed").scrollTop+=dy;else window.scrollTo(0,window.scrollY+dy);}
 function placeToolsNow(){
   ptRaf=0;var top=document.querySelector("#nb-ed .ne-top"),vv=window.visualViewport;if(!top)return;
-  var off=vv?Math.max(0,Math.round(vv.offsetTop)):0,t=off?"translateY("+off+"px)":"";
+  var off=vv?Math.max(0,Math.round(vv.offsetTop)):0;
+  if(edLocked()){
+    var ed=$("nb-ed");
+    if(window.scrollY>0){window.scrollTo(0,0);off=vv?Math.max(0,Math.round(vv.offsetTop)):0;}
+    document.documentElement.style.setProperty("--vvh",Math.round(vv?vv.height:innerHeight)+"px");
+    var te=off?"translateY("+off+"px)":"";if(ed.style.transform!==te)ed.style.transform=te;
+    if(top.style.transform)top.style.transform="";
+    return;
+  }
+  var t=off?"translateY("+off+"px)":"";
   if(top.style.transform!==t)top.style.transform=t;
 }
 function placeTools(){if(!ptRaf)ptRaf=requestAnimationFrame(placeToolsNow);}
@@ -508,6 +543,59 @@ function phFlush(){
       });
     });
   });},Promise.resolve()).catch(function(e){logErr("photos",e);}).then(function(){phBusy=false;});
+}
+/* ménage (25 nov., .16) : une photo ou un fichier que plus aucune note n'utilise (photo effacée dans la note,
+   note supprimée) est retiré de l'appareil et du compte. Prudences : seulement après une synchro réussie (toutes
+   les notes connues), jamais pendant les 6 s du « Annuler », et côté compte seulement après 1 h (le temps qu'une
+   note écrite ailleurs arrive, ou qu'on revienne sur un effacement). */
+var PH_GRACE=3600*1000, PH_EVERY=10*60*1000, phSweeping=false;
+function phRefs(){
+  var s={},re=/data-p="([^"]+)"/g,m;
+  state.items.forEach(function(d){if(d&&d.kind==="note"&&d.html){re.lastIndex=0;while((m=re.exec(d.html)))s[m[1]]=1;}});
+  var b=$("ne-body");if(b)Array.prototype.forEach.call(b.querySelectorAll("[data-p]"),function(x){s[x.dataset.p]=1;});
+  phQ().forEach(function(id){s[id]=1;});
+  return s;
+}
+function phKeys(){return phOpen().then(function(db){return new Promise(function(ok,ko){var q=db.transaction("att").objectStore("att").getAllKeys();q.onsuccess=function(){ok(q.result||[]);};q.onerror=function(){ko(q.error);};});});}
+function phDelLocal(ids){
+  if(!ids.length)return Promise.resolve();
+  ids.forEach(function(id){if(phUrls[id]){try{URL.revokeObjectURL(phUrls[id]);}catch(e){}delete phUrls[id];}delete phFiles[id];});
+  return phOpen().then(function(db){return new Promise(function(ok){var t=db.transaction("att","readwrite"),st=t.objectStore("att");ids.forEach(function(id){st.delete(id);});t.oncomplete=ok;t.onerror=ok;t.onabort=ok;});});
+}
+// tout le dossier du compte (pages de 1000)
+function phListAll(){
+  var out=[];
+  function page(off){
+    return SB.storage.from(PH_BUCKET).list(SU.id,{limit:1000,offset:off}).then(function(r){
+      if(r&&r.error)throw r.error;var l=(r&&r.data)||[];out=out.concat(l);
+      return l.length===1000?page(off+1000):out;
+    });
+  }
+  return page(0);
+}
+function phRemove(paths){
+  var p=Promise.resolve();
+  for(var i=0;i<paths.length;i+=100)(function(part){p=p.then(function(){return SB.storage.from(PH_BUCKET).remove(part).then(function(r){if(r&&r.error)throw r.error;});});})(paths.slice(i,i+100));
+  return p;
+}
+function phSweep(force,localOnly){
+  if(phSweeping||lastDeleted||state.mode!=="local")return Promise.resolve();
+  var last=0;try{last=+localStorage.getItem("closer-att-sweep")||0;}catch(e){}
+  if(!force&&Date.now()-last<PH_EVERY)return Promise.resolve();
+  if(!localOnly)try{localStorage.setItem("closer-att-sweep",String(Date.now()));}catch(e){}
+  phSweeping=true;var refs=phRefs();
+  var loc=phKeys().then(function(keys){return phDelLocal(keys.filter(function(k){return !refs[k];}));}).catch(function(e){logErr("photos",e);});
+  var cloud=(localOnly||!SB||!SU||!SB.storage)?null:phListAll().then(function(l){
+    var now=Date.now();
+    var gone=l.filter(function(o){if(!o||!o.name||o.id===null||refs[o.name])return false;var t=Date.parse(o.created_at||o.updated_at||"");return t&&now-t>PH_GRACE;}).map(function(o){return SU.id+"/"+o.name;});
+    return phRemove(gone);
+  }).catch(function(e){logErr("photos",e);});
+  return Promise.all([loc,cloud]).then(function(){phSweeping=false;});
+}
+// suppression du compte : tout le dossier du compte part avec lui
+function phWipeAccount(){
+  if(!SB||!SU||!SB.storage)return Promise.resolve();
+  return phListAll().then(function(l){return phRemove(l.filter(function(o){return o&&o.name&&o.id!==null;}).map(function(o){return SU.id+"/"+o.name;}));}).catch(function(e){logErr("photos",e);});
 }
 // contenu d'une pièce jointe : sur l'appareil, sinon téléchargé depuis le compte
 function phBlob(id){

@@ -689,6 +689,37 @@ with sync_playwright() as p:
     pg.set_input_files('#att-any', files=[{'name': 'seule.png', 'mimeType': 'image/png', 'buffer': PNG}]); pg.wait_for_timeout(800)
     pg.click('[data-act="note-close"]'); pg.wait_for_timeout(400)
     check('note avec seulement une photo : gardée, « 1 photo » dans la liste', '1 photo' in pg.inner_text('#l-notes'))
+    # ménage des photos et fichiers que plus aucune note n'utilise (25 nov., .16)
+    pg.evaluate("phPut('orphelin',{blob:new Blob(['x']),type:'text/plain',name:'x.txt'})"); pg.wait_for_timeout(200)
+    used = pg.evaluate("Object.keys(phRefs())")
+    pg.evaluate("phSweep(true,true)"); pg.wait_for_timeout(400)
+    keys = pg.evaluate("phKeys()")
+    check('ménage de l\'appareil : le fichier orphelin part, ceux des notes restent', 'orphelin' not in keys and len(used) >= 3 and all(k in keys for k in used))
+    pg.evaluate("phPut('orphelin2',{blob:new Blob(['x']),type:'text/plain'});lastDeleted={id:'z',data:null}"); pg.wait_for_timeout(200)
+    pg.evaluate("phSweep(true,true)"); pg.wait_for_timeout(300)
+    check('pas de ménage pendant le délai du « Annuler »', 'orphelin2' in pg.evaluate("phKeys()"))
+    pg.evaluate("lastDeleted=null")
+    # côté compte : seulement les orphelins de plus d'une heure
+    pg.evaluate('''(()=>{const old=new Date(Date.now()-2*3600e3).toISOString(),now=new Date().toISOString(),u=Object.keys(phRefs())[0];
+      window.__rm=[];window.__SB0=SB;window.__SU0=SU;SU={id:'u1'};
+      SB=Object.assign({},SB||{},{storage:{from:()=>({list:async()=>({data:[{name:u,id:'1',created_at:old},{name:'vieux',id:'2',created_at:old},{name:'recent',id:'3',created_at:now},{name:'dossier',id:null}],error:null}),
+        remove:async(p)=>{window.__rm.push(...p);return {error:null};}})}});})()''')
+    pg.evaluate("phSweep(true)"); pg.wait_for_timeout(400)
+    check('ménage du compte : seul l\'orphelin de plus d\'une heure est supprimé', pg.evaluate("window.__rm") == ['u1/vieux'])
+    pg.evaluate("window.__rm=[];phWipeAccount()"); pg.wait_for_timeout(300)
+    check('suppression du compte : tout son dossier de photos part', sorted(pg.evaluate("window.__rm")) == sorted(['u1/' + pg.evaluate("Object.keys(phRefs())[0]"), 'u1/vieux', 'u1/recent']))
+    pg.evaluate("SB=window.__SB0;SU=window.__SU0")
+    # iPhone : pendant l'écriture, la page est bloquée et seul l'éditeur défile
+    pg.evaluate("window.__CLOSER_LOCK=1"); pg.click('#l-notes .nrow'); pg.wait_for_timeout(500)
+    check('note ouverte (iPhone) : page bloquée, éditeur en cadre fixe qui défile seul',
+          pg.evaluate("document.documentElement.classList.contains('ne-lock')&&getComputedStyle(document.getElementById('nb-ed')).position==='fixed'&&getComputedStyle(document.getElementById('nb-ed')).overflowY==='auto'"))
+    pg.evaluate("(()=>{const b=document.getElementById('ne-body');b.innerHTML=Array(60).fill('<div>ligne</div>').join('');})()")
+    pg.evaluate("document.getElementById('nb-ed').scrollTop=600"); pg.wait_for_timeout(100)
+    check('… l\'en-tête reste en haut quand on fait défiler la note', pg.evaluate("Math.abs(document.querySelector('#nb-ed .ne-top').getBoundingClientRect().top)<=1") and pg.evaluate("window.scrollY") == 0)
+    pg.evaluate("document.getElementById('ne-body').innerHTML=''")
+    pg.click('[data-act="note-close"]'); pg.wait_for_timeout(300)
+    check('note fermée : la page redéfile normalement', not pg.evaluate("document.documentElement.classList.contains('ne-lock')"))
+    pg.evaluate("delete window.__CLOSER_LOCK")
     check('texte enrichi : aucune erreur', not errs)
     c.close()
 
