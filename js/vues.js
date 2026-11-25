@@ -56,8 +56,10 @@ function renderJour(){
   for(var k=-PAST_DAYS;k<7;k++){
     var d=shift(t,k), past=k<0, c=past?doneOnDay(d).length:k===0?tRest.length:tasks.filter(function(x){return !x.d.done&&x.d.due===d;}).length;
     var dots="";for(var q=0;q<Math.min(c,3);q++)dots+="<i></i>";if(c>3)dots+="<b>+</b>";
-    w+='<button type="button" class="day'+(past?" past":"")+'" data-act="day" data-id="'+d+'" aria-pressed="'+(state.day===d)+'" aria-label="'+esc(fmt(d,{weekday:"long",day:"numeric",month:"long"}))+', '+(past?(c?c+(c>1?" faites":" faite"):"rien de coché"):(c?c+(c>1?" tâches":" tâche"):"rien de prévu"))+'">'+
-      '<span class="wd">'+esc(k===0?"auj.":fmt(d,{weekday:"short"}))+'</span><span class="dn">'+parse(d).getDate()+'</span><span class="ct" aria-hidden="true">'+dots+'</span></button>';
+    w+='<button type="button" class="day'+(past?" past":"")+'" data-act="day" data-id="'+d+'" aria-pressed="'+(state.day===d)+'">'+
+      '<span class="wd">'+esc(k===0?"auj.":fmt(d,{weekday:"short"}))+'</span><span class="dn">'+parse(d).getDate()+'</span><span class="ct" aria-hidden="true">'+dots+'</span>'+
+      // lecteur d'écran : la date en entier et le nombre de tâches, après le texte visible (« nom visible » conservé)
+      '<span class="sr">, '+esc(fmt(d,{weekday:"long",day:"numeric",month:"long"}))+', '+(past?(c?c+(c>1?" faites":" faite"):"rien de coché"):(c?c+(c>1?" tâches":" tâche"):"rien de prévu"))+'</span></button>';
   }
   var wk0=$("week"), sl=wk0.scrollLeft;
   wk0.innerHTML=w;
@@ -256,11 +258,11 @@ function renderObjectifs(){
     var rows=steps.map(function(s,i){
       var st=cap(s.t);
       return {done:!!s.done,t:st,h:'<div class="step'+(s.done?" done":"")+'">'+checkBtn("step",g.id,s.done,(s.done?"Décocher : ":"Cocher : ")+st,' data-i="'+i+'"')+
-        '<button type="button" class="body" data-act="edit-step" data-id="'+esc(g.id)+'" data-i="'+i+'" aria-label="Modifier : '+esc(st)+'"><span class="title">'+esc(st)+'</span></button></div>'};
+        '<button type="button" class="body" data-act="edit-step" data-id="'+esc(g.id)+'" data-i="'+i+'"><span class="sr">Modifier : </span><span class="title">'+esc(st)+'</span></button></div>'};
     }).concat(lt.map(function(x){
       var st=cap(x.d.title);
       return {done:!!x.d.done,t:st,h:'<div class="step'+(x.d.done?" done":"")+'">'+checkBtn("task",x.id,x.d.done,(x.d.done?"Décocher : ":"Cocher : ")+st)+
-        '<button type="button" class="body" data-act="edit" data-id="'+esc(x.id)+'" aria-label="Modifier : '+esc(st)+'"><span class="title">'+esc(st)+'</span>'+(isDate(x.d.due)&&!x.d.done?dueSpan(x.d.due,false):"")+'</button></div>'};
+        '<button type="button" class="body" data-act="edit" data-id="'+esc(x.id)+'"><span class="sr">Modifier : </span><span class="title">'+esc(st)+'</span>'+(isDate(x.d.due)&&!x.d.done?dueSpan(x.d.due,false):"")+'</button></div>'};
     }));
     // ce qui reste à faire d'abord, ce qui est fait en bas (ordre conservé dans chaque groupe)
     rows=rows.filter(function(r){return !r.done;}).concat(rows.filter(function(r){return r.done;}));
@@ -318,7 +320,7 @@ function renderHabits(){
     var meta='<span>'+esc(rhythmLabel(d))+'</span>'+
       (d.kind==="daily"&&s>1?'<span class="credit">'+streakTxt(d,s)+'</span>':"")+
       (rec>1?'<span>Record : '+rec+(d.kind==="weekly"?" semaines":hasDays(d)?" fois":" jours")+'</span>':"");
-    return '<div class="hab"><button type="button" class="body" data-act="edit" data-id="'+esc(x.id)+'" aria-label="Modifier : '+esc(cap(d.title))+'"><span class="title">'+esc(cap(d.title))+'</span><span class="meta">'+meta+'</span></button>'+
+    return '<div class="hab"><button type="button" class="body" data-act="edit" data-id="'+esc(x.id)+'"><span class="sr">Modifier : </span><span class="title">'+esc(cap(d.title))+'</span><span class="meta">'+meta+'</span></button>'+
       '<div class="wkg" role="img" aria-label="'+esc(lab.join(", "))+'">'+cells+'</div></div>';
   }).join("")+'</div></section>';
 }

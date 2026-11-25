@@ -28,6 +28,7 @@ var IC={
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["25 nov.","Entretien : la police de Closer s'affiche de nouveau partout, le vert « fait » est plus lisible, et les Réglages rappellent d'exporter une sauvegarde de temps en temps."],
   ["25 nov.","Nouveau : Réglages › Univers. Six ambiances de couleurs douces (Sauge, Nude, Bleu poudré, Lavande, Vieux rose, Nuit), chacune avec sa matière (marbre, ardoise, chêne, terre cuite…), en clair comme en sombre, déclinées dans toute l'appli : carte du jour, titres, filtres, étiquettes, jauges, grille des habitudes, réglages."],
   ["25 nov.","Brouillon sur iPhone : pendant que tu écris, la page ne bouge plus, seule la note défile, et l'en-tête reste fixe en haut. Les photos et fichiers que tu enlèves d'une note (ou d'une note supprimée) sont aussi effacés de ton téléphone et de ton compte, et tout part avec le compte si tu le supprimes."],
   ["25 nov.","Brouillon : l'en-tête de la note suit le clavier sans retard et ne laisse plus voir le texte derrière lui."],
@@ -123,7 +124,7 @@ function acHTML(){
   var h='<div class="sh-head"><button type="button" class="btn ghost small" data-act="close-sheet">Fermer</button><h2 id="sh-h">Réglages</h2><span style="width:78px"></span></div>';
 
   /* 1. Compte */
-  if(!acOn()){}
+  if(!acOn()){/* comptes désactivés : rien à afficher ici */}
   else if(!SB){h+='<div class="acbox">'+(sbTried?"Compte indisponible pour le moment (pas de connexion internet ?). Tes données restent sur cet appareil.":"Chargement…")+'</div>';}
   else if(SU&&AS.step==="newpw"){
     h+='<section class="sgroup"><h3 class="slab">Nouveau mot de passe</h3>'+pwField("new-password","Nouveau mot de passe",1)+
@@ -202,7 +203,11 @@ function acHTML(){
   }
 
   /* 5. Mes données */
-  h+=sGroup("Mes données",sRow("backup","data","Exporter ou importer une sauvegarde",{sub:state.items.size+(state.items.size>1?" éléments":" élément")+(SU?" · synchronisés sur ton compte":" · sur cet appareil")}));
+  // dernière sauvegarde exportée : copie de secours, utile même avec un compte (Supabase gratuit n'a pas de sauvegarde automatique)
+  var age=exportAge(), vieux=state.items.size>=10&&(age===null||age>30);
+  h+=sGroup("Mes données",sRow("backup","data","Exporter ou importer une sauvegarde",{sub:state.items.size+(state.items.size>1?" éléments":" élément")+(SU?" · synchronisés sur ton compte":" · sur cet appareil")+
+    " · "+(age===null?"jamais exportés":age===0?"dernier export aujourd'hui":"dernier export il y a "+age+(age>1?" jours":" jour"))}),
+    vieux?"Exporte une sauvegarde de temps en temps (une fois par mois suffit) : c'est ta copie de secours, à garder où tu veux.":"");
 
   /* 6. Sécurité */
   if(acOn()&&SB&&SU&&AS.step!=="newpw"){
@@ -295,6 +300,9 @@ async function acAct(act,b){
 }
 document.addEventListener("input",function(ev){var t=ev.target;if(t&&t.id==="ac-pw"&&t.dataset.neu){var r=$("ac-rules");if(r)r.innerHTML=pwHint(t.value);}});
 
+/* nombre de jours depuis le dernier export de sauvegarde (null : jamais) */
+function exportAge(){try{var l=localStorage.getItem("closer-last-export")||"";if(!isDate(l))return null;return Math.max(0,Math.round((parse(today())-parse(l))/864e5));}catch(e){return null;}}
+
 /* ---------- statistiques anonymes ---------- */
 function statsOff(){try{return localStorage.getItem("closer-stats-off")==="1";}catch(e){return true;}}
 function aid(){try{var a=localStorage.getItem("closer-aid");if(!a){a=(crypto.randomUUID?crypto.randomUUID():"10000000-1000-4000-8000-100000000000".replace(/[018]/g,function(c){return (c^Math.random()*16>>c/4).toString(16);}));localStorage.setItem("closer-aid",a);}return a;}catch(e){return null;}}
@@ -306,6 +314,31 @@ function stat(ev){
 function stat1(ev){try{if(localStorage.getItem("closer-ev-"+ev))return;localStorage.setItem("closer-ev-"+ev,"1");}catch(e){return;}stat(ev);}
 function stat1Day(ev){var k="closer-ev-"+ev+"-day",t=today();try{if(localStorage.getItem(k)===t)return;localStorage.setItem(k,t);}catch(e){return;}stat(ev);}
 function statDay(ev){stat1Day(ev);}
+
+/* ---------- erreurs remontées (anonymes) ----------
+   Pour savoir qu'une erreur arrive chez quelqu'un sans attendre qu'il le dise. Mêmes règles que les statistiques :
+   coupé avec « Statistiques anonymes », aucun contenu (e-mails, liens et nombres longs effacés du message),
+   au plus 5 par ouverture, une seule fois par jour pour la même erreur. Table closer_errors (supabase/erreurs.sql) ;
+   si elle n'existe pas, on n'insiste pas avant le lendemain. */
+var errSent=0;
+function errClean(m){
+  return String(m||"").replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g,"[e-mail]").replace(/https?:\/\/\S+/g,"[lien]")
+    .replace(/\b[0-9a-f]{8}-[0-9a-f-]{27,}\b/gi,"[id]").replace(/\d{5,}/g,"[n]").slice(0,200);
+}
+function errDevice(){
+  var u=navigator.userAgent||"", d=/iPhone/.test(u)?"iPhone":/iPad/.test(u)?"iPad":/Android/.test(u)?"Android":/Macintosh/.test(u)?"Mac":/Windows/.test(u)?"Windows":"autre";
+  var v=(u.match(/OS (\d+)[_.](\d+)/)||[]).slice(1,3).join(".");
+  return (d+(v?" "+v:"")+(standalone()?" · appli":" · navigateur")).slice(0,40);
+}
+function errSend(where,m){
+  if(!acOn()||statsOff()||window.__CLOSER_NOSTATS||errSent>=5)return;
+  var t=today(),msg=errClean(m),k="closer-err-"+where+"-"+hsh(msg);
+  try{if(localStorage.getItem("closer-err-off")===t||localStorage.getItem(k)===t)return;localStorage.setItem(k,t);}catch(e){return;}
+  var a=aid();if(!a)return;errSent++;
+  try{fetch(SB_URL+"/rest/v1/closer_errors",{method:"POST",keepalive:true,headers:{apikey:SB_KEY,Authorization:"Bearer "+SB_KEY,"Content-Type":"application/json",Prefer:"return=minimal"},
+    body:JSON.stringify([{aid:a,w:String(where).slice(0,24),m:msg,v:String(APPV).slice(0,24),ua:errDevice()}])})
+    .then(function(r){if(r.status===404||r.status===400||r.status===401){try{localStorage.setItem("closer-err-off",t);}catch(e){}}}).catch(function(){});}catch(e){}
+}
 
 /* page « Univers » : un aperçu par univers, appliqué dès qu'on le touche */
 function palHTML(){

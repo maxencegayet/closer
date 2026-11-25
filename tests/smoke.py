@@ -60,6 +60,7 @@ export function createClient(){
 }
 """
 USERS, ROWS, EVENTS, ICS = {}, {}, [], {}
+ERRS = []   # erreurs remontées (table closer_errors)
 FAIL = {'jwt': 0}
 CLOCK = itertools.count(1_700_000_000_000, 1000)
 
@@ -105,9 +106,9 @@ def srv(op, raw):
     return json.dumps({'error': {'message': 'op inconnue'}})
 
 ok = True
-def check(name, cond):
+def check(name, cond, detail=None):
     global ok
-    print(('OK   ' if cond else 'ÉCHEC'), name)
+    print(('OK   ' if cond else 'ÉCHEC'), name, '' if cond or detail is None else '→ ' + str(detail)[:300])
     ok = ok and bool(cond)
 
 with sync_playwright() as p:
@@ -123,6 +124,7 @@ with sync_playwright() as p:
         c.route('https://fonts.gstatic.com/**', lambda r: r.abort())
         c.route('https://cdn.jsdelivr.net/**', lambda r: r.fulfill(status=200, content_type='application/javascript', body=MOCK_JS))
         c.route(SB + '/rest/v1/closer_events', lambda r: (EVENTS.extend(json.loads(r.request.post_data or '[]')), r.fulfill(status=201, body='')))
+        c.route(SB + '/rest/v1/closer_errors', lambda r: (ERRS.extend(json.loads(r.request.post_data or '[]')), r.fulfill(status=201, body='')))
         if appv_online:
             def page_route(r):
                 if '?v=' in r.request.url:
@@ -475,7 +477,7 @@ with sync_playwright() as p:
     check('jour passé : habitude et tâche faites ce jour-là', 'Lire' in lj and 'Rendre le livre' in lj and '2 faites' in lj)
     pg.evaluate("document.querySelector('#week [data-id=\"'+today()+'\"]').click()"); pg.wait_for_timeout(200)
     pg.evaluate("location.hash='#taches'"); pg.wait_for_timeout(300)
-    lab = pg.get_attribute('#l-tasks [data-act="edit"][data-id="a1"]', 'aria-label') or ''
+    lab = pg.eval_on_selector('#l-tasks [data-act="edit"][data-id="a1"]', 'e=>e.textContent') or ''   # nom lu par le lecteur d'écran
     check('repère discret : la tâche reliée à un objectif le montre', pg.query_selector('#l-tasks [data-id="a1"] .goali') is not None and 'Stage' in lab)
     pg.click('#tsort'); pg.wait_for_timeout(150); pg.click('#tmenu [data-act="arr"]'); pg.wait_for_timeout(250)
     check('ranger : une poignée par ligne, plus de flèches', pg.query_selector('#l-tasks .grip') is not None and pg.query_selector('#l-tasks .mv') is None)
@@ -1159,12 +1161,58 @@ with sync_playwright() as p:
     check('aucune erreur (univers)', not errs)
     c.close()
 
+    # 7 erreurs. Remontée anonyme : nettoyée, une fois par jour, coupée avec les statistiques
+    c, pg, errs = device()
+    del ERRS[:]
+    pg.evaluate("()=>logErr('essai','Échec pour jean.dupont@exemple.fr sur https://x.y/z?a=1 n°1234567')")
+    pg.wait_for_timeout(300)
+    check('erreur remontée une fois', len(ERRS) == 1, ERRS)
+    m = ERRS[0]['m'] if ERRS else ''
+    check('message nettoyé (ni e-mail, ni lien, ni long nombre)', '@' not in m and 'http' not in m and '1234567' not in m and '[e-mail]' in m, m)
+    check('appareil et version joints', ERRS and ERRS[0].get('ua') and ERRS[0].get('v'))
+    pg.evaluate("()=>logErr('essai','Échec pour jean.dupont@exemple.fr sur https://x.y/z?a=1 n°1234567')"); pg.wait_for_timeout(300)
+    check('même erreur pas renvoyée le même jour', len(ERRS) == 1)
+    pg.evaluate("()=>{for(let i=0;i<8;i++)logErr('rafale','erreur '+i)}"); pg.wait_for_timeout(300)
+    check('au plus 5 erreurs par ouverture', len(ERRS) == 5, len(ERRS))
+    c.close()
+    c, pg, errs = device()
+    del ERRS[:]
+    pg.evaluate("()=>localStorage.setItem('closer-stats-off','1')")
+    pg.evaluate("()=>logErr('essai','autre erreur')"); pg.wait_for_timeout(300)
+    check('rien envoyé si « Statistiques anonymes » est coupé', len(ERRS) == 0)
+    c.close()
+    c, pg, errs = device()
+    c.unroute(SB + '/rest/v1/closer_errors')
+    c.route(SB + '/rest/v1/closer_errors', lambda r: r.fulfill(status=404, body='{}'))
+    pg.evaluate("()=>logErr('essai','table absente')"); pg.wait_for_timeout(300)
+    check('table absente : on n\'insiste pas avant le lendemain', pg.evaluate("localStorage.getItem('closer-err-off')===today()"))
+    c.close()
+
+    # 7 sauvegarde. Rappel discret d'exporter une sauvegarde (jamais ou plus de 30 jours, à partir de 10 éléments)
+    c, pg, errs = device(cfg=False)
+    pg.evaluate("""()=>{const l=[];for(let i=0;i<12;i++)l.push(['t'+i,{kind:'task',title:'T'+i,cat:'Perso',due:'',done:false,created:i}]);
+      localStorage.setItem('cap-items-v1',JSON.stringify(l));localStorage.removeItem('closer-last-export')}""")
+    pg.reload(); pg.wait_for_timeout(500); pg.evaluate("document.querySelector('#ac-btn').click()"); pg.wait_for_timeout(400)
+    t = pg.inner_text('#sheet')
+    check('sauvegarde jamais exportée : signalée, avec un conseil', 'jamais exportés' in t and 'une fois par mois' in t, t[-400:])
+    pg.evaluate("()=>localStorage.setItem('closer-last-export',today())"); pg.evaluate("document.querySelector('[data-act=\"ac-open\"]')?.click()")
+    pg.reload(); pg.wait_for_timeout(500); pg.evaluate("document.querySelector('#ac-btn').click()"); pg.wait_for_timeout(400)
+    t = pg.inner_text('#sheet')
+    check('sauvegarde récente : plus de conseil', "dernier export aujourd'hui" in t and 'une fois par mois' not in t)
+    check('aucune erreur (sauvegarde)', not errs, errs)
+    c.close()
+
     # 8. Bandeau de mise à jour quand une nouvelle version est en ligne
     c, pg, errs = device(appv_online='9999')
     pg.wait_for_timeout(3200)
     check('bandeau « Nouvelle version » affiché', pg.is_visible('#upd'))
     c.close()
     b.close()
+
+# contrôles de qualité (univers à jour, poids, ESLint, vitesse, accessibilité) : tests/qualite.py
+print('\n--- Qualité ---', flush=True)
+import subprocess
+check('contrôles de qualité (tests/qualite.py)', subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'qualite.py')]).returncode == 0)
 
 print('\nTOUT EST OK' if ok else '\nDES TESTS ONT ÉCHOUÉ')
 sys.exit(0 if ok else 1)

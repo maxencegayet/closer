@@ -1,11 +1,13 @@
 /* Closer : hors ligne.
    Réseau d'abord (sans cache HTTP) pour toujours avoir la dernière version,
    copie locale en secours quand il n'y a pas de réseau. */
-const CACHE = "closer-v48";
+const CACHE = "closer-v49";
 const CORE = [
   "./",
   "index.html",
   "css/closer.css",
+  "css/univers.css",
+  "js/univers.js",
   "js/base.js",
   "js/vues.js",
   "js/brouillon.js",
@@ -18,7 +20,46 @@ const CORE = [
   "fonts/schibsted-grotesk.woff2",
   "icon-192.png",
   "icon-512.png",
-  "apple-touch-icon.png"
+  "apple-touch-icon.png",
+  /* matières des univers : liste tenue à jour par outils/univers.py */
+  /* matieres:debut */
+  "matieres/lavender-clair-bloc.svg",
+  "matieres/lavender-clair-carte.svg",
+  "matieres/lavender-clair-fond.svg",
+  "matieres/lavender-sombre-bloc.svg",
+  "matieres/lavender-sombre-carte.svg",
+  "matieres/lavender-sombre-fond.svg",
+  "matieres/midnight-clair-bloc.svg",
+  "matieres/midnight-clair-carte.svg",
+  "matieres/midnight-clair-fond.svg",
+  "matieres/midnight-sombre-bloc.svg",
+  "matieres/midnight-sombre-carte.svg",
+  "matieres/midnight-sombre-fond.svg",
+  "matieres/nude-clair-bloc.svg",
+  "matieres/nude-clair-carte.svg",
+  "matieres/nude-clair-fond.svg",
+  "matieres/nude-sombre-bloc.svg",
+  "matieres/nude-sombre-carte.svg",
+  "matieres/nude-sombre-fond.svg",
+  "matieres/powder-clair-bloc.svg",
+  "matieres/powder-clair-carte.svg",
+  "matieres/powder-clair-fond.svg",
+  "matieres/powder-sombre-bloc.svg",
+  "matieres/powder-sombre-carte.svg",
+  "matieres/powder-sombre-fond.svg",
+  "matieres/rose-clair-bloc.svg",
+  "matieres/rose-clair-carte.svg",
+  "matieres/rose-clair-fond.svg",
+  "matieres/rose-sombre-bloc.svg",
+  "matieres/rose-sombre-carte.svg",
+  "matieres/rose-sombre-fond.svg",
+  "matieres/sage-clair-bloc.svg",
+  "matieres/sage-clair-carte.svg",
+  "matieres/sage-clair-fond.svg",
+  "matieres/sage-sombre-bloc.svg",
+  "matieres/sage-sombre-carte.svg",
+  "matieres/sage-sombre-fond.svg"
+  /* matieres:fin */
 ];
 
 self.addEventListener("install", (e) => {

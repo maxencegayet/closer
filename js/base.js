@@ -39,6 +39,7 @@ function logErr(where,e){
   var m=String((e&&(e.message||e.msg||e.code))||e||"").slice(0,200);
   try{console.error("Closer · "+where,e);}catch(x){}
   try{var l=JSON.parse(localStorage.getItem(ERR_KEY)||"[]");l.push({t:Date.now(),w:where,m:m,v:window.APPV||""});localStorage.setItem(ERR_KEY,JSON.stringify(l.slice(-20)));}catch(x){}
+  if(typeof errSend==="function")errSend(where,m);   // remontée anonyme (reglages.js)
 }
 // les 5 dernières erreurs, jointes au message « Donner mon avis »
 function errReport(){
@@ -53,11 +54,8 @@ addEventListener("unhandledrejection",function(e){logErr("promesse",e.reason);})
 /* ---------- apparence : clair par défaut, sombre ou comme le téléphone ---------- */
 var THEME_KEY="closer-theme", darkMQ=window.matchMedia?matchMedia("(prefers-color-scheme: dark)"):{matches:false};
 function themeChoice(){try{var t=localStorage.getItem(THEME_KEY);return t==="dark"||t==="auto"?t:"light";}catch(e){return "light";}}
-/* univers de couleurs (Réglages › Univers) : [id, nom, mots, [fond, carte du jour, texte de la carte, carte, trait, bloc fort, t1, t2, t3] clair, idem sombre]
-   les couleurs complètes sont dans css/closer.css ; "" = Closer d'origine, noir */
-var PALETTES=[["", "Closer", "Noir · Net", ["#eff0f2", "#000000", "#ffffff", "#ffffff", "#ecedf0", "#000000", "#e3e5e9", "#d9dbe1", "#a3a7b0"], ["#000000", "#f5f5f7", "#000000", "#1c1c1e", "#2c2c2e", "#f5f5f7", "#2c2c2e", "#3a3a3e", "#62666e"]], ["sage", "Sauge", "Naturel · Apaisant", ["#ecf3ea", "#cedac9", "#252a23", "#ffffff", "#e8ece7", "#455747", "#eaeeeb", "#d3dad4", "#889989"], ["#0e130c", "#c9d6c3", "#161915", "#1e271c", "#2f3b2b", "#c9d6c3", "#2f332e", "#434941", "#909e8a"]], ["nude", "Nude", "Chic · Intemporel", ["#f4ede9", "#e6d6cb", "#2d251f", "#fdfcfb", "#ede8e5", "#5c4940", "#eeebe9", "#dbd4d1", "#a18f87"], ["#140e0b", "#e3d0c4", "#1a1614", "#281f1a", "#3d3029", "#e3d0c4", "#362f2b", "#4c433d", "#a79081"]], ["powder", "Bleu poudré", "Frais · Clair", ["#e8eef4", "#ccdbeb", "#1e262f", "#ffffff", "#e5e9ee", "#3b5674", "#e7ecf1", "#cdd6e0", "#7c93ab"], ["#0b0f14", "#c5d6e8", "#13171b", "#192129", "#28333e", "#c5d6e8", "#2a3037", "#3c454e", "#7d93ab"]], ["lavender", "Lavande", "Doux · Sophistiqué", ["#ece9f4", "#dcd6e9", "#24202c", "#ffffff", "#e8e6ed", "#4d4563", "#ebe9ee", "#d4d1db", "#8e87a1"], ["#0e0b13", "#d6cfe6", "#161419", "#1f1b27", "#302a3c", "#d6cfe6", "#2f2c35", "#423e4b", "#8d83a5"]], ["rose", "Vieux rose", "Élégant · Délicat", ["#f4e9ea", "#efd1d4", "#2f1d1f", "#fdfbfc", "#ede6e7", "#6c434a", "#efe9ea", "#ddcfd2", "#a58389"], ["#130b0c", "#ecc9cd", "#1a1415", "#281a1c", "#3d292c", "#ecc9cd", "#37292b", "#4f3b3d", "#ae7a80"]], ["midnight", "Nuit", "Sobre · Contrasté", ["#e7ebf5", "#24396e", "#ffffff", "#ffffff", "#e4e7ef", "#24396e", "#e5e9f2", "#c9d1e3", "#7386b5"], ["#0a0d15", "#bccbea", "#12151c", "#171d2b", "#252c41", "#bccbea", "#292e38", "#3a4150", "#788ab0"]]];
+/* univers de couleurs (Réglages › Univers) : PALETTES et PAL_MAT viennent de js/univers.js (fabriqué par outils/univers.py) */
 var PAL_KEY="closer-palette";
-var PAL_MAT={sage:"Grès moucheté",nude:"Chêne blanchi",powder:"Marbre veiné",lavender:"Albâtre",rose:"Terre cuite",midnight:"Ardoise"};
 var PAL_OLD={matcha:"sage",sand:"nude"}; // univers fusionnés le 25 nov.
 function palChoice(){try{var p=localStorage.getItem(PAL_KEY)||"";if(PAL_OLD[p])p=PAL_OLD[p];return PALETTES.some(function(x){return x[0]===p;})?p:"";}catch(e){return "";}}
 function palInfo(id){for(var i=0;i<PALETTES.length;i++)if(PALETTES[i][0]===id)return PALETTES[i];return PALETTES[0];}
@@ -178,7 +176,8 @@ function taskRow(t,hideDate,a,hideCat){
     '<span class="mvs">'+gripBtn(a,t.id,ti)+'</span></div>';
   return '<div class="row'+(d.prio?" prio":"")+(d.done?" done":"")+'">'+
     checkBtn("task",t.id,d.done,(d.done?"Marquer non fait : ":"Marquer fait : ")+ti)+
-    '<button type="button" class="body tline" data-act="edit" data-id="'+esc(t.id)+'" aria-label="'+esc(lab)+'Modifier : '+esc(ti)+(goalOf(d)&&!d.done?". Fait avancer « "+esc(cap(goalOf(d).title))+" »":"")+'">'+tl+taskSide(d,hideDate,hideCat)+'</button></div>';
+    '<button type="button" class="body tline" data-act="edit" data-id="'+esc(t.id)+'"><span class="sr">'+esc(lab)+'Modifier : </span>'+tl+taskSide(d,hideDate,hideCat)+
+    (goalOf(d)&&!d.done?'<span class="sr">. Fait avancer « '+esc(cap(goalOf(d).title))+' »</span>':"")+'</button></div>';
 }
 /* section repliable (Tâches) : l'état est gardé sur l'appareil */
 var FOLD_KEY="closer-fold", FOLD_DEF={"obj:reached":true,"jour:undated":true,"taches:later":true,"taches:done":true,"devoirs:later":true,"devoirs:done":true};
@@ -224,7 +223,7 @@ function bestRun(d){
 function dailyRow(x){
   var on=x.d.lastDone===today(), s=streakOf(x.d), ti=cap(x.d.title);
   return '<div class="row'+(on?" done":"")+'">'+checkBtn("daily",x.id,on,(on?"Décocher : ":"Cocher : ")+ti,"","round")+
-    '<button type="button" class="body" data-act="edit" data-id="'+esc(x.id)+'" aria-label="Modifier : '+esc(ti)+'">'+
+    '<button type="button" class="body" data-act="edit" data-id="'+esc(x.id)+'"><span class="sr">Modifier : </span>'+
     '<span class="title">'+esc(ti)+'</span>'+(s>1?'<span class="meta"><span class="credit">'+streakTxt(x.d,s)+'</span></span>':"")+'</button></div>';
 }
 function prioSort(a,b){
@@ -252,7 +251,7 @@ function weeklyRow(x){
   var d=x.d,n=weekCount(d),tg=d.target||1,on=(d.dones||[]).indexOf(today())>=0,ti=cap(d.title),pips="";
   for(var i=0;i<tg;i++)pips+='<i'+(i<n?' class="on"':"")+'></i>';
   return '<div class="row'+(n>=tg?" reached":"")+'">'+checkBtn("weekly",x.id,on,(on?"Annuler la séance d'aujourd'hui : ":"Séance faite aujourd'hui : ")+ti,"","round")+
-    '<button type="button" class="body" data-act="edit" data-id="'+esc(x.id)+'" aria-label="Modifier : '+esc(ti)+'">'+
+    '<button type="button" class="body" data-act="edit" data-id="'+esc(x.id)+'"><span class="sr">Modifier : </span>'+
     '<span class="title">'+esc(ti)+'</span><span class="meta"><span class="pips" aria-hidden="true">'+pips+'</span><span'+(n>=tg?' class="credit"':"")+'>'+n+' sur '+tg+' cette semaine</span></span></button></div>';
 }
 function block(title,count,rowsHtml,cls){

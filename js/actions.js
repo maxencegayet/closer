@@ -239,7 +239,14 @@ document.addEventListener("click",function(ev){
   if(act==="set-fx"){try{if(fxOff())localStorage.removeItem("closer-fx-off");else{localStorage.setItem("closer-fx-off","1");}}catch(e){}if(!fxOff()){haptic();chime();}renderSheet();return;}
   if(act==="set-a2hs"||act==="set-news"){var k2=act==="set-a2hs"?"a2hs":"news";setOpen[k2]=!setOpen[k2];renderSheet();return;}
   if(act==="set-pal"){sheet={mode:"edit",kind:"palette",draft:blankDraft(),back:true};renderSheet();$("sheet").scrollTop=0;$("sheet").focus();return;}
-  if(act==="pick-pal"){var st=$("sheet").scrollTop,pv=b.dataset.v,go=function(){setPalette(pv);renderSheet();$("sheet").scrollTop=st;};if(document.startViewTransition&&!(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches)){try{document.startViewTransition(go).finished.then(function(){var pb=$("sheet").querySelector('[data-act="pick-pal"][data-v="'+pv+'"]');if(pb)pb.focus({preventScroll:true});});}catch(e){go();}return;}go();var pb=$("sheet").querySelector('[data-act="pick-pal"][data-v="'+b.dataset.v+'"]');if(pb)pb.focus({preventScroll:true});return;}
+  if(act==="pick-pal"){
+    // changer d'univers : fondu enchaîné de toute la page quand le navigateur le permet
+    var st=$("sheet").scrollTop,pv=b.dataset.v;
+    var go=function(){setPalette(pv);renderSheet();$("sheet").scrollTop=st;};
+    var focusPal=function(){var pb=$("sheet").querySelector('[data-act="pick-pal"][data-v="'+pv+'"]');if(pb)pb.focus({preventScroll:true});};
+    if(document.startViewTransition&&!reduce.matches){try{document.startViewTransition(go).finished.then(focusPal);return;}catch(e){}}
+    go();focusPal();return;
+  }
   if(act==="set-cats"||act==="set-folders"){sheet={mode:"edit",kind:act==="set-cats"?"cats":"nfolders",draft:blankDraft(),back:true};renderSheet();$("sheet").scrollTop=0;$("sheet").focus();return;}
   if(act==="export"&&sheet){
     var blob=new Blob([JSON.stringify({app:"closer",version:1,exported:new Date().toISOString(),items:Array.from(state.items.entries())},null,1)],{type:"application/json"});

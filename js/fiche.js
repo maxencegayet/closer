@@ -269,8 +269,8 @@ function saveSheet(){
       if(dr.freq>0){if(d.kind!=="weekly"){d.kind="weekly";d.dones=[];}d.target=dr.freq;delete d.days;}
       else{
         if(d.kind==="weekly"){d.kind="daily";d.lastDone="";d.streak=0;}
-        var nd=dr.freq<0?normDays(dr.days):[];
-        if(nd.length)d.days=nd;else delete d.days;
+        var jours=dr.freq<0?normDays(dr.days):[];
+        if(jours.length)d.days=jours;else delete d.days;
       }
     }
     if(k==="goal")d.target=target;

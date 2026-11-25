@@ -17,26 +17,27 @@ Les applications existantes (to-do, agenda, suivi d'habitudes) séparaient ce qu
 - **Habitudes** : chaque jour, certains jours de la semaine (ex. lundi, mercredi, vendredi) ou un nombre de fois par semaine (ex. 3 séances), avec série en cours, record et bilan des 4 dernières semaines.
 - **Objectifs** : repliables, avec échéance, compte à rebours et une seule liste pour les étapes et les tâches reliées ; les objectifs atteints sont rangés à part.
 - **Bilan de la semaine** : tâches faites (comparées à la semaine précédente), habitudes tenues, retards ; dans les Réglages, et sur le Jour le dimanche.
-- **Brouillon** : notes façon Notes d'iPhone (dossiers, épingles), recherche avec le mot surligné dans la liste et dans la note.
+- **Brouillon** : notes façon Notes d'iPhone (dossiers, épingles), texte enrichi (gras, italique, surligneurs), photos et fichiers joints, recherche avec le mot surligné dans la liste et dans la note.
 - **Compte facultatif** : connexion par e-mail et mot de passe, synchronisation automatique entre téléphone et ordinateur, suppression du compte en un geste.
 - **Sauvegarde** : export et import des données dans un fichier.
 - **Mises à jour** : un bandeau « Nouvelle version » apparaît dès qu'une version est mise en ligne.
 - **Installable** : s'ajoute à l'écran d'accueil du téléphone et s'ouvre hors connexion.
-- **Notifications** : rappel à l'heure choisie pour une tâche ou une habitude, récap du matin et récap du soir (ce qui est prévu demain), envoyés par une fonction Supabase (Web Push, sans service tiers). Toucher une notification ouvre la tâche concernée.
+- **Notifications** : rappel à l'heure choisie pour une tâche ou une habitude, récap du matin et récap du soir (ce qui est prévu demain), envoyés par une fonction Supabase (Web Push, sans service tiers).
 - **Calendrier Apple** : abonnement aux tâches datées depuis l'app Calendrier (ou tout calendrier qui accepte un lien .ics), en lecture seule, par un lien secret qu'on peut changer dans les Réglages. Fonction Supabase `closer-ics`.
 - **Apparence** : clair par défaut, sombre ou automatique (comme le téléphone), au choix dans les Réglages.
+- **Univers** : six ambiances de couleurs, chacune avec sa matière (grès, chêne, marbre, albâtre, terre cuite, ardoise), déclinées dans toute l'appli, en clair comme en sombre ; contrastes vérifiés automatiquement.
 
 ## Choix techniques
 
 | Sujet | Choix |
 |---|---|
-| Interface | HTML, CSS et JavaScript, sans framework ni étape de compilation : la page, une feuille de style et 8 fichiers JavaScript par domaine |
+| Interface | HTML, CSS et JavaScript, sans framework ni étape de compilation : la page, deux feuilles de style et 9 fichiers JavaScript par domaine |
 | Stockage | `localStorage` sur l'appareil, toujours ; le compte s'y ajoute sans le remplacer |
 | Comptes et synchro | Supabase (projet dédié à Closer) : authentification, base PostgreSQL, règles d'accès par utilisateur (RLS) |
 | Synchronisation | Élément par élément : seuls les éléments modifiés sont envoyés ; les suppressions se propagent ; l'heure de modification est posée par le serveur pour ne pas dépendre de l'horloge des appareils. En cas de conflit sur une note, les deux versions sont gardées ; une modification l'emporte sur une suppression |
-| Erreurs | Gardées sur l'appareil (20 dernières) et jointes au message « Donner mon avis » ; alerte si la mémoire de l'appareil est pleine |
+| Erreurs | Gardées sur l'appareil (20 dernières) et jointes au message « Donner mon avis » ; remontées anonymement (message nettoyé, désactivable) pour repérer un bug avant qu'il soit signalé ; alerte si la mémoire de l'appareil est pleine |
 | Hors ligne | Manifeste + service worker (réseau d'abord, cache en secours) |
-| Qualité | Tests automatiques à chaque envoi sur GitHub : l'appli dans Chromium et dans WebKit, le moteur de Safari (Playwright), la fusion de la synchro cas par cas, et la fonction de notifications avec un faux Supabase (Deno) |
+| Qualité | Tests automatiques à chaque envoi sur GitHub : l'appli dans Chromium et dans WebKit, le moteur de Safari (Playwright), la fusion de la synchro cas par cas, et la fonction de notifications avec un faux Supabase (Deno) ; puis contrôles de qualité : relecture du JavaScript (ESLint), accessibilité (axe-core, WCAG 2.1 AA), budgets de poids, vitesse et stabilité à l'ouverture, liens des feuilles de style |
 | Accessibilité | Pensée d'abord pour le téléphone, utilisable au clavier, respecte « réduire les animations » |
 
 ## Structure
@@ -44,7 +45,9 @@ Les applications existantes (to-do, agenda, suivi d'habitudes) séparaient ce qu
 | Fichier | Rôle |
 |---|---|
 | `index.html` | La page et le numéro de version (`APPV`) |
-| `css/closer.css` | Styles, thème clair et sombre (couleurs regroupées en variables) |
+| `css/closer.css` | Styles, thème clair et sombre (couleurs regroupées en variables), règles d'usage des univers |
+| `css/univers.css`, `js/univers.js`, `matieres/` | Couleurs et matières des univers : **fabriqués** par `outils/univers.py`, ne pas modifier à la main |
+| `outils/univers.py` | Fabrique les univers et contrôle les contrastes (`--verifier` : vérifie qu'ils sont à jour) |
 | `js/base.js` | Constantes, état, outils, journal des erreurs, stockage local, lignes de liste |
 | `js/vues.js` | Écrans Jour, Tâches, Objectifs, habitudes |
 | `js/brouillon.js` | Brouillon : liste, recherche surlignée, éditeur |
@@ -53,12 +56,14 @@ Les applications existantes (to-do, agenda, suivi d'habitudes) séparaient ce qu
 | `js/sync.js` | Mises à jour, compte et synchronisation Supabase |
 | `js/reglages.js` | Réglages et statistiques |
 | `js/demarrage.js` | Geste de fermeture des fiches et lancement (chargé en dernier) |
-| `sw.js` | Mode hors ligne, mises à jour, notifications (un toucher ouvre la tâche concernée) |
+| `sw.js` | Mode hors ligne (dont les matières, liste tenue à jour par `outils/univers.py`), mises à jour, notifications |
 | `splash/` | Écrans de lancement iPhone, un par taille d'écran, fabriqués par `splash/fabriquer.py` |
 | `supabase/closer.sql` | Tables, règles d'accès, suppression de compte et statistiques (à exécuter une fois dans Supabase) |
+| `supabase/erreurs.sql` | Table des erreurs remontées (anonymes, gardées 90 jours) et requête pour les lire |
 | `supabase/calendrier.sql` | Clé secrète du lien d'abonnement au calendrier (à exécuter une fois, après `closer.sql`) |
 | `supabase/functions/closer-ics/` | Fonction qui donne les tâches au format calendrier (.ics) |
 | `tests/smoke.py` | Tests de fumée, avec un faux Supabase (aucun réseau nécessaire) ; `ENGINE=webkit` pour le moteur de Safari |
+| `tests/qualite.py` | Contrôles de qualité, lancés à la fin de `smoke.py` (ESLint, axe-core, poids, vitesse, univers à jour) ; règles ESLint dans `tests/eslint.config.mjs` |
 | `tests/push/` | Tests des fonctions `closer-push` (notifications) et `closer-ics` (calendrier) (faux Supabase, faux service de notifications, horloge réglable) |
 | `.github/workflows/tests.yml` | Lance les tests à chaque envoi sur GitHub (onglet Actions) |
 
