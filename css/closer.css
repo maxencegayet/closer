@@ -591,3 +591,10 @@ body.arr-drag .list{overflow:visible}
 .hlpop[hidden]{display:none}
 .ne-tools .hlc{flex:none;width:34px;height:34px;padding:0;border-radius:50%;border:2px solid rgba(255,255,255,.25)}
 .ne-tools .hlc.none{background:transparent;color:var(--surface)}
+
+/* barre de mise en forme : au repos, seulement « Tâche », à droite ; complète quand des mots sont sélectionnés */
+.ne-tools.compact{left:auto;right:12px;margin-inline:0;max-width:none}
+.ne-tools.compact .fb:not(.ftask),.ne-tools.compact .fsep,.ne-tools.compact .hlpop{display:none}
+.ne-tools.compact .ftask{padding:10px 16px}
+@media (prefers-reduced-motion:no-preference){.ne-tools.full .fb{animation:fbin 140ms ease-out}}
+@keyframes fbin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}

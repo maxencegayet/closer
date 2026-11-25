@@ -569,6 +569,9 @@ with sync_playwright() as p:
         pg.evaluate("(w=>{const t=document.getElementById('ne-body');t.focus();const i=rteText(t).indexOf(w);rteSelect(t,i,i+w.length);})", w)
     def note():
         return pg.evaluate("(()=>{const d=state.items.get(state.noteOpen);return {text:d.text,html:d.html||'',hk:d.hk}})()")
+    check('en écrivant : barre réduite à « Tâche »', pg.get_attribute('#ne-tools', 'class').split() == ['ne-tools', 'compact'] and pg.is_visible('#ne-fmt [data-act="note-task"]') and not pg.is_visible('#ne-fmt [data-v="bold"]'))
+    sel_word('bilan'); pg.wait_for_timeout(100)
+    check('mots sélectionnés : barre complète', 'full' in pg.get_attribute('#ne-tools', 'class') and pg.is_visible('#ne-fmt [data-v="bold"]'))
     sel_word('bilan'); pg.click('#ne-fmt [data-v="bold"]'); pg.wait_for_timeout(150)
     check('bouton Gras : mot en gras, enregistré', '<b>bilan</b>' in note()['html'] and pg.get_attribute('#ne-fmt [data-v="bold"]', 'aria-pressed') == 'true')
     sel_word('comptable'); pg.keyboard.press('Control+i'); pg.wait_for_timeout(150)
@@ -586,6 +589,8 @@ with sync_playwright() as p:
     check('Ctrl+Maj+H sur un passage surligné : surlignage enlevé', 'background' not in note()['html'])
     pg.keyboard.press('Control+Shift+h'); pg.wait_for_timeout(150)
     check('Ctrl+Maj+H : surligné en jaune', 'rgb(255, 240, 163)' in note()['html'])
+    pg.evaluate("(()=>{const t=document.getElementById('ne-body');rteSelect(t,3,3);})()"); pg.wait_for_timeout(100)
+    check('sélection annulée : la barre se réduit', 'compact' in pg.get_attribute('#ne-tools', 'class'))
     n = note()
     check('le texte brut reste propre (recherche, aperçu, tâches)', n['text'] == 'Le bilan comptable\nActif et passif' and n['hk'] == pg.evaluate("hsh(%s)" % json.dumps(n['text'])))
     # rouvrir : la mise en forme revient

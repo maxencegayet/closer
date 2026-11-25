@@ -122,7 +122,7 @@ function renderEditor(){
     '<textarea id="ne-title" class="ne-title" rows="1" placeholder="Sans titre" maxlength="200" aria-label="Titre de la note" autocapitalize="sentences" enterkeyhint="next">'+esc(d.title||"")+'</textarea>'+
     '<div class="ne-meta" id="ne-meta">'+esc(edMeta(d))+'</div>'+
     '<div id="ne-body" class="ne-body rte" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Texte de la note" data-ph="Écris ici…" autocapitalize="sentences" spellcheck="true">'+noteHtml(d)+'</div></div>'+
-    '<div class="ne-tools" id="ne-tools">'+fmtBar()+'</div>';
+    '<div class="ne-tools compact" id="ne-tools">'+fmtBar()+'</div>';
   autosize();placeTools();
 }
 function nfMarks(){return Array.prototype.slice.call(document.querySelectorAll("#nb-ed mark"));}
@@ -325,12 +325,19 @@ function rteHlAt(){
   return "";
 }
 // état des boutons (gras actif, etc.)
+// barre complète seulement quand des mots sont sélectionnés (ou la palette ouverte) ; sinon juste « Tâche » (25 nov.)
+function rteMode(){
+  var tools=$("ne-tools"),body=$("ne-body"),pop=$("hl-pop");if(!tools||!body)return;
+  var s=window.getSelection(),full=!!(s&&s.rangeCount&&!s.isCollapsed&&body.contains(s.anchorNode)&&body.contains(s.focusNode))||!!(pop&&!pop.hidden);
+  if(tools.classList.contains("full")!==full){tools.classList.toggle("full",full);tools.classList.toggle("compact",!full);}
+}
 function rteState(){
+  rteMode();
   var bar=$("ne-fmt");if(!bar)return;
   ["bold","italic","underline","strikeThrough"].forEach(function(c){var b=bar.querySelector('[data-v="'+c+'"]');if(b){var on=false;try{on=document.queryCommandState(c);}catch(e){}b.setAttribute("aria-pressed",String(!!on));}});
   var hb=bar.querySelector('[data-act="hl-open"]');if(hb){var k=rteHlAt();hb.style.setProperty("--hl",k?hlHex(k):"transparent");hb.setAttribute("aria-pressed",String(!!k));}
 }
-document.addEventListener("selectionchange",function(){if(document.activeElement&&document.activeElement.id==="ne-body")rteState();});
+document.addEventListener("selectionchange",function(){if($("ne-tools"))rteState();});
 var RTE_ICON={
   bold:'<b>B</b>',italic:'<i>I</i>',underline:'<u>U</u>',strikeThrough:'<s>S</s>'
 };

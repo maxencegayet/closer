@@ -27,6 +27,7 @@ var IC={
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["25 nov.","Brouillon : la barre de mise en forme n'apparaît que quand tu sélectionnes des mots. En écrivant, il ne reste que le bouton « Tâche », discret, à droite. Sur iPhone, elle ne passe plus sous la barre d'iOS au-dessus du clavier."],
   ["25 nov.","Brouillon : mise en forme du texte. Sélectionne un passage puis gras, italique, souligné, barré ou surligné (jaune, vert, bleu, rose, orange) avec la barre en bas. Sur ordinateur : ⌘ ou Ctrl + B, I, U ; + Maj + X pour barrer, + Maj + H pour surligner. Coller ne garde que le texte."],
   ["25 nov.","Brouillon : glisse une note vers la gauche pour la supprimer (« Annuler » la remet). Sur ordinateur, une corbeille apparaît au survol. Nouveau réglage « Toutes les options d'un coup » (Réglages › Préférences) : la fiche d'une tâche montre tout, sans passer par « Plus d'options »."],
   ["25 nov.","Correction : écrire dans le Brouillon en étant connecté ne crée plus de copies « (autre appareil) » à chaque mot. Les copies déjà créées peuvent être supprimées."],
