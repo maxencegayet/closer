@@ -43,8 +43,13 @@ function hlSnippet(d,q){
   var part=t.slice(a,a+170);
   return (a>0?"… ":"")+hlHtml(part,q);
 }
+// photos et fichiers d'une note (comptés dans sa mise en forme)
+function noteAtt(d){
+  var h=String(d.html||""),p=(h.match(/<img [^>]*class="nimg"/g)||[]).length,f=(h.match(/<a [^>]*class="natt"/g)||[]).length;
+  return {p:p,f:f,n:p+f,label:[p?p+(p>1?" photos":" photo"):"",f?f+(f>1?" fichiers":" fichier"):""].filter(Boolean).join(", ")};
+}
 function noteRow(x,showFolder,q){
-  var d=x.d,pv=notePreview(d),sn=q?hlSnippet(d,q):null;
+  var d=x.d,pv=notePreview(d)||noteAtt(d).label,sn=q?hlSnippet(d,q):null;
   // la ligne : toucher = ouvrir ; glisser vers la gauche = supprimer (iPhone) ; « Faire le tri » = cocher (ordinateur)
   var T=state.ntri, on=!!(T&&T[x.id]);
   return '<div class="nwrap'+(T?" picking":"")+'"><button type="button" class="nrow" data-act="'+(T?"ntri-pick":"note-open")+'" data-id="'+esc(x.id)+'"'+(T?' role="checkbox" aria-checked="'+on+'"':"")+'>'+
@@ -160,7 +165,7 @@ function flushNote(id){
 function leaveNote(id){
   // une note laissée vide ne reste pas dans le cahier
   var d=state.items.get(id);if(!d)return;
-  if(!String(d.title||"").trim()&&!String(d.text||"").trim())remove(id);else flushNote(id);
+  if(!String(d.title||"").trim()&&!String(d.text||"").trim()&&!noteAtt(d).n)remove(id);else flushNote(id);
 }
 function openNote(id,focus){
   var d=get(id);if(!d)return;
@@ -304,7 +309,7 @@ function rteSave(el){
   var t=rteText(el);
   if(t.length>20000){showToast("Note trop longue : 20 000 caractères au plus",true);}
   d.text=t;d.html=rteClean(el.innerHTML);d.hk=hsh(t);
-  if(!t.trim()){delete d.html;delete d.hk;}
+  if(!t.trim()&&!/<(img|a) /.test(d.html)){delete d.html;delete d.hk;}   // une note avec seulement des photos garde sa mise en forme
   d.updated=Date.now();
   state.items.set(id,d);dirty[id]=d;persistLocal();
   var m=$("ne-meta");if(m)m.textContent=edMeta(d);

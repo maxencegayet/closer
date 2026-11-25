@@ -636,6 +636,13 @@ with sync_playwright() as p:
     check('fichier et photo gardés sur l\'appareil, en attente d\'envoi', pg.evaluate("phQ().length") == 2 and pg.evaluate("phGet(phQ()[1]).then(r=>!!r&&r.name==='Cours chapitre 3.pdf')"))
     pg.click('[data-act="note-close"]'); pg.wait_for_timeout(350); pg.click('#l-notes .nrow'); pg.wait_for_timeout(700)
     check('note rouverte : la photo et le fichier reviennent', pg.evaluate("(()=>{const i=document.querySelector('#ne-body img.nimg');return !!(i&&i.src.startsWith('blob:'))})()") and pg.is_visible('#ne-body a.natt'))
+    # note avec seulement une photo : gardée (bug du 25 nov. : supprimée comme « vide » à la fermeture)
+    pg.click('[data-act="note-close"]'); pg.wait_for_timeout(300)
+    pg.click('#fab'); pg.wait_for_timeout(300); pg.evaluate("document.getElementById('ne-body').focus()")
+    pg.click('#ne-fmt [data-act="att-open"]'); pg.wait_for_timeout(200)
+    pg.set_input_files('#att-photos', files=[{'name': 'seule.png', 'mimeType': 'image/png', 'buffer': PNG}]); pg.wait_for_timeout(800)
+    pg.click('[data-act="note-close"]'); pg.wait_for_timeout(400)
+    check('note avec seulement une photo : gardée, « 1 photo » dans la liste', '1 photo' in pg.inner_text('#l-notes'))
     check('texte enrichi : aucune erreur', not errs)
     c.close()
 
