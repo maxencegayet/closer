@@ -436,8 +436,17 @@ function phOpen(){
   });
   return phDb;
 }
-function phPut(id,rec){return phOpen().then(function(db){return new Promise(function(ok,ko){var t=db.transaction("att","readwrite");t.objectStore("att").put(rec,id);t.oncomplete=function(){ok();};t.onerror=function(){ko(t.error);};});});}
-function phGet(id){return phOpen().then(function(db){return new Promise(function(ok,ko){var q=db.transaction("att").objectStore("att").get(id);q.onsuccess=function(){ok(q.result||null);};q.onerror=function(){ko(q.error);};});});}
+// rangé en octets (ArrayBuffer) et non en Blob : Safari refuse les Blob dans IndexedDB dans certains cas
+// (navigation privée, et constaté dans les tests WebKit le 25 nov.)
+function phPut(id,rec){
+  return rec.blob.arrayBuffer().then(function(buf){
+    return phOpen().then(function(db){return new Promise(function(ok,ko){var t=db.transaction("att","readwrite");t.objectStore("att").put({buf:buf,type:rec.type||rec.blob.type||"",name:rec.name||""},id);t.oncomplete=function(){ok();};t.onerror=function(){ko(t.error);};t.onabort=function(){ko(t.error);};});});
+  });
+}
+function phGet(id){
+  return phOpen().then(function(db){return new Promise(function(ok,ko){var q=db.transaction("att").objectStore("att").get(id);
+    q.onsuccess=function(){var r=q.result;if(!r){ok(null);return;}ok({blob:r.blob||new Blob([r.buf],{type:r.type||""}),type:r.type,name:r.name});};q.onerror=function(){ko(q.error);};});});
+}
 function phPath(id){return SU?SU.id+"/"+id:null;}
 // file d'attente des envois (survit à la fermeture de l'appli)
 function phQ(){try{return JSON.parse(localStorage.getItem("closer-att-up")||"[]");}catch(e){return [];}}
@@ -534,7 +543,7 @@ function phAdd(files,kind){
         else{var a=document.createElement("a");a.className="natt";a.setAttribute("data-p",id);a.setAttribute("data-n",f.name||"Fichier");a.setAttribute("data-s",String(b.size||f.size||0));phInsert(a);}
       });
     });
-  });},Promise.resolve()).then(function(){phFlush();}).catch(function(e){logErr("photos",e);showToast("Impossible d'ajouter ce fichier",true);});
+  });},Promise.resolve()).then(function(){phFlush();}).catch(function(e){logErr("photos",e&&(e.name+" "+e.message)||e);showToast("Impossible d'ajouter ce fichier",true);});
 }
 // panneau « Ajouter » : Photos, Appareil photo, Fichiers (comme dans Notion)
 function attSheet(open){
