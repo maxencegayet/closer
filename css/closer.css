@@ -798,3 +798,10 @@ body.editing{background-image:none!important}
 .linkbtn.again{display:block;margin:6px auto 0;font-size:15px}
 .sdetail.remark{display:flex;flex-direction:column;gap:10px}
 .sdetail.remark textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:96px}
+
+/* pastilles de surlignage du panneau « Aa » : leur couleur passe avant le fond des boutons de la barre (avant : style en ligne) */
+.ne-tools .hlc.hl-y{background-color:#fff0a3}
+.ne-tools .hlc.hl-g{background-color:#c8f1c5}
+.ne-tools .hlc.hl-b{background-color:#cde2ff}
+.ne-tools .hlc.hl-p{background-color:#ffd1e1}
+.ne-tools .hlc.hl-o{background-color:#ffd9b0}

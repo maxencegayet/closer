@@ -194,6 +194,8 @@ with sync_playwright() as p:
       localStorage.setItem('closer-theme','light');localStorage.setItem('closer-palette','')}""")
     pg.reload(); pg.wait_for_timeout(400); pg.evaluate("location.hash='#brouillon/n2'"); pg.wait_for_timeout(500)
     hl = pg.evaluate("[...document.querySelectorAll('#ne-body span')].map(s=>s.className+'='+getComputedStyle(s).backgroundColor)")
+    sw = pg.evaluate("[...document.querySelectorAll('.ne-tools .hlc[data-v]')].filter(b=>b.dataset.v).map(b=>getComputedStyle(b).backgroundColor)")
+    check('panneau « Aa » : les 5 pastilles de surlignage montrent leur couleur', sw == ['rgb(255, 240, 163)','rgb(200, 241, 197)','rgb(205, 226, 255)','rgb(255, 209, 225)','rgb(255, 217, 176)'], sw)
     check('surlignages du Brouillon visibles sous la politique de sécurité (anciens et nouveaux)',
           hl == ['hl-y=rgb(255, 240, 163)', 'hl-g=rgb(200, 241, 197)'], hl)
     VIOL.clear()
