@@ -1,7 +1,7 @@
 -- Closer · « Une remarque ? » dans les Réglages (audit n° 4, piste 8).
 -- Un avis écrit en deux secondes dans l'appli, au lieu d'un e-mail à rédiger.
 -- Ajout seulement (personne ne peut relire les remarques depuis l'appli) ; lecture depuis le SQL Editor.
--- À exécuter une fois dans Supabase › SQL Editor.
+-- Exécuté le 26 nov. 2026 vers 17 h 55.
 
 create table if not exists public.closer_remarks (
   id bigint generated always as identity primary key,

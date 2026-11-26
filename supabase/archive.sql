@@ -2,7 +2,7 @@
 -- L'offre gratuite de Supabase n'a pas de sauvegarde automatique : chaque lundi à 3 h, une copie complète
 -- de closer_items est rangée dans closer_items_archive, et seules les 4 dernières copies sont gardées.
 -- La table d'archive n'a aucune règle d'accès : l'appli ne peut ni la lire ni l'écrire, seul le SQL Editor y accède.
--- À exécuter une fois dans Supabase › SQL Editor.
+-- Exécuté le 26 nov. 2026 vers 17 h 55 (228 lignes dans la première copie).
 
 create table if not exists public.closer_items_archive (
   archived_on date not null,
