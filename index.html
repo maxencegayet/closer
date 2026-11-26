@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="color-scheme" content="light dark">
-<meta name="closer-version" content="2026-11-26.7">
+<meta name="closer-version" content="2026-11-27.1">
 <!-- sécurité : la page ne charge et ne contacte que Closer lui-même et son Supabase (aucun script en ligne, aucun site tiers).
      Toute nouvelle adresse externe doit être ajoutée ici volontairement ; tests/qualite.py vérifie qu'aucune règle n'est enfreinte. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://jnhykrfvoqyjbajmcwny.supabase.co wss://jnhykrfvoqyjbajmcwny.supabase.co; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
@@ -77,7 +77,8 @@
   </main>
 
   <main id="v-objectifs" class="view" hidden>
-    <h1>Objectifs</h1>
+    <h1>Progrès</h1>
+    <div id="l-recap"></div>
     <div id="l-goals"></div>
     <div id="l-habits"></div>
   </main>
@@ -102,7 +103,7 @@
 <nav class="tabs" id="nav" aria-label="Vues">
   <a href="#jour" data-tab="jour">Jour</a>
   <a href="#taches" data-tab="taches">Tâches</a>
-  <a href="#objectifs" data-tab="objectifs">Objectifs</a>
+  <a href="#objectifs" data-tab="objectifs">Progrès</a>
   <a href="#brouillon" data-tab="brouillon">Brouillon</a>
 </nav>
 </div>

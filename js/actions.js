@@ -29,7 +29,7 @@ function route(){
   // en-tête : le titre de l'onglet prend la place de « Closer » (une ligne de moins)
   document.body.dataset.view=v;
   var br=document.querySelector("#top .brand");
-  if(br){br.textContent=v==="jour"?"Closer":{taches:"Tâches",objectifs:"Objectifs",brouillon:"Brouillon"}[v];
+  if(br){br.textContent=v==="jour"?"Closer":{taches:"Tâches",objectifs:"Progrès",brouillon:"Brouillon"}[v];
     if(v==="jour"){br.removeAttribute("role");br.removeAttribute("aria-level");}else{br.setAttribute("role","heading");br.setAttribute("aria-level","1");}}
   $("fab").setAttribute("aria-label",v==="brouillon"?"Nouvelle note":"Ajouter");
   render();
@@ -242,7 +242,8 @@ document.addEventListener("click",function(ev){
   if(act==="set-theme"){setTheme(b.dataset.v);renderSheet();var tb=$("sheet").querySelector('[data-act="set-theme"][data-v="'+b.dataset.v+'"]');if(tb)tb.focus({preventScroll:true});return;}
   if(act==="set-allopts"){try{if(allOpts())localStorage.removeItem("closer-allopts");else localStorage.setItem("closer-allopts","1");}catch(e){}renderSheet();var ob=$("sheet").querySelector('[data-act="set-allopts"]');if(ob)ob.focus({preventScroll:true});return;}
   if(act==="set-fx"){try{if(fxOff())localStorage.removeItem("closer-fx-off");else{localStorage.setItem("closer-fx-off","1");}}catch(e){}if(!fxOff()){haptic();chime();}renderSheet();return;}
-  if(act==="set-a2hs"||act==="set-news"){var k2=act==="set-a2hs"?"a2hs":"news";setOpen[k2]=!setOpen[k2];renderSheet();return;}
+  if(act==="remark-send"){remarkSend();return;}
+  if(act==="set-a2hs"||act==="set-news"||act==="set-remark"){if(act==="set-remark"){var rt=$("rm-txt");if(rt)remarkDraft=rt.value;}var k2=act==="set-a2hs"?"a2hs":act==="set-news"?"news":"remark";setOpen[k2]=!setOpen[k2];renderSheet();return;}
   if(act==="set-pal"){sheet={mode:"edit",kind:"palette",draft:blankDraft(),back:true};renderSheet();$("sheet").scrollTop=0;$("sheet").focus();return;}
   if(act==="pick-pal"){
     // changer d'univers : fondu enchaîné de toute la page quand le navigateur le permet

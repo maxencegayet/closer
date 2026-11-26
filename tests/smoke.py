@@ -60,6 +60,7 @@ export function createClient(){
 }
 """
 USERS, ROWS, EVENTS, ICS = {}, {}, [], {}
+REMARKS, REM = [], [201]
 ERRS = []   # erreurs remontées (table closer_errors)
 FAIL = {'jwt': 0}
 CLOCK = itertools.count(1_700_000_000_000, 1000)
@@ -125,6 +126,7 @@ with sync_playwright() as p:
         # la vraie bibliothèque Supabase (vendor/) est remplacée par un faux client ; elle est essayée pour de vrai dans qualite.py
         c.route('**/vendor/supabase-js-*.js', lambda r: r.fulfill(status=200, content_type='application/javascript', body=MOCK_JS))
         c.route(SB + '/rest/v1/closer_events', lambda r: (EVENTS.extend(json.loads(r.request.post_data or '[]')), r.fulfill(status=201, body='')))
+        c.route(SB + '/rest/v1/closer_remarks', lambda r: (REMARKS.extend(json.loads(r.request.post_data or '[]')), r.fulfill(status=REM[0], body='')))
         c.route(SB + '/rest/v1/closer_errors', lambda r: (ERRS.extend(json.loads(r.request.post_data or '[]')), r.fulfill(status=201, body='')))
         if appv_online:
             def page_route(r):
@@ -160,6 +162,7 @@ with sync_playwright() as p:
 
     def login(pg, email, pw):
         open_account(pg)
+        if pg.query_selector('#sheet [data-act="ac-form"]'): pg.click('#sheet [data-act="ac-form"]'); pg.wait_for_timeout(150)
         pg.fill('#ac-em', email)
         pg.fill('#ac-pw', pw)
         pg.press('#ac-pw', 'Enter')
@@ -187,6 +190,7 @@ with sync_playwright() as p:
     open_account(pa)
     pa.wait_for_timeout(300)
     check('ouvrir les Réglages charge la bibliothèque Supabase', pa.evaluate("SB!==null"))
+    check('Réglages sans compte : deux lignes, pas de formulaire', pa.query_selector('#sheet [data-act="ac-form"]') and pa.query_selector('#sheet [data-act="ac-tosignup"]') and not pa.query_selector('#ac-em'))
     pa.click('[data-act="ac-tosignup"]')
     pa.fill('#ac-em', 'max@test.fr'); pa.fill('#ac-pw', 'faible')
     pa.press('#ac-pw', 'Enter'); pa.wait_for_timeout(200)
@@ -299,7 +303,14 @@ with sync_playwright() as p:
 
     # 6 quater. Réglages : statistiques, préférences, Quoi de neuf, Catégories avec retour
     open_account(pa)
-    check('Réglages : bilan de la semaine affiché (à la place des 4 tuiles)', 'Ta semaine' in pa.inner_text('#sheet') and not pa.query_selector('#sheet .stats') and pa.query_selector('#sheet .rec-top'))
+    check('Réglages : plus de bilan (il est dans Progrès)', 'Ta semaine' not in pa.inner_text('#sheet') and not pa.query_selector('#sheet .rec-top'))
+    pa.click('#sheet [data-act="set-remark"]'); pa.wait_for_timeout(150)
+    pa.fill('#rm-txt', 'Le Jour est top'); pa.click('#sheet [data-act="remark-send"]'); pa.wait_for_timeout(600)
+    check('« Une remarque ? » : envoyée dans la table, avec la version', len(REMARKS) == 1 and REMARKS[0]['txt'] == 'Le Jour est top' and REMARKS[0]['v'] and 'bien arrivée' in pa.inner_text('#toast') and not pa.query_selector('#rm-txt'))
+    pa.click('#sheet [data-act="set-remark"]'); pa.wait_for_timeout(150)
+    pa.click('#sheet [data-act="remark-send"]'); pa.wait_for_timeout(200)
+    check('« Une remarque ? » vide : rien n\'est envoyé', len(REMARKS) == 1)
+    pa.click('#sheet [data-act="set-remark"]'); pa.wait_for_timeout(150)
     pa.click('#sheet [data-act="set-news"]'); pa.wait_for_timeout(150)
     check('Réglages : « Quoi de neuf » se déplie', 'Récemment supprimés' in pa.inner_text('#sheet .news') and pa.evaluate("document.querySelectorAll('#sheet .news li').length") == 10)
     pa.click('#sheet [data-act="set-cats"]'); pa.wait_for_timeout(200)
@@ -375,6 +386,9 @@ with sync_playwright() as p:
     pg.click('#sheet [data-act="sdate"][data-v=""]'); pg.wait_for_timeout(150)
     check('rappel : pas d\'heure sans date', not pg.query_selector('#sh-time'))
     pg.click('#sheet [data-act="sdate"]:nth-child(2)'); pg.wait_for_timeout(150)
+    check('fiche courte : « Rappel » et « Répéter » rangés sous « Plus d\'options »', not pg.query_selector('#sh-time') and pg.is_visible('#sheet [data-act="sheet-more"]') and pg.query_selector('#sheet .linkbtn.again'))
+    pg.click('#sheet [data-act="sheet-more"]'); pg.wait_for_timeout(150)
+    check('« Plus d\'options » montre « Rappel » et « Répéter »', pg.is_visible('#sh-time') and pg.is_visible('#sh-rep'))
     pg.fill('#sh-time', '14:30')
     pg.click('#sheet button[type="submit"]'); pg.wait_for_timeout(500)
     saved = pg.evaluate("[...state.items.values()].find(d=>d.title==='Appeler le garage')")
@@ -468,6 +482,7 @@ with sync_playwright() as p:
     pg.click('#fab'); pg.wait_for_timeout(300)
     pg.fill('#sh-title', 'Payer le loyer')
     pg.click('#sheet [data-act="sdate"]:nth-child(2)'); pg.wait_for_timeout(150)
+    pg.click('#sheet [data-act="sheet-more"]'); pg.wait_for_timeout(150)
     pg.select_option('#sh-rep', 'week')
     pg.click('#sheet button[type="submit"]'); pg.wait_for_timeout(500)
     it = pg.evaluate("[...state.items.entries()].find(e=>e[1].title==='Payer le loyer')")
@@ -537,6 +552,7 @@ with sync_playwright() as p:
     ys = pg.evaluate("[...document.querySelectorAll('#sheet .segt button')].map(b=>Math.round(b.getBoundingClientRect().top))")
     check('fiche : le type tient sur une ligne en 4 segments', len(ys) == 4 and len(set(ys)) == 1)
     pg.click('#sheet [data-act="sdate"]:nth-child(2)'); pg.wait_for_timeout(150)
+    pg.click('#sheet [data-act="sheet-more"]'); pg.wait_for_timeout(150)
     t2 = pg.evaluate("[$('sh-time').getBoundingClientRect().top,$('sh-rep').getBoundingClientRect().top].map(Math.round)")
     check('fiche : « Rappel à » et « Répéter » côte à côte', abs(t2[0] - t2[1]) < 4)
     check('fiche : catégories sur une rangée qui défile', pg.evaluate("getComputedStyle(document.querySelector('#sheet [aria-label=\"Catégorie\"]')).flexWrap") == 'nowrap')
@@ -925,6 +941,7 @@ with sync_playwright() as p:
     c, pg, errs = device(cfg=False)
     # n° 5 : heures rapides
     pg.click('#fab'); pg.wait_for_timeout(300)
+    pg.click('#sheet [data-act="sheet-more"]'); pg.wait_for_timeout(150)
     check('fiche tâche : 3 heures rapides sous « Rappel à »', pg.eval_on_selector_all('#sheet .tquick .chip', 'n=>n.map(e=>e.textContent)') == ['9 h', '12 h', '18 h'])
     pg.click('#sheet .tquick [data-v="12:00"]'); pg.wait_for_timeout(150)
     check('toucher « 12 h » remplit l\'heure', pg.input_value('#sh-time') == '12:00' and pg.get_attribute('#sheet .tquick [data-v="12:00"]', 'aria-pressed') == 'true')
@@ -1037,11 +1054,10 @@ with sync_playwright() as p:
       state.items.set('k2',{kind:'task',title:'B',done:true,doneOn:ws,due:ws,cat:'Perso',created:1});
       state.items.set('k3',{kind:'task',title:'C',done:true,doneOn:shift(ws,-2),due:shift(ws,-2),cat:'Perso',created:1});
       state.items.set('k4',{kind:'task',title:'D',done:false,due:shift(t,-9),cat:'Perso',created:1});render();}""", T0)
-    pg.click('#ac-btn'); pg.wait_for_timeout(400)
-    rt = pg.inner_text('#sheet .rec')
-    check('Réglages › « Ta semaine » : tâches faites et comparaison', '2\n' in rt and '+1 par rapport à la semaine dernière' in rt)
+    rt = pg.inner_text('#v-objectifs #l-recap .rec')
+    check('onglet Progrès : nommé ainsi, avec « Ta semaine » en tête', pg.inner_text('#nav [data-tab="objectifs"]') == 'Progrès' and pg.inner_text('#v-objectifs h1') == 'Progrès')
+    check('Progrès › « Ta semaine » : tâches faites et comparaison', '2\n' in rt and '+1 par rapport à la semaine dernière' in rt)
     check('« Ta semaine » : habitudes, objectifs, retards', 'Muscu 1/3' in rt and 'Pour tes objectifs' in rt and 'Encore en retard' in rt)
-    pg.keyboard.press('Escape'); pg.wait_for_timeout(400)
     pg.goto(URL + '#jour'); pg.wait_for_timeout(400)
     check('pas de bilan sur le Jour en semaine', (DOW == 7) == bool(pg.query_selector('#v-jour .rec.onj')))
     SUN = pg.evaluate("shift(today(),7-isoDow(today()))")

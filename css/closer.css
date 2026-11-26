@@ -793,3 +793,8 @@ body.editing{background-image:none!important}
 .trow+.trow::before{left:16px}
 .trow .btn{flex:none}
 .empty-note{background:var(--surface);border-radius:18px;padding:22px 16px;text-align:center;color:var(--muted);font-size:15px}
+/* Progrès : titre de la section Objectifs ; fiche : « Ajouter et en saisir une autre » en lien ; « Une remarque ? » */
+.gsh{margin-top:4px}
+.linkbtn.again{display:block;margin:6px auto 0;font-size:15px}
+.sdetail.remark{display:flex;flex-direction:column;gap:10px}
+.sdetail.remark textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:96px}

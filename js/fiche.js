@@ -191,9 +191,11 @@ function renderSheetBody(){
       sChip("sdate","other",dr.other&&isDate(dr.due)?fmt(dr.due,{day:"numeric",month:"short",year:"numeric"}):"Autre date",dr.other)+'</div>'+
       (dr.other?'<input type="date" id="sh-due" value="'+esc(dr.due)+'" aria-label="Autre date">':"")+'</div>';
     // heure du rappel et répétition : seulement quand il y a une date
+    // visibles d'office seulement s'ils servent déjà (ou « Toutes les options d'un coup ») ; sinon sous « Plus d'options »
     if(isDate(dr.due)){
-      h+='<div class="two eq">'+timeField(dr,true)+
+      var rr='<div class="two eq">'+timeField(dr,true)+
         '<div class="field"><label for="sh-rep">Répéter</label><select id="sh-rep">'+REPS.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===(dr.rep||"")?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select></div></div>'+timeQuick(dr)+pushWarn(dr);
+      if(dr.time||dr.rep||dr.more||allOpts())h+=rr;else more+=rr;
     }
     more+='<div class="field"><label for="sh-note">Note</label><textarea id="sh-note" rows="3" maxlength="2000" placeholder="Détails, lien, adresse…" autocapitalize="sentences">'+esc(dr.note||"")+'</textarea>'+noteLinks(isNew?"":dr.note)+'</div>';
     more+='<label class="tick" for="sh-prio"><input type="checkbox" id="sh-prio"'+(dr.prio?" checked":"")+'> Important</label>'+
@@ -216,8 +218,8 @@ function renderSheetBody(){
     }
   }
   // options rares repliées, sauf si elles servent déjà
-  if(more)h+=(dr.more||dr.prio||dr.goal||dr.note||allOpts())?more:'<button type="button" class="linkbtn moreopt" data-act="sheet-more" aria-expanded="false">Plus d\'options</button>';
-  if(isNew&&(k==="task"||k==="hw"||k==="daily"))h+='<button type="button" class="btn ghost again" data-act="sheet-again">Ajouter et en saisir '+(k==="daily"?"une autre":k==="hw"?"un autre":"une autre")+'</button>'+
+  if(more)h+=(dr.more||dr.prio||dr.goal||dr.note||dr.time||dr.rep||allOpts())?more:'<button type="button" class="linkbtn moreopt" data-act="sheet-more" aria-expanded="false">Plus d\'options</button>';
+  if(isNew&&(k==="task"||k==="hw"||k==="daily"))h+='<button type="button" class="linkbtn again" data-act="sheet-again">Ajouter et en saisir '+(k==="daily"?"une autre":k==="hw"?"un autre":"une autre")+'</button>'+
     (sheet.streak?'<div class="hint again-n" role="status">'+sheet.streak+(sheet.streak>1?" ajoutés":" ajouté")+' à la suite. Touche « Terminé » quand tu as fini.</div>':"");
   if(!isNew)h+='<div><button type="button" class="btn danger small" data-act="sheet-del">Supprimer '+(k==="daily"||k==="step"?"cette ":k==="goal"?"cet ":k==="hw"?"ce ":"cette ")+KIND_NAME[k]+'</button></div>';
   if(sheet.restored&&sheet.mode==="new"&&h.indexOf("sh-restored")<0)h=h.replace(/(<\/div>)/,'$1<div class="restored" id="sh-restored" role="status"><span><b>Brouillon repris</b> là où tu l\'avais laissé.</span><button type="button" class="linkbtn" data-act="draft-clear">Effacer</button></div>');

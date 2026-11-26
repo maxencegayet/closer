@@ -13,6 +13,8 @@ var IC={
   data:'<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
   key:'<circle cx="8" cy="15" r="4"/><path d="M11 12l8-8M16 7l2 2"/>',
   out:'<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l-4-4 4-4M6 12h10"/>',
+  user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
   trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   news:'<path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/>',
   mail:'<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M4 7l8 6 8-6"/>',
@@ -28,6 +30,7 @@ var IC={
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["27 nov.","L'onglet Objectifs devient « Progrès » : le bilan de ta semaine en tête, puis tes objectifs et tes habitudes. Réglages plus courts, avec « Une remarque ? » pour m'écrire en deux secondes. Fiche d'ajout allégée : « Rappel » et « Répéter » sont sous « Plus d'options » tant que tu ne t'en sers pas."],
   ["26 nov.","Nouveau : Réglages › Mes données › Récemment supprimés. Ce que tu supprimes y reste 30 jours, même depuis un autre appareil ; « Remettre » le replace où il était. Sur le Jour, le compteur des habitudes compte aussi celles de la semaine."],
   ["26 nov.","Sécurité renforcée : Closer ne charge plus rien depuis un site extérieur, la page refuse tout envoi vers un site inconnu, et l'import d'une sauvegarde écarte les éléments douteux."],
   ["26 nov.","Sur iPhone, le champ « Autre date » d'une tâche ou d'un devoir ne dépasse plus de la fiche."],
@@ -87,7 +90,7 @@ function sGroup(label,rows,note){return '<section class="sgroup">'+(label?'<h3 c
 function standalone(){try{return navigator.standalone===true||matchMedia("(display-mode: standalone)").matches;}catch(e){return false;}}
 function isIOS(){return /iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);}
 function badgeOff(){try{return localStorage.getItem("closer-badge-off")==="1";}catch(e){return false;}}
-/* ---------- bilan de la semaine (lundi → dimanche) : dans les Réglages, et sur le Jour le dimanche ---------- */
+/* ---------- bilan de la semaine (lundi → dimanche) : en tête de l'onglet Progrès, et sur le Jour le dimanche ---------- */
 function weekRecap(ws){
   var t=today(), we=shift(ws,6), end=we<t?we:t, tasks=byKind("task");
   var inW=function(x,a,b){return isDate(x)&&x>=a&&x<=b;};
@@ -111,6 +114,7 @@ function recapHTML(R,onJour){
   if(R.goal)h+='<div class="rec-row"><span>Pour tes objectifs</span><b>'+R.goal+(R.goal>1?" tâches":" tâche")+'</b></div>';
   if(R.late)h+='<div class="rec-row late"><span>Encore en retard</span><b>'+R.late+(R.late>1?" tâches":" tâche")+'</b></div>';
   var per='Du '+fmt(R.ws,{weekday:"short",day:"numeric"})+' au '+fmt(R.we,{weekday:"short",day:"numeric",month:"long"});
+  if(onJour==="page")return '<section class="block"><div class="sh"><h2>Ta semaine</h2><span class="n">'+esc(per)+'</span></div><div class="rec">'+h+'</div></section>';
   return onJour
     ? '<section class="rec onj" aria-label="Bilan de ta semaine"><div class="rec-h"><b>Ta semaine</b><span>'+esc(per)+'</span><button type="button" class="linkbtn" data-act="recap-off">Masquer</button></div>'+h+'</section>'
     : '<section class="sgroup"><h3 class="slab">Ta semaine</h3><div class="rec"><div class="rec-h"><span>'+esc(per)+'</span></div>'+h+'</div></section>';
@@ -143,6 +147,8 @@ function acHTML(){
   }else if(AS.step==="signup"){
     h+='<section class="sgroup"><h3 class="slab">Créer un compte</h3><p class="snote u-m0b4">Tu recevras un e-mail pour confirmer ton adresse.</p>'+emField()+pwField("new-password","8 caractères minimum",1)+
       '<div class="stack"><button type="submit" class="btn">Créer mon compte</button><button type="button" class="btn ghost" data-act="ac-tologin">J\'ai déjà un compte</button></div></section>';
+  }else if(!AS.form&&!AS.msg&&!AS.email){
+    h+=sGroup("Compte",sRow("ac-form","user","Se connecter",{sub:"Pour retrouver tes éléments sur tous tes appareils"})+sRow("ac-tosignup","plus","Créer un compte",{sub:"Facultatif · sans compte, tout reste sur cet appareil"}));
   }else{
     h+='<section class="sgroup"><h3 class="slab">Compte</h3><p class="snote u-m0b4">Facultatif : connecte-toi pour retrouver tes éléments sur tous tes appareils. Sans compte, ils restent sur cet appareil.</p>'+emField()+pwField("current-password","Mot de passe")+
       '<div class="stack"><button type="submit" class="btn">Se connecter</button><button type="button" class="btn ghost" data-act="ac-tosignup">Créer un compte</button><button type="button" class="btn ghost" data-act="ac-forgot">Mot de passe oublié ?</button></div></section>';
@@ -150,8 +156,6 @@ function acHTML(){
   if(AS.msg)h+='<div class="acbox" role="status">'+esc(AS.msg)+'</div>';
   if(AS.unconf&&!SU)h+='<div><button type="button" class="btn ghost small" data-act="ac-resend">Renvoyer l\'e-mail de confirmation</button></div>';
 
-  /* 2. Bilan de la semaine en cours (à la place des anciennes tuiles de statistiques) */
-  h+=recapHTML(weekRecap(weekStart(today())),false);
 
   /* 3. Préférences */
   var perm=("Notification" in window)?Notification.permission:"", rows="";
@@ -225,6 +229,9 @@ function acHTML(){
   /* 7. À propos */
   rows=sRow("set-news","news","Quoi de neuf",{exp:!!setOpen.news,sub:"Les dernières nouveautés de Closer"});
   if(setOpen.news)rows+='<ul class="sdetail news">'+NEWS.slice(0,10).map(function(n){return '<li><b>'+esc(n[0])+'</b>'+esc(n[1])+'</li>';}).join("")+'</ul>';
+  if(acOn()){rows+=sRow("set-remark","send","Une remarque ?",{exp:!!setOpen.remark,sub:"Écris-la ici : elle arrive directement, sans e-mail"});
+    if(setOpen.remark)rows+='<div class="sdetail remark"><textarea id="rm-txt" rows="4" maxlength="1000" placeholder="Ce qui te gêne, ce qui te manque, ce qui te plaît…" aria-label="Ta remarque" autocapitalize="sentences">'+esc(remarkDraft)+'</textarea>'+
+      '<button type="button" class="btn" data-act="remark-send">Envoyer</button></div>';}
   if(CONTACT)rows+=sRow("ac-avis","mail","Donner mon avis",{sub:"Un e-mail prérempli"});
   if(acOn()){rows+=sRow("ac-priv","shield","Confidentialité",{exp:showPriv});
     if(showPriv)rows+='<div class="sdetail"><b>Sans compte</b>, tout reste sur ton appareil.<br><br><b>Avec un compte</b>, sont stockés en ligne : ton adresse e-mail et tes éléments (tâches, devoirs, habitudes, objectifs, notes). Hébergement : Supabase (Europe).<br><br><b>Utilisation</b> : uniquement pour te connecter et synchroniser tes appareils. Pas de publicité, pas de revente.<br><br><b>Accès</b> : chaque compte ne peut lire que ses propres données.<br><br><b>Statistiques anonymes</b> : un identifiant tiré au hasard sur l\'appareil, sans lien avec ton compte ni ton contenu, et seulement 4 événements (ouverture du jour, premier élément, journée active, compte créé). Désactivables ci-dessus.</div>';}
@@ -276,7 +283,8 @@ async function acAct(act,b){
   if(!SB)return;
   acVals();AS.msg="";
   if(act==="ac-tosignup"){AS.step="signup";AS.unconf=false;renderSheet();return;}
-  if(act==="ac-tologin"||act==="ac-back"){AS.step="login";renderSheet();return;}
+  if(act==="ac-tologin"||act==="ac-back"){AS.step="login";AS.form=true;renderSheet();return;}
+  if(act==="ac-form"){AS.step="login";AS.form=true;renderSheet();var ef=$("ac-em");if(ef)ef.focus();return;}
   if(act==="ac-chpw"){AS.step="newpw";renderSheet();return;}
   if(act==="ac-sync"){syncNow();return;}
   try{
@@ -311,6 +319,19 @@ function exportAge(){try{var l=localStorage.getItem("closer-last-export")||"";if
 
 /* ---------- statistiques anonymes ---------- */
 function statsOff(){try{return localStorage.getItem("closer-stats-off")==="1";}catch(e){return true;}}
+/* « Une remarque ? » : envoyée dans la table closer_remarks (supabase/remarques.sql) ; si l'envoi échoue, e-mail prérempli */
+var remarkDraft="";
+function remarkSend(){
+  var el=$("rm-txt"), txt=String(el?el.value:remarkDraft).trim().slice(0,1000);remarkDraft=txt;
+  if(!txt){if(el)el.focus();return;}
+  var row={aid:(statsOff()?null:aid())||(crypto.randomUUID?crypto.randomUUID():"00000000-0000-4000-8000-000000000000"),txt:txt,v:String(APPV).slice(0,24),ua:errDevice()};
+  var tok=SB&&SU?SB.auth.getSession().then(function(r){return r&&r.data&&r.data.session?r.data.session.access_token:SB_KEY;}).catch(function(){return SB_KEY;}):Promise.resolve(SB_KEY);
+  tok.then(function(k){return fetch(SB_URL+"/rest/v1/closer_remarks",{method:"POST",headers:{apikey:SB_KEY,Authorization:"Bearer "+k,"Content-Type":"application/json",Prefer:"return=minimal"},body:JSON.stringify([row])});})
+    .then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);remarkDraft="";setOpen.remark=false;if(sheet&&sheet.kind==="account")renderSheet();showToast("Merci ! Ta remarque est bien arrivée.",true);})
+    .catch(function(e){logErr("remarque",e);
+      if(CONTACT){showToast("Envoi impossible : ta messagerie s'ouvre avec ta remarque.",true);location.href="mailto:"+CONTACT+"?subject="+encodeURIComponent("Une remarque sur Closer")+"&body="+encodeURIComponent(txt+"\n\n— Version "+APPV);}
+      else showToast("Envoi impossible pour le moment. Réessaie plus tard.",true);});
+}
 function aid(){try{var a=localStorage.getItem("closer-aid");if(!a){a=(crypto.randomUUID?crypto.randomUUID():"10000000-1000-4000-8000-100000000000".replace(/[018]/g,function(c){return (c^Math.random()*16>>c/4).toString(16);}));localStorage.setItem("closer-aid",a);}return a;}catch(e){return null;}}
 function stat(ev){
   if(!acOn()||statsOff()||window.__CLOSER_NOSTATS)return;

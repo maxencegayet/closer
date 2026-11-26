@@ -242,6 +242,9 @@ function goalOpen(id){return goalsOpen().indexOf(id)>=0;}
 function setGoalOpen(id,on){var l=goalsOpen().filter(function(x){return x!==id;});if(on)l.push(id);try{localStorage.setItem(GOALS_OPEN_KEY,JSON.stringify(l));}catch(e){}}
 function renderObjectifs(){
   var t=today(), goals=byKind("goal");
+  // onglet « Progrès » : le bilan de la semaine en tête (s'il y a déjà de quoi en faire un), puis objectifs et habitudes
+  var R=state.mode==="loading"?null:weekRecap(weekStart(t)), rc=$("l-recap");
+  if(rc)rc.innerHTML=R&&(R.done||R.before||R.ht)?recapHTML(R,"page"):"";
   if(!goals.length){$("l-goals").innerHTML=state.mode==="loading"?'<div class="list"><div class="empty">Chargement…</div></div>':emptyState("Aucun objectif pour l'instant","Un objectif, c'est un cap à quelques mois : un stage, un examen, un niveau en anglais. Découpe-le en étapes et relie-lui tes tâches pour voir où tu en es.","Créer un objectif");return;}
   var dailies=byKind("daily"), tasks=byKind("task");
   // objectifs en cours en haut ; les atteints rangés dans une section repliée (repliée par défaut)
@@ -295,7 +298,7 @@ function renderObjectifs(){
       '</div>'+
       '</article>';
   }
-  $("l-goals").innerHTML=(cur.length?cur.map(goalCard).join(""):'<div class="list"><div class="empty">Tous tes objectifs sont atteints. Touche + pour t\'en fixer un nouveau.</div></div>')+
+  $("l-goals").innerHTML='<div class="sh gsh"><h2>Objectifs</h2><span class="n">'+(cur.length?cur.length+" en cours":"")+'</span></div>'+(cur.length?cur.map(goalCard).join(""):'<div class="list"><div class="empty">Tous tes objectifs sont atteints. Touche + pour t\'en fixer un nouveau.</div></div>')+
     (won.length?'<div class="gfold">'+foldBlock("obj:reached","Atteints",won.length,won.map(goalCard).join(""))+'</div>':"");
 }
 
