@@ -80,8 +80,10 @@ function renderJour(){
       : '<div class="empty">'+(state.mode==="loading"?"Chargement…":(total?"Tout est fait pour aujourd'hui.":"Rien pour l'instant."))+'</div>');
     if(hasHab){
       // même compte que la carte noire : les habitudes du jour ; les hebdomadaires affichent leur propre « n sur x cette semaine »
-      var hLeft=dRest.length;
-      html+=block("Habitudes",hLeft?hLeft+" aujourd'hui":(dDone.length?"Faites aujourd'hui":""),dRest.map(dailyRow).concat(wk.map(weeklyRow)).join(""));
+      // l'en-tête compte tout ce qui est listé : quotidiennes à faire aujourd'hui + hebdomadaires pas encore atteintes
+      var hLeft=dRest.length, wLeft=wk.filter(function(x){return weekCount(x.d)<(x.d.target||1);}).length;
+      var hLab=[hLeft?hLeft+" aujourd'hui":"",wLeft?wLeft+" cette semaine":""].filter(Boolean).join(" · ")||(dDone.length||wk.length?"Faites":"");
+      html+=block("Habitudes",hLab,dRest.map(dailyRow).concat(wk.map(weeklyRow)).join(""));
     }
     var und=tasks.filter(function(x){return !x.d.done&&!isDate(x.d.due);}).sort(sortTasks);
     // repliée par défaut : ce n'est pas pour aujourd'hui, la journée reste courte

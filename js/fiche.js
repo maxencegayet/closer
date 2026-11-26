@@ -103,6 +103,22 @@ function noteLinks(note){
     return '<a href="'+esc(u)+'" target="_blank" rel="noopener">Ouvrir '+esc(host)+'</a>';}).join("")+'</div>';
 }
 function sChip(act,val,label,on){return '<button type="button" class="chip" aria-pressed="'+on+'" data-act="'+act+'" data-v="'+esc(val)+'">'+esc(label)+'</button>';}
+/* page « Récemment supprimés » */
+function trashKind(d){return d.kind==="note"?"Note":d.kind==="goal"?"Objectif":(d.kind==="daily"||d.kind==="weekly")?"Habitude":d.cat==="Devoir"?"Devoir":"Tâche";}
+function trashTitle(d){var t=String(d.title||"").trim();if(!t&&d.kind==="note")t=String(d.text||"").trim().split("\n")[0];return t||"Sans titre";}
+function trashHTML(dr){
+  var t=trashAll(), now=Date.now();
+  var h='<div class="sh-head"><button type="button" class="btn ghost small" data-act="ac-open">Retour</button><h2 id="sh-h">Récemment supprimés</h2><span class="u-sp78"></span></div>'+
+    '<div class="hint u-mt0">Ce que tu supprimes reste ici 30 jours sur cet appareil, puis disparaît. « Remettre » le replace où il était'+(typeof SU!=="undefined"&&SU?", sur tous tes appareils.":".")+'</div>';
+  if(!t.length)return h+'<div class="empty-note">Rien de supprimé ces 30 derniers jours.</div>';
+  h+='<div class="slist">'+t.map(function(x){
+    var j=Math.floor((now-x.at)/864e5), quand=j<1?"aujourd'hui":j===1?"hier":"il y a "+j+" jours";
+    return '<div class="srow trow"><span class="sl">'+esc(cap(trashTitle(x.d)).slice(0,80))+'<small>'+trashKind(x.d)+' · supprimé '+quand+(x.o?" sur un autre appareil":"")+'</small></span>'+
+      '<button type="button" class="btn ghost small" data-act="trash-restore" data-id="'+esc(x.id)+'">Remettre</button></div>';}).join("")+'</div>'+
+    '<div class="slist u-mt16">'+sRow("trash-clear","trash",dr.q?"Confirmer : vider la corbeille":"Vider la corbeille",{danger:true,noChev:true})+'</div>'+
+    (dr.q?'<div class="hint">Touche encore pour confirmer. Les éléments vidés ne pourront plus être remis.</div>':"");
+  return h;
+}
 // le titre de la fiche (#sh-h) n'existe que fiche ouverte : la référence est posée à ce moment-là (sinon « Fiche »)
 function renderSheet(){
   renderSheetBody();
@@ -114,6 +130,7 @@ function renderSheetBody(){
   var k=sheet.kind, dr=sheet.draft, isNew=sheet.mode==="new", h="";
   if(k==="account"){$("sheet").innerHTML=acHTML();return;}
   if(k==="palette"){$("sheet").innerHTML=palHTML();return;}
+  if(k==="trash"){$("sheet").innerHTML=trashHTML(dr);return;}
   if(k==="backup"){
     var last="";try{last=localStorage.getItem("closer-last-export")||"";}catch(e){}
     h='<div class="sh-head"><button type="button" class="btn ghost small" data-act="ac-open">Retour</button><h2 id="sh-h">Sauvegarde</h2><span class="u-sp78"></span></div>'+

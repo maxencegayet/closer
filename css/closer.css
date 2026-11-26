@@ -773,6 +773,7 @@ body.editing{background-image:none!important}
 /* Sans style en ligne (politique de sécurité : style-src 'self') : petites classes utilitaires
    et couleurs de surlignage du Brouillon (mêmes valeurs que HL dans brouillon.js) */
 .u-sp78{width:78px !important}
+.u-mt16{margin-top:16px !important}
 .u-mt0{margin-top:0 !important}
 .u-mt4{margin-top:4px !important}
 .u-m0b4{margin:0 0 4px !important}
@@ -786,3 +787,9 @@ body.editing{background-image:none!important}
 .hl-b{background-color:#cde2ff}
 .hl-p{background-color:#ffd1e1}
 .hl-o{background-color:#ffd9b0}
+
+/* Récemment supprimés */
+.trow{padding-left:16px}
+.trow+.trow::before{left:16px}
+.trow .btn{flex:none}
+.empty-note{background:var(--surface);border-radius:18px;padding:22px 16px;text-align:center;color:var(--muted);font-size:15px}

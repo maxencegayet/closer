@@ -28,6 +28,7 @@ var IC={
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["26 nov.","Nouveau : Réglages › Mes données › Récemment supprimés. Ce que tu supprimes y reste 30 jours, même depuis un autre appareil ; « Remettre » le replace où il était. Sur le Jour, le compteur des habitudes compte aussi celles de la semaine."],
   ["26 nov.","Sécurité renforcée : Closer ne charge plus rien depuis un site extérieur, la page refuse tout envoi vers un site inconnu, et l'import d'une sauvegarde écarte les éléments douteux."],
   ["26 nov.","Sur iPhone, le champ « Autre date » d'une tâche ou d'un devoir ne dépasse plus de la fiche."],
   ["26 nov.","Sur ordinateur, le survol d'une tâche ou d'une habitude remplit maintenant toute la carte, jusqu'à ses coins arrondis."],
@@ -81,6 +82,7 @@ function sRow(act,icon,label,opt){
     (opt.val!==undefined?'<span class="sv">'+esc(String(opt.val))+'</span>':"")+
     (sw?'<span class="sw" aria-hidden="true"><i></i></span>':opt.noChev?"":CHEV)+'</button>';
 }
+function trashSub(){var n=trashAll().length;return n?n+(n>1?" éléments":" élément")+" · récupérables pendant 30 jours":"Vide · ce que tu supprimes y reste 30 jours";}
 function sGroup(label,rows,note){return '<section class="sgroup">'+(label?'<h3 class="slab">'+esc(label)+'</h3>':"")+'<div class="slist">'+rows+'</div>'+(note?'<p class="snote">'+note+'</p>':"")+'</section>';}
 function standalone(){try{return navigator.standalone===true||matchMedia("(display-mode: standalone)").matches;}catch(e){return false;}}
 function isIOS(){return /iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);}
@@ -209,7 +211,8 @@ function acHTML(){
   // dernière sauvegarde exportée : copie de secours, utile même avec un compte (Supabase gratuit n'a pas de sauvegarde automatique)
   var age=exportAge(), vieux=state.items.size>=10&&(age===null||age>30);
   h+=sGroup("Mes données",sRow("backup","data","Exporter ou importer une sauvegarde",{sub:state.items.size+(state.items.size>1?" éléments":" élément")+(SU?" · synchronisés sur ton compte":" · sur cet appareil")+
-    " · "+(age===null?"jamais exportés":age===0?"dernier export aujourd'hui":"dernier export il y a "+age+(age>1?" jours":" jour"))}),
+    " · "+(age===null?"jamais exportés":age===0?"dernier export aujourd'hui":"dernier export il y a "+age+(age>1?" jours":" jour"))})+
+    sRow("trash-open","trash","Récemment supprimés",{sub:trashSub()}),
     vieux?"Exporte une sauvegarde de temps en temps (une fois par mois suffit) : c'est ta copie de secours, à garder où tu veux.":"");
 
   /* 6. Sécurité */
@@ -221,7 +224,7 @@ function acHTML(){
 
   /* 7. À propos */
   rows=sRow("set-news","news","Quoi de neuf",{exp:!!setOpen.news,sub:"Les dernières nouveautés de Closer"});
-  if(setOpen.news)rows+='<ul class="sdetail news">'+NEWS.map(function(n){return '<li><b>'+esc(n[0])+'</b>'+esc(n[1])+'</li>';}).join("")+'</ul>';
+  if(setOpen.news)rows+='<ul class="sdetail news">'+NEWS.slice(0,10).map(function(n){return '<li><b>'+esc(n[0])+'</b>'+esc(n[1])+'</li>';}).join("")+'</ul>';
   if(CONTACT)rows+=sRow("ac-avis","mail","Donner mon avis",{sub:"Un e-mail prérempli"});
   if(acOn()){rows+=sRow("ac-priv","shield","Confidentialité",{exp:showPriv});
     if(showPriv)rows+='<div class="sdetail"><b>Sans compte</b>, tout reste sur ton appareil.<br><br><b>Avec un compte</b>, sont stockés en ligne : ton adresse e-mail et tes éléments (tâches, devoirs, habitudes, objectifs, notes). Hébergement : Supabase (Europe).<br><br><b>Utilisation</b> : uniquement pour te connecter et synchroniser tes appareils. Pas de publicité, pas de revente.<br><br><b>Accès</b> : chaque compte ne peut lire que ses propres données.<br><br><b>Statistiques anonymes</b> : un identifiant tiré au hasard sur l\'appareil, sans lien avec ton compte ni ton contenu, et seulement 4 événements (ouverture du jour, premier élément, journée active, compte créé). Désactivables ci-dessus.</div>';}
@@ -331,8 +334,11 @@ function errClean(m){
 function errDevice(){
   var u=navigator.userAgent||"", d=/iPhone/.test(u)?"iPhone":/iPad/.test(u)?"iPad":/Android/.test(u)?"Android":/Macintosh/.test(u)?"Mac":/Windows/.test(u)?"Windows":"autre";
   var v=(u.match(/OS (\d+)[_.](\d+)/)||[]).slice(1,3).join(".");
-  return (d+(v?" "+v:"")+(standalone()?" · appli":" · navigateur")).slice(0,40);
+  return (d+(v?" "+v:"")+(standalone()?" · appli":" · navigateur")+" · "+lsSize()).slice(0,40);
 }
+// place prise dans le stockage de l'appareil (Safari plafonne vers 5 Mo) : remontée avec les erreurs pour voir venir la limite
+function lsSize(){var n=0;try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);n+=k.length+(localStorage.getItem(k)||"").length;}}catch(e){return "? Mo";}
+  return (n*2/1048576).toFixed(1)+" Mo";}
 function errSend(where,m){
   if(!acOn()||statsOff()||window.__CLOSER_NOSTATS||errSent>=5)return;
   var t=today(),msg=errClean(m),k="closer-err-"+where+"-"+hsh(msg);

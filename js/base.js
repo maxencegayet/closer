@@ -104,11 +104,31 @@ function persistLocal(){
 function put(id,data){
   state.items.set(id,data);
 }
-function save(id,data){var isNew=!state.items.has(id);put(id,data);persistLocal();render();if(isNew&&data&&data.kind&&data.kind!=="prefs")stat1("first_item");}
-function remove(id){
+function save(id,data){var isNew=!state.items.has(id);if(isNew)trashDrop(id);put(id,data);persistLocal();render();if(isNew&&data&&data.kind&&data.kind!=="prefs")stat1("first_item");}
+// keep = retrait technique (annulation, note vide) : rien ne va dans la corbeille
+function remove(id,keep){
   clearTimeout(noteTimers[id]);delete dirty[id];
+  if(!keep)trashAdd(id,state.items.get(id));
   state.items.delete(id);persistLocal();render();
 }
+/* Corbeille « Récemment supprimés » : tout élément supprimé (ici ou sur un autre appareil) reste 30 jours sur l'appareil.
+   Remettre un élément le réenregistre : la synchro le renvoie alors au compte comme un élément ordinaire. */
+var TRASH_KEY="closer-trash", TRASH_DAYS=30, TRASH_MAX=300, trashMem=null;
+function trashAll(){
+  if(!trashMem){try{var t=JSON.parse(localStorage.getItem(TRASH_KEY)||"[]");trashMem=Array.isArray(t)?t:[];}catch(e){trashMem=[];}}
+  var lim=Date.now()-TRASH_DAYS*864e5;
+  trashMem=trashMem.filter(function(x){return x&&typeof x.id==="string"&&x.d&&typeof x.d==="object"&&x.at>lim;});
+  return trashMem;
+}
+function trashPut(t){trashMem=t;try{localStorage.setItem(TRASH_KEY,JSON.stringify(t));}catch(e){logErr("corbeille",e);}}
+function trashEmpty(d){return d.kind==="note"&&!String(d.title||"").trim()&&!String(d.text||"").trim()&&!/data-p=/.test(String(d.html||""));}
+function trashAdd(id,d,other){
+  if(!d||!d.kind||d.kind==="prefs"||trashEmpty(d))return;
+  var t=trashAll().filter(function(x){return x.id!==id;});
+  t.unshift({id:id,d:d,at:Date.now(),o:other?1:0});
+  trashPut(t.slice(0,TRASH_MAX));
+}
+function trashDrop(id){var t=trashAll();if(t.some(function(x){return x.id===id;}))trashPut(t.filter(function(x){return x.id!==id;}));}
 function get(id){var d=state.items.get(id);if(!d)return null;var c=Object.assign({},d);if(Array.isArray(d.steps))c.steps=d.steps.map(function(s){return Object.assign({},s);});return c;}
 function byKind(k){var out=[];state.items.forEach(function(d,id){if(d&&d.kind===k)out.push({id:id,d:d});});out.sort(function(a,b){return (a.d.created||0)-(b.d.created||0);});return out;}
 

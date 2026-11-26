@@ -164,7 +164,7 @@ function flushNote(id){
 function leaveNote(id){
   // une note laissée vide ne reste pas dans le cahier
   var d=state.items.get(id);if(!d)return;
-  if(!String(d.title||"").trim()&&!String(d.text||"").trim()&&!noteAtt(d).n)remove(id);else flushNote(id);
+  if(!String(d.title||"").trim()&&!String(d.text||"").trim()&&!noteAtt(d).n)remove(id,true);else flushNote(id);
 }
 function openNote(id,focus){
   var d=get(id);if(!d)return;
@@ -576,7 +576,9 @@ function phFlush(){
 var PH_GRACE=3600*1000, PH_EVERY=10*60*1000, phSweeping=false;
 function phRefs(){
   var s={},re=/data-p="([^"]+)"/g,m;
+  // notes de la corbeille comprises : leurs photos restent tant qu'on peut les remettre
   state.items.forEach(function(d){if(d&&d.kind==="note"&&d.html){re.lastIndex=0;while((m=re.exec(d.html)))s[m[1]]=1;}});
+  trashAll().forEach(function(x){if(x.d.kind==="note"&&x.d.html){re.lastIndex=0;while((m=re.exec(String(x.d.html))))s[m[1]]=1;}});
   var b=$("ne-body");if(b)Array.prototype.forEach.call(b.querySelectorAll("[data-p]"),function(x){s[x.dataset.p]=1;});
   phQ().forEach(function(id){s[id]=1;});
   return s;

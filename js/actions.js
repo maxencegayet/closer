@@ -204,6 +204,11 @@ document.addEventListener("click",function(ev){
     else{var nb=$("sheet").querySelector('[data-act="'+act+'"][data-v="'+v+'"]');if(nb)nb.focus();}
     return;
   }
+  if(act==="trash-open"){var td={mode:"edit",kind:"trash",draft:blankDraft()};if(sheet){sheet=td;renderSheet();$("sheet").scrollTop=0;$("sheet").focus();}else openSheet(td,b);return;}
+  if(act==="trash-restore"){var tx=trashAll().filter(function(x){return x.id===id;})[0];
+    if(tx){if(state.items.has(tx.id))trashDrop(tx.id);else save(tx.id,tx.d);showToast("« "+shortT(trashTitle(tx.d))+" » remis à sa place",true);}
+    if(sheet&&sheet.kind==="trash")renderSheet();return;}
+  if(act==="trash-clear"){if(!sheet.draft.q){sheet.draft.q=true;renderSheet();return;}trashPut([]);sheet.draft.q=false;renderSheet();showToast("Corbeille vidée",true);return;}
   if(act==="backup"){if(sheet){sheet={mode:"edit",kind:"backup",draft:blankDraft()};renderSheet();$("sheet").scrollTop=0;$("sheet").focus();}else openSheet({mode:"edit",kind:"backup",draft:blankDraft()},b);return;}
   if(act==="late-today"){lateToToday();return;}
   if(act==="recap-off"){try{localStorage.setItem(RECAP_KEY,today());}catch(e){}render();return;}
@@ -275,7 +280,7 @@ document.addEventListener("click",function(ev){
     var fb=document.querySelector('#'+vid+' [data-act="fold"][data-id="'+(window.CSS&&CSS.escape?CSS.escape(id):id)+'"]');if(fb)fb.focus({preventScroll:true});return;}
   if(act==="toggle-done"){state.showDone[id]=!state.showDone[id];render();return;}
   if(act==="clear-done"){viewTasks(id).forEach(function(x){if(x.d.done)remove(x.id);});lastDeleted=null;return;}
-  if(act==="undo"){if(lastDeleted){(Array.isArray(lastDeleted)?lastDeleted:[lastDeleted]).forEach(function(u){if(u.data)save(u.id,u.data);else remove(u.id);});lastDeleted=null;}clearTimeout(toastTimer);$("toast").classList.remove("open");return;}
+  if(act==="undo"){if(lastDeleted){(Array.isArray(lastDeleted)?lastDeleted:[lastDeleted]).forEach(function(u){if(u.data)save(u.id,u.data);else remove(u.id,true);});lastDeleted=null;}clearTimeout(toastTimer);$("toast").classList.remove("open");return;}
   if(!d)return;
   if(act==="weekly"){var ds=(d.dones||[]).slice(),wi=ds.indexOf(t);if(wi>=0)ds.splice(wi,1);else ds.push(t);d.dones=ds.slice(-80);save(id,d);}
   else if(act==="task"){if(!d.done)taskDone(id);else{d.done=false;d.doneOn="";d.doneAt=0;save(id,d);}}

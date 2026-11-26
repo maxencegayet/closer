@@ -127,7 +127,7 @@ async function syncOnce(){
       var localEdit=known===undefined?!!cur:ch!==known, rh=x.deleted?"x":hOf(x.data);
       if(localEdit&&rh!==ch&&known!==undefined&&rh!==known){
         /* modifié ici ET ailleurs depuis la dernière synchro : on ne jette rien en silence */
-        if(!cur&&!x.deleted){state.items.set(x.id,x.data);SY.h[x.id]=rh;changed=true;}        // supprimé ici, modifié ailleurs : la modification gagne
+        if(!cur&&!x.deleted){state.items.set(x.id,x.data);trashDrop(x.id);SY.h[x.id]=rh;changed=true;}        // supprimé ici, modifié ailleurs : la modification gagne
         else if(cur&&!x.deleted&&cur.kind==="note"&&x.data&&x.data.kind==="note"&&SY.cf[x.id]!==rh){
           // note : la version de cet appareil reste, l'autre est gardée à côté
           var cp=Object.assign({},x.data,{title:(String(x.data.title||"").trim()||noteTitle(x.data))+" (autre appareil)",pinned:false,updated:Date.now()});
@@ -136,8 +136,8 @@ async function syncOnce(){
         // tâches, objectifs… : la version de cet appareil est envoyée juste après
       }
       else if(!(localEdit&&rh!==ch)){
-        if(x.deleted){if(cur){state.items.delete(x.id);changed=true;}}
-        else if(rh!==ch){state.items.set(x.id,x.data);changed=true;}
+        if(x.deleted){if(cur){trashAdd(x.id,cur,true);state.items.delete(x.id);changed=true;}}
+        else if(rh!==ch){if(!cur)trashDrop(x.id);state.items.set(x.id,x.data);changed=true;}
         SY.h[x.id]=rh;
       }
       if(x.updated_at>maxSeen)maxSeen=x.updated_at;

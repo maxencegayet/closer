@@ -225,6 +225,34 @@ with sync_playwright() as p:
     check('appareil A : changements de B reçus', items(pa) == ['Préparer l\'oral', 'Réviser la compta'])
     check('aucune erreur sur A et B', not ea and not eb)
 
+    # 4 ter. Corbeille « Récemment supprimés » (audit n° 4, piste 2) : suppression ici et ailleurs, remettre, synchro
+    TR = "trashAll().map(x=>trashTitle(x.d)+'|'+x.o)"
+    check('corbeille : la tâche supprimée sur B y est', pb.evaluate(TR) == ['Appeler le banquier|0'])
+    check('corbeille : sur A aussi, marquée « autre appareil »', pa.evaluate(TR) == ['Appeler le banquier|1'])
+    open_account(pa); pa.click('[data-act="trash-open"]'); pa.wait_for_timeout(350)
+    check('corbeille : page ouverte depuis les Réglages', 'Récemment supprimés' in pa.inner_text('#sh-h') and 'sur un autre appareil' in pa.inner_text('#sheet'))
+    pa.click('#sheet [data-act="trash-restore"]'); pa.wait_for_timeout(300)
+    check('corbeille : « Remettre » replace la tâche et vide la ligne', 'Appeler le banquier' in items(pa) and pa.evaluate("trashAll().length") == 0 and 'Rien de supprimé' in pa.inner_text('#sheet'))
+    pa.evaluate("syncNow()"); pa.wait_for_timeout(900); pb.evaluate("syncNow()"); pb.wait_for_timeout(900)
+    check('corbeille : la tâche remise revient sur l\'autre appareil', 'Appeler le banquier' in items(pb) and pb.evaluate("trashAll().length") == 0)
+    pa.click('#sheet [data-act="ac-open"]'); pa.wait_for_timeout(250); pa.click('#sheet [data-act="close-sheet"]'); pa.wait_for_timeout(300)
+    pa.evaluate("remove(byKind('task').find(x=>x.d.title==='Appeler le banquier').id)"); pa.wait_for_timeout(200)
+    open_account(pa); pa.click('[data-act="trash-open"]'); pa.wait_for_timeout(300)
+    pa.click('#sheet [data-act="trash-clear"]'); pa.wait_for_timeout(200)
+    check('corbeille : vider demande une confirmation', pa.evaluate("trashAll().length") == 1 and 'Confirmer' in pa.inner_text('#sheet'))
+    pa.click('#sheet [data-act="trash-clear"]'); pa.wait_for_timeout(200)
+    check('corbeille : vidée', pa.evaluate("trashAll().length") == 0)
+    pa.evaluate("save('ne',{kind:'note',title:'',text:'',folder:'',created:1,updated:1});remove('ne',true);save('vx',{kind:'note',title:'',text:'',created:1,updated:1});remove('vx')")
+    check('corbeille : retraits techniques et notes vides ignorés', pa.evaluate("trashAll().length") == 0)
+    pa.evaluate("localStorage.setItem('closer-trash',JSON.stringify([{id:'old',d:{kind:'task',title:'Vieille'},at:Date.now()-31*864e5,o:0}]));trashMem=null")
+    check('corbeille : au-delà de 30 jours, oublié', pa.evaluate("trashAll().length") == 0)
+    pa.click('#sheet [data-act="ac-open"]'); pa.wait_for_timeout(250); pa.click('#sheet [data-act="close-sheet"]'); pa.wait_for_timeout(300)
+    check('corbeille : aucune erreur', not ea and not eb)
+    # compteur des habitudes du Jour (audit n° 4, piste 10) : il compte aussi les hebdomadaires listées
+    pa.evaluate("location.hash='#jour';save('hab-w',{kind:'weekly',title:'Tennis',target:1,dones:[],created:5});save('hab-d',{kind:'daily',title:'Lire',created:6})"); pa.wait_for_timeout(300)
+    check('habitudes : « 1 aujourd\'hui · 1 cette semaine »', '1 aujourd\'hui · 1 cette semaine' in pa.inner_text('#v-jour'))
+    pa.evaluate("remove('hab-w',true);remove('hab-d',true)")
+
     # 4 bis. Conflit : la même note modifiée sur A et sur B avant synchro -> les deux versions sont gardées
     pa.evaluate("save('nc',{kind:'note',title:'Plan',text:'départ',folder:'',pinned:false,created:Date.now(),updated:Date.now()});syncNow()"); pa.wait_for_timeout(900)
     pb.evaluate("syncNow()"); pb.wait_for_timeout(900)
@@ -273,7 +301,7 @@ with sync_playwright() as p:
     open_account(pa)
     check('Réglages : bilan de la semaine affiché (à la place des 4 tuiles)', 'Ta semaine' in pa.inner_text('#sheet') and not pa.query_selector('#sheet .stats') and pa.query_selector('#sheet .rec-top'))
     pa.click('#sheet [data-act="set-news"]'); pa.wait_for_timeout(150)
-    check('Réglages : « Quoi de neuf » se déplie', 'Brouillon façon Notes' in pa.inner_text('#sheet'))
+    check('Réglages : « Quoi de neuf » se déplie', 'Récemment supprimés' in pa.inner_text('#sheet .news') and pa.evaluate("document.querySelectorAll('#sheet .news li').length") == 10)
     pa.click('#sheet [data-act="set-cats"]'); pa.wait_for_timeout(200)
     check('Réglages › Catégories, puis « Retour »', 'Catégories' in pa.inner_text('#sh-h'))
     pa.click('#sheet [data-act="ac-open"]'); pa.wait_for_timeout(200)
@@ -296,7 +324,9 @@ with sync_playwright() as p:
     pg.reload(); pg.wait_for_timeout(600)
     hero = int(pg.inner_text('#hero .num'))
     heads = pg.eval_on_selector_all('#l-jour .sh', "els=>els.map(e=>e.innerText)")
-    nums = sum(int(''.join(ch for ch in h.split('\n')[-1] if ch.isdigit()) or 0) for h in heads if h.startswith(('Aujourd','En retard','Habitudes')))
+    # l'en-tête « Habitudes » dit « 2 aujourd'hui · 1 cette semaine » : seule la part du jour compte dans la carte noire
+    jour = lambda x: x.split(' · ')[0] if 'aujourd' in x.split(' · ')[0] else x
+    nums = sum(int(''.join(ch for ch in jour(h.split('\n')[-1]) if ch.isdigit()) or 0) for h in heads if h.startswith(('Aujourd','En retard','Habitudes')))
     check('carte noire = Aujourd\'hui + Habitudes du jour (%d = %d)' % (hero, nums), hero == nums == 3)
     c.close()
 
