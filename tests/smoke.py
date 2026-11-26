@@ -42,14 +42,14 @@ CFG = {'url': SB, 'key': 'sb_publishable_test', 'contact': 'test@exemple.fr'}
 MOCK_JS = r"""
 export function createClient(){
   const cbs=[]; const call=(op,a)=>window.__srv(op,JSON.stringify(a)).then(r=>JSON.parse(r));
-  const cur=()=>{const s=JSON.parse(localStorage.getItem('mock-sess')||'null');return s&&s.user.id;};
+  const cur=()=>{const s=JSON.parse(localStorage.getItem('closer-auth')||'null');return s&&s.user.id;};
   const auth={
-    getSession:async()=>({data:{session:JSON.parse(localStorage.getItem('mock-sess')||'null')}}),
+    getSession:async()=>({data:{session:JSON.parse(localStorage.getItem('closer-auth')||'null')}}),
     onAuthStateChange(f){cbs.push(f);return {data:{subscription:{unsubscribe(){}}}};},
-    async signInWithPassword(a){const r=await call('login',a);if(r.error)return r;const s={user:r.user};localStorage.setItem('mock-sess',JSON.stringify(s));setTimeout(()=>cbs.forEach(f=>f('SIGNED_IN',s)));return {error:null};},
+    async signInWithPassword(a){const r=await call('login',a);if(r.error)return r;const s={user:r.user};localStorage.setItem('closer-auth',JSON.stringify(s));setTimeout(()=>cbs.forEach(f=>f('SIGNED_IN',s)));return {error:null};},
     async signUp(a){return call('signup',a);},
-    async signOut(){localStorage.removeItem('mock-sess');cbs.forEach(f=>f('SIGNED_OUT',null));return {error:null};},
-    async refreshSession(){window.__refreshed=(window.__refreshed||0)+1;return {data:{session:JSON.parse(localStorage.getItem('mock-sess')||'null')}};},
+    async signOut(){localStorage.removeItem('closer-auth');cbs.forEach(f=>f('SIGNED_OUT',null));return {error:null};},
+    async refreshSession(){window.__refreshed=(window.__refreshed||0)+1;return {data:{session:JSON.parse(localStorage.getItem('closer-auth')||'null')}};},
     async resetPasswordForEmail(){return {error:null};}, async resend(){return {error:null};}, async updateUser(){return {error:null};}
   };
   function from(){const q={};const b={select(){return b;},gt(c,v){q.gt=v;return b;},order(){return b;},
@@ -183,7 +183,10 @@ with sync_playwright() as p:
     check('bouton Compte visible', pa.is_visible('#ac-btn'))
     check('statistique « open » envoyée une fois', [e['ev'] for e in EVENTS].count('open') == 1)
     check('statistique « first_item » envoyée', 'first_item' in [e['ev'] for e in EVENTS])
+    check('sans session : bibliothèque Supabase pas chargée à l\'ouverture', pa.evaluate("SB===null&&!sbLoading"))
     open_account(pa)
+    pa.wait_for_timeout(300)
+    check('ouvrir les Réglages charge la bibliothèque Supabase', pa.evaluate("SB!==null"))
     pa.click('[data-act="ac-tosignup"]')
     pa.fill('#ac-em', 'max@test.fr'); pa.fill('#ac-pw', 'faible')
     pa.press('#ac-pw', 'Enter'); pa.wait_for_timeout(200)
@@ -196,6 +199,12 @@ with sync_playwright() as p:
     check('les 2 tâches locales sont sur le compte', srv_titles == ['Appeler le banquier', 'Réviser la compta'])
     check('pastille verte sur Compte', 'ok' in pa.get_attribute('#ac-dot', 'class'))
     pa.click('#sheet [data-act="close-sheet"]')
+    pa.reload(); pa.wait_for_timeout(900)
+    check('session enregistrée : bibliothèque chargée dès l\'ouverture, toujours connecté', pa.evaluate("SB!==null&&!!SU"))
+    lc, lp, le = device()
+    lp.goto(URL + '#access_token=x&type=recovery'); lp.reload(); lp.wait_for_timeout(700)
+    check('lien reçu par e-mail : bibliothèque chargée sans ouvrir les Réglages', lp.evaluate("SB!==null"))
+    lc.close()
 
     # 3. Appareil B (neuf) : connexion -> récupère tout ; modifie et supprime
     bb, pb, eb = device()

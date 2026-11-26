@@ -60,9 +60,22 @@ function syMigrate(){
   SY.h=h;SY.cf={};SY.v=SY_V;
 }
 function acOn(){return !!(SB_URL&&SB_KEY);}
+// la bibliothèque Supabase (230 Ko) n'est chargée que si on en a besoin : session enregistrée sur l'appareil,
+// lien reçu par e-mail (confirmation, mot de passe oublié), ou ouverture des Réglages (sbLoad dans acOpen)
+function sbNeeded(){
+  var u=String(location.hash)+"&"+String(location.search);
+  if(/access_token=|refresh_token=|error_description=|[?&#]code=|token_hash=|type=(recovery|signup|invite|magiclink|email)/.test(u))return true;
+  try{return !!localStorage.getItem("closer-auth");}catch(e){return true;}
+}
+var sbLoading=false;
 function acStart(){
   if(!acOn()||sbTried||SB)return;
   $("ac-btn").hidden=false;stat1Day("open");
+  if(sbNeeded())sbLoad();
+}
+function sbLoad(){
+  if(!acOn()||sbTried||SB||sbLoading)return;
+  sbLoading=true;
   sbMod().then(function(m){
     SB=m.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:"closer-auth"}});
     return SB.auth.getSession();
@@ -76,7 +89,7 @@ function acStart(){
       acRefresh();
     });
     if(SU)syncNow();
-  }).catch(function(){SB=null;}).then(function(){sbTried=true;acRefresh();});
+  }).catch(function(){SB=null;}).then(function(){sbTried=true;sbLoading=false;acRefresh();});
 }
 function schedSync(ms){if(!SB||!SU||state.mode!=="local")return;clearTimeout(syncTimer);syncTimer=setTimeout(function(){syncTimer=null;syncNow();},ms);}
 function storeLocal(){try{localStorage.setItem(LS_KEY,JSON.stringify(Array.from(state.items.entries())));}catch(e){logErr("stockage",e);storageWarn();}}

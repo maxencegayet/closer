@@ -1,7 +1,7 @@
 /* Closer : hors ligne.
-   Réseau d'abord (sans cache HTTP) pour toujours avoir la dernière version,
+   Réseau d'abord (sans cache HTTP) pour toujours avoir la dernière version (sauf vendor/ et fonts/ : copie locale d'abord),
    copie locale en secours quand il n'y a pas de réseau. */
-const CACHE = "closer-v53";
+const CACHE = "closer-v54";
 const CORE = [
   "./",
   "index.html",
@@ -89,6 +89,21 @@ self.addEventListener("fetch", (e) => {
   const nav = req.mode === "navigate";
   // une seule copie par fichier, sans le « ?v=… » de la vérification de version
   const key = nav ? new URL("./", self.location).href : url.origin + url.pathname;
+
+  // bibliothèque (nom avec sa version) et police : elles ne changent jamais d'un jour à l'autre, donc copie locale
+  // d'abord (ouverture plus rapide, moins de données) ; chaque nouvelle version de Closer les recopie à l'installation
+  if (/\/(vendor|fonts)\/[^/]+$/.test(url.pathname)) {
+    e.respondWith(
+      caches.match(key).then((hit) => hit || fetch(req).then((res) => {
+        if (res && res.ok && res.type === "basic") {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(key, copy)).catch(() => {});
+        }
+        return res;
+      }))
+    );
+    return;
+  }
 
   e.respondWith(
     fetch(req, { cache: "no-store" })

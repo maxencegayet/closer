@@ -233,7 +233,7 @@ function acRefresh(){
   var dot=$("ac-dot");if(dot)dot.className="acdot"+(SU&&cst===1?" ok":SU&&cst===2?" err":"");
   if(sheet&&sheet.kind==="account"){var a=document.activeElement;if(!(a&&(a.id==="ac-em"||a.id==="ac-pw")))renderSheet();}
 }
-function acOpen(b){if(sheet&&sheet.kind==="account"){renderSheet();return;}acq=false;calq=false;if(sheet){sheet={mode:"edit",kind:"account",draft:{}};renderSheet();$("sheet").scrollTop=0;$("sheet").focus();return;}openSheet({mode:"edit",kind:"account",draft:{}},b||$("ac-btn"));}
+function acOpen(b){sbLoad();if(sheet&&sheet.kind==="account"){renderSheet();return;}acq=false;calq=false;if(sheet){sheet={mode:"edit",kind:"account",draft:{}};renderSheet();$("sheet").scrollTop=0;$("sheet").focus();return;}openSheet({mode:"edit",kind:"account",draft:{}},b||$("ac-btn"));}
 function acVals(){var e=$("ac-em"),p=$("ac-pw");if(e)AS.email=e.value.trim();return {em:AS.email,pw:p?p.value:""};}
 function okEm(x){return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x);}
 function redir(){return location.origin+location.pathname;}
