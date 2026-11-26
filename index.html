@@ -4,7 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="color-scheme" content="light dark">
-<script>try{document.documentElement.dataset.theme=localStorage.getItem("closer-theme")||"light";var p=localStorage.getItem("closer-palette");if(p)document.documentElement.dataset.pal=p;}catch(e){document.documentElement.dataset.theme="light";}</script>
+<meta name="closer-version" content="2026-11-26.3">
+<!-- sécurité : la page ne charge et ne contacte que Closer lui-même et son Supabase (aucun script en ligne, aucun site tiers).
+     Toute nouvelle adresse externe doit être ajoutée ici volontairement ; tests/qualite.py vérifie qu'aucune règle n'est enfreinte. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://jnhykrfvoqyjbajmcwny.supabase.co wss://jnhykrfvoqyjbajmcwny.supabase.co; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<script src="js/tete.js"></script>
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Closer</title>
 <meta name="description" content="Closer : tâches, devoirs, habitudes et objectifs au même endroit, avec des rappels à l'heure et la synchronisation entre tes appareils.">
@@ -111,7 +116,6 @@
   <svg class="tk" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M7.5 12.5l3 3 6-6.5"/></svg><span id="toast-txt"></span><button type="button" data-act="undo" id="toast-undo">Annuler</button>
 </div>
 
-<script>var APPV="2026-11-26.2";</script>
 <script src="js/univers.js"></script>
 <script src="js/base.js"></script>
 <script src="js/vues.js"></script>

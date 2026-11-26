@@ -11,7 +11,7 @@
 function chkUp(){
   if(location.protocol!=="https:"&&!window.__CLOSER_TEST)return;
   fetch(location.pathname+"?v="+Date.now(),{cache:"no-store"}).then(function(r){return r.text();}).then(function(t){
-    var m=t.match(/var APPV="([^"]+)"/);if(m&&m[1]!==APPV)$("upd").hidden=false;
+    var m=t.match(/name="closer-version" content="([^"]+)"/);if(m&&m[1]!==APPV)$("upd").hidden=false;
   }).catch(function(){});
 }
 $("upd").addEventListener("click",function(){
@@ -29,7 +29,10 @@ var CFG=window.__CLOSER_CFG||{};
 var SB_URL="url" in CFG?CFG.url:"https://jnhykrfvoqyjbajmcwny.supabase.co", SB_KEY="key" in CFG?CFG.key:"sb_publishable_pjIB1C6Uwowi8a7e94FXTA_YO85NySe";
 var CONTACT="contact" in CFG?CFG.contact:"closer.todo.app@gmail.com";
 var SB=null, SU=null, cst=0, sbTried=false, AS={step:"login",email:"",msg:""}, syncTimer=null, syncing=false, syncAgain=false, lastOk=0, acq=false, showPriv=false;
-var sbMod=window.__CLOSER_SB||function(){return import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");};
+// bibliothèque Supabase : copie figée hébergée avec l'appli (vendor/, fabriquée par outils/supabase-js.sh),
+// jamais chargée depuis un site externe : un site tiers compromis ne peut pas glisser de code dans Closer
+var SB_LIB="vendor/supabase-js-2.119.2.js";
+var sbMod=window.__CLOSER_SB||function(){return import(new URL(SB_LIB,document.baseURI).href);};
 var SK="closer-sync-v1", SY=(function(){try{return JSON.parse(localStorage.getItem(SK))||{};}catch(e){return {};}})();
 function sySave(){try{localStorage.setItem(SK,JSON.stringify(SY));}catch(e){}}
 function hsh(s){var x=5381;for(var i=0;i<s.length;i++)x=((x<<5)+x+s.charCodeAt(i))|0;return (x>>>0).toString(36)+"."+s.length.toString(36);}
@@ -254,10 +257,13 @@ async function pushSetEvening(v){
 async function pushTest(){
   var ep=pushEndpoint();if(!ep)return;
   try{
-    var r=await fetch(PUSH_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({test:ep})});
+    // la fonction vérifie que l'appareil appartient bien au compte connecté (jeton de session)
+    var ses=SB?(await SB.auth.getSession()).data.session:null;
+    if(!ses){showToast("Connecte-toi pour envoyer une notification d'essai.",true);return;}
+    var r=await fetch(PUSH_URL,{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+ses.access_token},body:JSON.stringify({test:ep})});
     var j=await r.json().catch(function(){return {};});
     if(r.ok&&j.ok)showToast("Notification d'essai envoyée : elle arrive dans quelques secondes.",true);
-    else if(r.status===401)showToast("Le service de notifications refuse l'appel : réglage à terminer dans Supabase.",true);
+    else if(r.status===401)showToast("Session expirée : reconnecte-toi puis réessaie.",true);
     else{if(r.status===404){try{localStorage.removeItem(PUSH_KEY);}catch(e){}}showToast("L'essai n'est pas parti"+(j.error?" ("+j.error+")":"")+". Réactive les notifications.",true);if(sheet&&sheet.kind==="account")renderSheet();}
   }catch(e){logErr("notifications",e);showToast("Pas de réseau : essai impossible.",true);}
 }

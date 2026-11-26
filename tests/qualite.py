@@ -31,7 +31,7 @@ check('univers à jour (outils/univers.py --verifier)', r.returncode == 0, r.std
 # ---------------------------------------------------------------- 2. poids (octets, non compressés)
 BUDGETS = {'index.html': 14000, 'css/closer.css': 85000, 'css/univers.css': 22000, 'sw.js': 7000,
            'js/brouillon.js': 62000, 'js/reglages.js': 46000, 'js/actions.js': 38000, 'js/vues.js': 34000,
-           'js/base.js': 30000, 'js/fiche.js': 29000, 'js/sync.js': 26000, 'js/demarrage.js': 9000, 'js/univers.js': 4000}
+           'js/base.js': 30000, 'js/fiche.js': 29000, 'js/sync.js': 26000, 'js/demarrage.js': 9000, 'js/univers.js': 4000, 'js/tete.js': 1200}
 trop = {f: os.path.getsize(os.path.join(RACINE, f)) for f, b in BUDGETS.items() if os.path.getsize(os.path.join(RACINE, f)) > b}
 check('chaque fichier sous son budget de poids', not trop, {f: f'{t} > {BUDGETS[f]}' for f, t in trop.items()})
 svg = [p for p in glob.glob(os.path.join(RACINE, 'matieres', '*.svg')) if os.path.getsize(p) > 3000]
@@ -57,6 +57,22 @@ for f in glob.glob(os.path.join(RACINE, 'css', '*.css')):
         if not u.startswith(('http', '#')) and not os.path.exists(os.path.normpath(os.path.join(os.path.dirname(f), u))):
             casses.append(f'{os.path.relpath(f, RACINE)} → {u}')
 check('aucun lien cassé dans les CSS (polices, matières)', not casses, sorted(set(casses)))
+
+# sécurité : aucun script, style ni module chargé depuis un site externe (tout est hébergé avec l'appli)
+externes = []
+for f in [os.path.join(RACINE, 'index.html'), os.path.join(RACINE, 'sw.js')] + glob.glob(os.path.join(RACINE, 'js', '*.js')) + glob.glob(os.path.join(RACINE, 'css', '*.css')):
+    t = open(f, encoding='utf-8').read()
+    for m in re.findall(r'(?:import\(\s*["\']|<script[^>]+src=["\']|<link(?![^>]*rel=["\']canonical)[^>]+href=["\']|@import\s+(?:url\()?["\']?)(https?:)?//', t):
+        externes.append(os.path.relpath(f, RACINE))
+check('aucun code chargé depuis un site externe', not externes, sorted(set(externes)))
+VENDOR = {'vendor/supabase-js-2.119.2.js': 'f0032fdd21d775baf7f55b9bd76bb3cc12905188c4d594a413badaae94e86614'}
+import hashlib
+abime = [f for f, h in VENDOR.items() if not os.path.exists(os.path.join(RACINE, f)) or hashlib.sha256(open(os.path.join(RACINE, f), 'rb').read()).hexdigest() != h]
+check('bibliothèques de vendor/ intactes (empreinte SHA-256 connue)', not abime, abime)
+inconnus = [f for f in os.listdir(os.path.join(RACINE, 'vendor')) if 'vendor/' + f not in VENDOR]
+check('vendor/ ne contient que des fichiers connus', not inconnus, inconnus)
+html_s = lire('index.html')
+check('aucun script en ligne dans index.html (exigé par la politique de sécurité)', not re.search(r'<script(?![^>]*\bsrc=)[^>]*>', html_s) and not re.search(r'\son[a-z]+=', html_s))
 
 # ---------------------------------------------------------------- outils npm
 def outils_npm():
@@ -103,7 +119,10 @@ AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']
 with sync_playwright() as p:
     b = getattr(p, ENGINE).launch()
     c = b.new_context(viewport={'width': 390, 'height': 844}, is_mobile=ENGINE == 'chromium', has_touch=True, locale='fr-FR', timezone_id='Europe/Paris')
-    c.add_init_script('window.__CLOSER_TEST=1;window.__CLOSER_NOSTATS=1;window.__CLOSER_CFG={"url":"","key":""};')
+    VIOL = []
+    c.expose_function('__cspNote', lambda v: VIOL.append(v))
+    c.add_init_script('window.__CLOSER_TEST=1;window.__CLOSER_NOSTATS=1;window.__CLOSER_CFG={"url":"","key":""};'
+                      'document.addEventListener("securitypolicyviolation",e=>window.__cspNote(e.violatedDirective+" "+e.blockedURI));')
     pg = c.new_page(); errs = []
     pg.on('pageerror', lambda e: errs.append(str(e)))
     pg.goto(URL); m = pg.evaluate(MESURE)
@@ -111,29 +130,53 @@ with sync_playwright() as p:
     check('ouverture rapide (contenu prêt < 1,5 s en local)', m['dcl'] < 1500, m)
     check('mise en page stable à l\'ouverture (CLS < 0,05)', m['cls'] < 0.05, m)
     check('aucune erreur à l\'ouverture', not errs, errs)
-    if NPM:
-        axe = open(os.path.join(CACHE, 'node_modules', 'axe-core', 'axe.min.js'), encoding='utf-8').read()
-        graves = []
-        pg.evaluate("""()=>{const z=n=>String(n).padStart(2,'0'),t=new Date(),d=t.getFullYear()+'-'+z(t.getMonth()+1)+'-'+z(t.getDate());
-          localStorage.setItem('cap-items-v1',JSON.stringify([['a',{kind:'task',title:'Tâche',cat:'Perso',due:d,done:false,created:1}],
+    # sécurité : la politique de la page est bien en place et bloque un site tiers ; la bibliothèque Supabase vient de l'appli
+    csp = pg.evaluate("(document.querySelector('meta[http-equiv=\"Content-Security-Policy\"]')||{}).content||''")
+    check('politique de sécurité présente (scripts de l\'appli seulement, aucun objet, aucun cadre)',
+          "script-src 'self';" in csp and "object-src 'none'" in csp and "frame-src 'none'" in csp and 'unsafe-eval' not in csp, csp)
+    bloque = pg.evaluate("fetch('https://exemple.org/fuite').then(()=>false,()=>true)")
+    pg.wait_for_timeout(200)
+    check('un envoi vers un site tiers est bloqué', bloque and any('connect-src' in v for v in VIOL), VIOL)
+    lib = pg.evaluate("import(new URL(SB_LIB,document.baseURI).href).then(m=>{const c=m.createClient('https://jnhykrfvoqyjbajmcwny.supabase.co','cle',{auth:{persistSession:false,autoRefreshToken:false}});return typeof m.createClient+' '+typeof c.from+' '+SB_LIB})")
+    check('bibliothèque Supabase chargée depuis l\'appli (vendor/) et utilisable', lib.startswith('function function vendor/'), lib)
+
+    # visite de tous les écrans (thèmes et univers) : une fois sous la politique de sécurité réelle (aucune règle
+    # enfreinte), une fois avec axe-core (injecté en ligne : seulement possible si la politique est levée pour le test)
+    SEED = """()=>{const z=n=>String(n).padStart(2,'0'),t=new Date(),d=t.getFullYear()+'-'+z(t.getMonth()+1)+'-'+z(t.getDate());
+          localStorage.setItem('cap-items-v1',JSON.stringify([['a',{kind:'task',title:'Tâche',cat:'Perso',due:d,done:false,created:1,note:'voir https://exemple.org'}],
           ['b',{kind:'daily',title:'Lire',lastDone:d,streak:2,created:2}],['g',{kind:'goal',title:'Objectif',steps:[{t:'Étape',done:true}],created:3}],
-          ['n',{kind:'note',title:'Note',text:'Texte',folder:'',created:4,updated:4}]]));localStorage.setItem('closer-onboard-off','1')}""")
+          ['n',{kind:'note',title:'Note',text:'Texte',html:'<b>Texte</b>',folder:'',created:4,updated:4}]]));localStorage.setItem('closer-onboard-off','1')}"""
+    def visiter(pg, axe=None):
+        graves = []
+        pg.evaluate(SEED)
         for theme, pal in (('light', ''), ('dark', ''), ('light', 'powder'), ('dark', 'rose'), ('light', 'midnight')):
             pg.evaluate(f"()=>{{localStorage.setItem('closer-theme','{theme}');localStorage.setItem('closer-palette','{pal}')}}")
             pg.reload(); pg.wait_for_timeout(500)
-            ecrans = [('#jour', None), ('#taches', None), ('#objectifs', None), ('#brouillon', None), ('#jour', '#ac-btn'), ('#jour', 'univers'), ('#jour', '.fab')]
+            ecrans = [('#jour', None), ('#taches', None), ('#objectifs', None), ('#brouillon', None), ('#brouillon', '.nrow'),
+                      ('#jour', '#ac-btn'), ('#jour', 'univers'), ('#jour', '.fab')]
             for h, ouvrir in ecrans:
                 if ouvrir: pg.reload(); pg.wait_for_timeout(400)   # repartir d'un écran sans fiche ouverte
                 pg.evaluate(f"location.hash='{h}'"); pg.wait_for_timeout(250)
                 clic = lambda sel: pg.evaluate("s=>document.querySelector(s).click()", sel)
                 if ouvrir == 'univers': clic('#ac-btn'); pg.wait_for_timeout(300); clic('[data-act="set-pal"]'); pg.wait_for_timeout(300)
                 elif ouvrir: clic(ouvrir); pg.wait_for_timeout(350)
+                if not axe: continue
                 pg.add_script_tag(content=axe)
                 res = pg.evaluate("t=>axe.run(document,{runOnly:{type:'tag',values:t},resultTypes:['violations']}).then(r=>r.violations.map(v=>({id:v.id,imp:v.impact,n:v.nodes.length,ex:v.nodes.slice(0,2).map(x=>x.target.join(' '))})))", AXE_TAGS)
                 for v in res:
                     if v['imp'] in ('serious', 'critical'):
                         graves.append(f"{theme}/{pal or 'closer'} {h}{'+' + ouvrir if ouvrir else ''} : {v['id']} ×{v['n']} {v['ex']}")
+        return graves
+    VIOL.clear(); visiter(pg); pg.wait_for_timeout(300)
+    check('aucune règle de sécurité enfreinte pendant la visite de tous les écrans', not VIOL, VIOL)
+    if NPM:
+        ca = b.new_context(viewport={'width': 390, 'height': 844}, is_mobile=ENGINE == 'chromium', has_touch=True, locale='fr-FR', timezone_id='Europe/Paris', bypass_csp=True)
+        ca.add_init_script('window.__CLOSER_TEST=1;window.__CLOSER_NOSTATS=1;window.__CLOSER_CFG={"url":"","key":""};')
+        pa = ca.new_page(); pa.goto(URL)
+        axe = open(os.path.join(CACHE, 'node_modules', 'axe-core', 'axe.min.js'), encoding='utf-8').read()
+        graves = visiter(pa, axe)
         check('accessibilité : aucune erreur grave (axe-core, WCAG 2.1 AA)', not graves, '\n        '.join([''] + graves[:60]))
+        ca.close()
     c.close(); b.close()
 
 print('\nQUALITÉ OK' if ok else '\nQUALITÉ : DES CONTRÔLES ONT ÉCHOUÉ')

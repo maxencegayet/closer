@@ -37,4 +37,6 @@ class Query {
   }
   then(ok: (v: any) => any, ko?: (e: any) => any) { try { return Promise.resolve(this.run()).then(ok, ko); } catch (e) { return Promise.reject(e).then(ok, ko); } }
 }
-export function createClient(_url: string, _key: string) { return { from: (t: string) => new Query(t) }; }
+// jetons de session factices : « jwt-<id> » = utilisateur <id> connecté
+const auth = { getUser: async (jwt: string) => jwt.startsWith("jwt-") ? { data: { user: { id: jwt.slice(4) } }, error: null } : { data: { user: null }, error: { message: "jeton invalide" } } };
+export function createClient(_url: string, _key: string) { return { from: (t: string) => new Query(t), auth }; }

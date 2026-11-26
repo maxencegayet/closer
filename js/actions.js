@@ -304,15 +304,19 @@ document.addEventListener("change",function(ev){
   if(ev.target&&ev.target.id==="sh-time"&&sheet){syncDraft();var hadWarn=!!document.querySelector("#sheet .pushwarn");if(hadWarn!==(!!sheet.draft.time&&!pushOn()))renderSheet();return;}
   if(sheet&&ev.target&&ev.target.id==="sh-import"){
     var file=ev.target.files&&ev.target.files[0];if(!file)return;
+    // fichier de sauvegarde : 20 Mo et 20 000 éléments au plus ; chaque élément est contrôlé (itemOk) et les
+    // éléments douteux sont écartés, sans jamais toucher au reste
+    if(file.size>20*1024*1024){sheet.draft.msg="Ce fichier est trop gros pour être une sauvegarde Closer.";renderSheet();return;}
     file.text().then(function(txt){
-      var o=JSON.parse(txt),arr=Array.isArray(o)?o:(o&&o.items),n=0;
-      if(!Array.isArray(arr))throw new Error("format");
+      var o=JSON.parse(txt),arr=Array.isArray(o)?o:(o&&o.items),n=0,bad=0;
+      if(!Array.isArray(arr)||arr.length>20000)throw new Error("format");
       arr.forEach(function(e){
-        if(Array.isArray(e)&&typeof e[0]==="string"&&e[1]&&typeof e[1]==="object"&&typeof e[1].kind==="string"){state.items.set(e[0],e[1]);n++;}
+        var d=Array.isArray(e)?itemOk(e[0],e[1]):null;
+        if(d){state.items.set(e[0],d);n++;}else bad++;
       });
       if(!n)throw new Error("vide");
       persistLocal();render();
-      if(sheet){sheet.draft.msg=n+" éléments importés.";renderSheet();}
+      if(sheet){sheet.draft.msg=n+(n>1?" éléments importés.":" élément importé.")+(bad?" "+bad+(bad>1?" éléments illisibles ont été écartés.":" élément illisible a été écarté."):"");renderSheet();}
     }).catch(function(){
       if(sheet){sheet.draft.msg="Ce fichier n'est pas une sauvegarde Closer valide. Choisis un fichier exporté depuis l'app.";renderSheet();}
     });

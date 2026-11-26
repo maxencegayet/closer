@@ -22,8 +22,9 @@ Deno.env.set("SUPABASE_URL", "https://test.supabase.co");
 Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "cle-serveur-test");
 await import("../../supabase/functions/closer-push/index.ts");
 
-const cron = () => handler(new Request("https://x/closer-push", { method: "POST" }));
-const post = (b: unknown) => handler(new Request("https://x/closer-push", { method: "POST", body: JSON.stringify(b) }));
+// pg_cron présente la clé partagée (closer_push_config.cron_key)
+const cron = (key = "cle-cron-test") => handler(new Request("https://x/closer-push", { method: "POST", headers: { "x-closer-cron": key } }));
+const post = (b: unknown, jwt = "jwt-u1") => handler(new Request("https://x/closer-push", { method: "POST", body: JSON.stringify(b), headers: jwt ? { authorization: "Bearer " + jwt } : {} }));
 
 function eq(a: unknown, b: unknown, what: string) {
   const A = JSON.stringify(a), B = JSON.stringify(b);
@@ -32,6 +33,7 @@ function eq(a: unknown, b: unknown, what: string) {
 // remet tout à zéro : un utilisateur, un iPhone abonné, l'heure du matin choisie
 function base(opts: { morning?: string | null; evening?: string | null; tz?: string; devices?: number } = {}) {
   reset(); sent.length = 0; for (const k in fail) delete fail[k];
+  db.closer_push_config.push({ id: 1, public_key: "cle-publique", private_key: "cle-privee", cron_key: "cle-cron-test" });
   for (let i = 1; i <= (opts.devices || 1); i++)
     db.closer_push.push({ endpoint: "https://push/" + i, user_id: "u1", p256dh: "p", auth: "a", tz: opts.tz || "Europe/Paris", morning: opts.morning === undefined ? null : opts.morning, last_morning: null, evening: opts.evening ?? null });
 }
@@ -41,7 +43,7 @@ const item = (data: Record<string, unknown>, user = "u1", deleted = false) =>
 const titles = () => sent.map((s) => s.msg.title + " | " + s.msg.body);
 
 Deno.test("GET : renvoie la clé publique, créée une seule fois", async () => {
-  base(); at("2026-11-24T10:00");
+  base(); db.closer_push_config.length = 0; at("2026-11-24T10:00");
   const a = await (await handler(new Request("https://x", { method: "GET" }))).json();
   const b = await (await handler(new Request("https://x", { method: "GET" }))).json();
   eq(typeof a.publicKey, "string", "clé publique");
@@ -240,4 +242,24 @@ Deno.test("habitude du jour : une série interrompue n'est plus annoncée", asyn
   item({ kind: "daily", title: "muscu", time: "18:00", lastDone: "2026-11-20", streak: 6, dones: ["2026-11-20"] });
   await cron();
   eq(titles(), ["Muscu | À faire aujourd'hui"], "dernière fois il y a 4 jours : pas de « série de 6 jours »");
+});
+
+Deno.test("sécurité : sans la clé du cron, aucun envoi", async () => {
+  base(); at("2026-11-24T08:00");
+  item({ kind: "task", title: "appeler la banque", due: "2026-11-24", time: "08:00", done: false });
+  eq((await cron("")).status, 401, "sans clé : refusé");
+  eq((await cron("mauvaise-cle-cron-tst")).status, 401, "mauvaise clé : refusé");
+  eq(sent.length, 0, "rien n'est parti");
+  eq((await cron()).status, 200, "avec la clé : accepté");
+  eq(sent.length, 1, "le rappel part");
+});
+
+Deno.test("sécurité : notification d'essai seulement pour un appareil du compte connecté", async () => {
+  base(); at("2026-11-24T10:00");
+  eq((await post({ test: "https://push/1" }, "")).status, 401, "sans connexion : refusé");
+  eq((await post({ test: "https://push/1" }, "faux")).status, 401, "jeton invalide : refusé");
+  eq((await post({ test: "https://push/1" }, "jwt-u2")).status, 404, "appareil d'un autre compte : inconnu");
+  eq(sent.length, 0, "rien n'est parti");
+  eq((await post({ test: "https://push/1" })).status, 200, "son propre appareil : envoyé");
+  eq(sent.length, 1, "une notification d'essai");
 });

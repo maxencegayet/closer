@@ -72,6 +72,26 @@ if(darkMQ.addEventListener)darkMQ.addEventListener("change",applyTheme);
 applyTheme();
 
 /* ---------- stockage ---------- */
+/* contrôle d'un élément venu de l'extérieur (fichier de sauvegarde importé) : identifiant simple, type connu,
+   pas de clé piège (__proto__…), taille et profondeur raisonnables. Renvoie un double propre de l'élément, ou null. */
+var ITEM_KINDS={task:1,daily:1,weekly:1,goal:1,note:1,prefs:1};
+function itemOk(id,d){
+  if(typeof id!=="string"||!/^[A-Za-z0-9_-]{1,64}$/.test(id))return null;
+  if(!d||typeof d!=="object"||Array.isArray(d)||!ITEM_KINDS[d.kind]||(d.kind==="prefs")!==(id==="prefs"))return null;
+  var ok=true;
+  (function walk(v,depth){
+    if(!ok)return;
+    if(depth>6){ok=false;return;}
+    if(typeof v==="string"){if(v.length>100000)ok=false;return;}
+    if(v===null||typeof v==="number"||typeof v==="boolean")return;
+    if(typeof v!=="object"){ok=false;return;}
+    var keys=Object.keys(v);if(keys.length>2000){ok=false;return;}
+    keys.forEach(function(k){if(k==="__proto__"||k==="constructor"||k==="prototype"||k.length>64)ok=false;else walk(v[k],depth+1);});
+  })(d,0);
+  if(!ok)return null;
+  var txt=JSON.stringify(d);if(txt.length>200000)return null;
+  return JSON.parse(txt);
+}
 function newId(){
   return "l"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 }

@@ -28,6 +28,7 @@ var IC={
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["26 nov.","Sécurité renforcée : Closer ne charge plus rien depuis un site extérieur, la page refuse tout envoi vers un site inconnu, et l'import d'une sauvegarde écarte les éléments douteux."],
   ["26 nov.","Sur iPhone, le champ « Autre date » d'une tâche ou d'un devoir ne dépasse plus de la fiche."],
   ["26 nov.","Sur ordinateur, le survol d'une tâche ou d'une habitude remplit maintenant toute la carte, jusqu'à ses coins arrondis."],
   ["25 nov.","Entretien : la police de Closer s'affiche de nouveau partout, le vert « fait » est plus lisible, et les Réglages rappellent d'exporter une sauvegarde de temps en temps."],

@@ -44,7 +44,7 @@ Les applications existantes (to-do, agenda, suivi d'habitudes) séparaient ce qu
 
 | Fichier | Rôle |
 |---|---|
-| `index.html` | La page et le numéro de version (`APPV`) |
+| `index.html` | La page, sa politique de sécurité et le numéro de version (`<meta name="closer-version">`, lu par `js/tete.js` dans `APPV`) |
 | `css/closer.css` | Styles, thème clair et sombre (couleurs regroupées en variables), règles d'usage des univers |
 | `css/univers.css`, `js/univers.js`, `matieres/` | Couleurs et matières des univers : **fabriqués** par `outils/univers.py`, ne pas modifier à la main |
 | `outils/univers.py` | Fabrique les univers et contrôle les contrastes (`--verifier` : vérifie qu'ils sont à jour) |
@@ -67,7 +67,7 @@ Les applications existantes (to-do, agenda, suivi d'habitudes) séparaient ce qu
 | `tests/push/` | Tests des fonctions `closer-push` (notifications) et `closer-ics` (calendrier) (faux Supabase, faux service de notifications, horloge réglable) |
 | `.github/workflows/tests.yml` | Lance les tests à chaque envoi sur GitHub (onglet Actions) |
 
-À chaque mise en ligne : changer `APPV` dans `index.html` et le nom du cache `CACHE` dans `sw.js`.
+À chaque mise en ligne : changer `<meta name="closer-version">` dans `index.html` et le nom du cache `CACHE` dans `sw.js`.
 
 ## Tests
 
@@ -95,3 +95,16 @@ J'ai conçu ce projet en dirigeant un assistant IA (Claude, d'Anthropic) : j'ai 
 - Si une même tâche ou un même objectif est modifié sur deux appareils hors connexion, la version de l'appareil qui se synchronise en dernier est conservée (pour les notes, les deux versions sont gardées).
 - Les fichiers JavaScript partagent des variables globales (pas de modules) : simple à lire et sans outil, au prix d'un ordre de chargement à respecter.
 - Les notifications demandent un compte et, sur iPhone, Closer ajouté à l'écran d'accueil (iOS 16.4 ou plus).
+
+## Sécurité
+
+| Où | Protection |
+|---|---|
+| Page | Politique de sécurité du contenu (`index.html`) : scripts de l'appli seulement (aucun script en ligne, aucun `eval`), échanges réseau limités à Closer et à son Supabase, aucun objet ni cadre |
+| Code tiers | Bibliothèque Supabase hébergée dans `vendor/` (copie figée, fabriquée par `outils/supabase-js.sh`, empreinte SHA-256 vérifiée par les tests) : rien n'est chargé depuis un site externe |
+| Données | Règles d'accès Supabase (chacun ne lit et ne modifie que ses propres éléments, photos et appareils) ; tailles maximales et plafond de 20 000 éléments par compte (`supabase/securite.sql`) |
+| Texte enrichi | Les notes sont reconstruites balise par balise avant affichage (liste blanche) ; liens limités à http/https |
+| Import | Chaque élément d'une sauvegarde est contrôlé (identifiant, type connu, taille, profondeur, clés piégées) ; les éléments douteux sont écartés |
+| Notifications | La fonction `closer-push` n'envoie les rappels que sur appel de pg_cron avec une clé secrète ; l'essai n'est possible que pour un appareil du compte connecté |
+| Anonyme | Statistiques et erreurs anonymes à débit limité côté serveur |
+| Contrôles | `tests/qualite.py` vérifie à chaque envoi : politique en place et respectée sur tous les écrans, envoi vers un site tiers bloqué, aucun code externe, empreinte de `vendor/` |

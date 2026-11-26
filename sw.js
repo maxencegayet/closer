@@ -1,12 +1,14 @@
 /* Closer : hors ligne.
    Réseau d'abord (sans cache HTTP) pour toujours avoir la dernière version,
    copie locale en secours quand il n'y a pas de réseau. */
-const CACHE = "closer-v51";
+const CACHE = "closer-v52";
 const CORE = [
   "./",
   "index.html",
   "css/closer.css",
   "css/univers.css",
+  "vendor/supabase-js-2.119.2.js",
+  "js/tete.js",
   "js/univers.js",
   "js/base.js",
   "js/vues.js",

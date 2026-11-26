@@ -4,7 +4,10 @@
 //   - les rappels des habitudes qui ont une heure (chaque jour où elles ne sont pas encore faites) ;
 //   - le récap du matin et le récap du soir (ce qui est prévu demain), aux heures choisies dans les Réglages de Closer.
 // GET  -> renvoie la clé publique (et crée les clés au tout premier appel).
-// POST {"test": "<endpoint>"} -> envoie une notification d'essai à cet appareil.
+// POST {"test": "<endpoint>"} + jeton de l'utilisateur connecté -> notification d'essai à SON appareil.
+// POST (pg_cron) + en-tête x-closer-cron = closer_push_config.cron_key -> envoi des rappels.
+// Sécurité (26 nov.) : l'adresse de la fonction est publique ; sans la clé du cron, personne ne peut lancer
+// les envois, et l'essai n'est possible que pour un appareil du compte connecté.
 import webpush from "npm:web-push@3.6.7";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -27,15 +30,24 @@ const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...CORS, "Content-Type": "application/json" } });
 
 // Clés VAPID : créées une fois, rangées dans closer_push_config (illisible depuis les téléphones).
+let CRON_KEY = "";   // clé partagée avec pg_cron (supabase/securite.sql), lue avec les clés VAPID
 async function vapid() {
-  let { data } = await sb.from("closer_push_config").select("public_key,private_key").eq("id", 1).maybeSingle();
+  let { data } = await sb.from("closer_push_config").select("public_key,private_key,cron_key").eq("id", 1).maybeSingle();
   if (!data) {
     const k = webpush.generateVAPIDKeys();
     await sb.from("closer_push_config").insert({ id: 1, public_key: k.publicKey, private_key: k.privateKey });
-    ({ data } = await sb.from("closer_push_config").select("public_key,private_key").eq("id", 1).single());
+    ({ data } = await sb.from("closer_push_config").select("public_key,private_key,cron_key").eq("id", 1).single());
   }
+  CRON_KEY = (data as { cron_key?: string }).cron_key || "";
   webpush.setVapidDetails("mailto:closer.todo.app@gmail.com", data!.public_key, data!.private_key);
   return data!.public_key as string;
+}
+// comparaison en temps constant (ne laisse pas deviner la clé caractère par caractère)
+function same(a: string, b: string) {
+  if (!a || !b || a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
 }
 
 // Date et heure locales d'un fuseau : { date: "2026-11-24", hm: "08:05" }
@@ -104,13 +116,20 @@ Deno.serve(async (req) => {
   let body: { test?: string } = {};
   try { body = await req.json(); } catch { /* appel du cron : corps vide */ }
 
-  // Notification d'essai pour un appareil déjà abonné
+  // Notification d'essai : seulement pour un appareil du compte connecté (jeton de session vérifié)
   if (body.test) {
-    const { data: s } = await sb.from("closer_push").select("*").eq("endpoint", body.test).maybeSingle();
+    const jwt = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+    const { data: who } = jwt ? await sb.auth.getUser(jwt) : { data: null };
+    const uid = who?.user?.id;
+    if (!uid) return json({ ok: false, error: "connexion requise" }, 401);
+    const { data: s } = await sb.from("closer_push").select("*").eq("endpoint", body.test).eq("user_id", uid).maybeSingle();
     if (!s) return json({ ok: false, error: "appareil inconnu" }, 404);
     const ok = await send(s as Sub, { title: "Closer", body: "Les notifications fonctionnent.", tag: "test", url: "./#jour" });
     return json({ ok });
   }
+
+  // Envoi des rappels : réservé à pg_cron, qui présente la clé partagée
+  if (CRON_KEY && !same(req.headers.get("x-closer-cron") || "", CRON_KEY)) return json({ ok: false, error: "refusé" }, 401);
 
   const { data: subs } = await sb.from("closer_push").select("*");
   const byUser = new Map<string, Sub[]>();

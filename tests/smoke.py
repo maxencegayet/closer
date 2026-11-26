@@ -117,19 +117,20 @@ with sync_playwright() as p:
 
     def device(cfg=True, appv_online=None, desktop=False):
         if desktop:   # ordinateur : souris, pas d'écran tactile
-            c = b.new_context(viewport={'width': 1280, 'height': 800}, locale='fr-FR', timezone_id='Europe/Paris')
+            c = b.new_context(viewport={'width': 1280, 'height': 800}, locale='fr-FR', timezone_id='Europe/Paris', bypass_csp=True)
         else:
-            c = b.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True, locale='fr-FR', timezone_id='Europe/Paris')
+            c = b.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True, locale='fr-FR', timezone_id='Europe/Paris', bypass_csp=True)
         c.route('https://fonts.googleapis.com/**', lambda r: r.abort())
         c.route('https://fonts.gstatic.com/**', lambda r: r.abort())
-        c.route('https://cdn.jsdelivr.net/**', lambda r: r.fulfill(status=200, content_type='application/javascript', body=MOCK_JS))
+        # la vraie bibliothèque Supabase (vendor/) est remplacée par un faux client ; elle est essayée pour de vrai dans qualite.py
+        c.route('**/vendor/supabase-js-*.js', lambda r: r.fulfill(status=200, content_type='application/javascript', body=MOCK_JS))
         c.route(SB + '/rest/v1/closer_events', lambda r: (EVENTS.extend(json.loads(r.request.post_data or '[]')), r.fulfill(status=201, body='')))
         c.route(SB + '/rest/v1/closer_errors', lambda r: (ERRS.extend(json.loads(r.request.post_data or '[]')), r.fulfill(status=201, body='')))
         if appv_online:
             def page_route(r):
                 if '?v=' in r.request.url:
                     resp = r.fetch()
-                    body = resp.text().replace('var APPV="', 'var APPV="' + appv_online + '-', 1)
+                    body = resp.text().replace('name="closer-version" content="', 'name="closer-version" content="' + appv_online + '-', 1)
                     r.fulfill(status=200, content_type='text/html', body=body)
                 else:
                     r.continue_()
@@ -1204,6 +1205,27 @@ with sync_playwright() as p:
     bb = pg.query_selector('.list > .row').bounding_box(); pg.mouse.move(bb['x'] + bb['width'] / 2, bb['y'] + bb['height'] / 2); pg.wait_for_timeout(200)
     st = pg.evaluate("(()=>{const r=getComputedStyle(document.querySelector('.list > .row'));return [r.boxShadow,r.borderTopLeftRadius,r.borderBottomRightRadius]})()")
     check('survol d\'une ligne seule : toute la carte, coins compris', '-4px' in st[0] and ' 4px' in st[0] and st[1] == '20px' and st[2] == '20px', st)
+    c.close()
+
+    # 7 import. Une sauvegarde trafiquée : seuls les éléments sains entrent, le reste est écarté sans rien casser
+    c, pg, errs = device(cfg=False)
+    piege = json.dumps({'items': [
+        ['ok1', {'kind': 'task', 'title': 'Importée', 'cat': 'Perso', 'due': '', 'done': False, 'created': 1}],
+        ['proto', json.loads('{"kind":"task","title":"x","__proto__":{"pollue":1}}')],
+        ['inconnu', {'kind': 'virus', 'title': 'x'}],
+        ['../../etc', {'kind': 'task', 'title': 'id piégé'}],
+        ['gros', {'kind': 'note', 'title': 'x', 'text': 'a' * 150000}],
+        ['prefs', {'kind': 'task', 'title': 'faux réglages'}],
+        'nimporte quoi']})
+    pg.evaluate("document.querySelector('#ac-btn').click()"); pg.wait_for_timeout(400)
+    pg.evaluate("document.querySelector('[data-act=\"backup\"]').click()"); pg.wait_for_timeout(400)
+    pg.set_input_files('#sh-import', files=[{'name': 'closer-sauvegarde.json', 'mimeType': 'application/json', 'buffer': piege.encode()}])
+    pg.wait_for_timeout(500)
+    ids = pg.evaluate("Object.keys(Object.fromEntries(JSON.parse(localStorage.getItem('cap-items-v1')||'[]')))")
+    check('import : seul l\'élément sain est importé', 'ok1' in ids and not any(i in ids for i in ('proto', 'inconnu', '../../etc', 'gros')) and 'faux' not in json.dumps(pg.evaluate("localStorage.getItem('cap-items-v1')")), ids)
+    check('import : aucune pollution de prototype', pg.evaluate("({}).pollue===undefined"))
+    check('import : les éléments écartés sont signalés', '6 éléments illisibles ont été écartés' in pg.inner_text('#sheet'), pg.inner_text('#sheet')[-300:])
+    check('aucune erreur (import)', not errs, errs)
     c.close()
 
     # 7 sauvegarde. Rappel discret d'exporter une sauvegarde (jamais ou plus de 30 jours, à partir de 10 éléments)

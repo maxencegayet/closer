@@ -3,7 +3,7 @@
 import globals from "globals";
 export default [{
   files: ["**/*.js"],
-  languageOptions: { ecmaVersion: 2022, sourceType: "script", globals: { ...globals.browser, APPV: "readonly", supabase: "readonly" } },
+  languageOptions: { ecmaVersion: 2022, sourceType: "script", globals: { ...globals.browser, supabase: "readonly" } },
   rules: {
     "no-undef": "error", "no-unused-vars": ["warn", { vars: "local", args: "none", caughtErrors: "none" }],
     "no-redeclare": "error", "no-dupe-keys": "error", "no-dupe-else-if": "error", "no-duplicate-case": "error",
