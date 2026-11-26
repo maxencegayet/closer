@@ -130,6 +130,22 @@ with sync_playwright() as p:
     check('ouverture rapide (contenu prêt < 1,5 s en local)', m['dcl'] < 1500, m)
     check('mise en page stable à l\'ouverture (CLS < 0,05)', m['cls'] < 0.05, m)
     check('aucune erreur à l\'ouverture', not errs, errs)
+    # références ARIA et étiquettes (relevées par WAVE) : rien ne pointe vers un élément absent, vide ou caché ; chaque champ a un nom
+    REFS = """()=>{const bad=[];for(const at of ['aria-labelledby','aria-controls','aria-describedby'])
+      document.querySelectorAll('['+at+']').forEach(e=>e.getAttribute(at).split(/\\s+/).forEach(id=>{const t=document.getElementById(id);
+        if(!t||t.hidden||(at==='aria-labelledby'&&!t.textContent.trim()))bad.push(at+'→'+id)}));
+      document.querySelectorAll('input,select,textarea').forEach(e=>{if(e.type==='hidden')return;
+        if(!(e.getAttribute('aria-label')||e.getAttribute('aria-labelledby')||(e.id&&document.querySelector('label[for="'+e.id+'"]'))||(e.closest('label')&&e.closest('label').textContent.trim())))bad.push('sans nom : '+(e.id||e.type))});return bad}"""
+    r = pg.evaluate(REFS)
+    check('à l\'ouverture : références ARIA valides et champs nommés', not r, r)
+    pg.evaluate("location.hash='#taches'"); pg.wait_for_timeout(250); pg.click('#tsort'); pg.wait_for_timeout(200)
+    r = pg.evaluate(REFS) + ([] if pg.get_attribute('#tsort', 'aria-controls') == 'tmenu' else ['menu ouvert sans aria-controls'])
+    check('menu « Trier et ranger » ouvert : références valides', not r, r)
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
+    pg.click('#fab'); pg.wait_for_timeout(400)
+    r = pg.evaluate(REFS) + ([] if pg.get_attribute('#sheet', 'aria-labelledby') == 'sh-h' else ['fiche sans titre relié'])
+    check('fiche ouverte : titre relié et champs nommés', not r, r)
+    pg.goto(URL); pg.wait_for_timeout(400)
     # sécurité : la politique de la page est bien en place et bloque un site tiers ; la bibliothèque Supabase vient de l'appli
     csp = pg.evaluate("(document.querySelector('meta[http-equiv=\"Content-Security-Policy\"]')||{}).content||''")
     check('politique de sécurité présente (tout refusé par défaut, scripts et styles de l\'appli seulement, aucun style en ligne, aucun objet, aucun cadre)',

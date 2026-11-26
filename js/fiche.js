@@ -103,7 +103,13 @@ function noteLinks(note){
     return '<a href="'+esc(u)+'" target="_blank" rel="noopener">Ouvrir '+esc(host)+'</a>';}).join("")+'</div>';
 }
 function sChip(act,val,label,on){return '<button type="button" class="chip" aria-pressed="'+on+'" data-act="'+act+'" data-v="'+esc(val)+'">'+esc(label)+'</button>';}
+// le titre de la fiche (#sh-h) n'existe que fiche ouverte : la référence est posée à ce moment-là (sinon « Fiche »)
 function renderSheet(){
+  renderSheetBody();
+  var el=$("sheet");if(!el)return;
+  if($("sh-h"))el.setAttribute("aria-labelledby","sh-h");else el.removeAttribute("aria-labelledby");
+}
+function renderSheetBody(){
   if(!sheet)return;
   var k=sheet.kind, dr=sheet.draft, isNew=sheet.mode==="new", h="";
   if(k==="account"){$("sheet").innerHTML=acHTML();return;}

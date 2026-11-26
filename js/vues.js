@@ -173,6 +173,7 @@ function renderTaches(){
   if(info.open>1)m+=item("arr","","Ranger à la main",null);
   m+=item("cats","","Gérer les catégories",null);
   $("tmenu").innerHTML=m;$("tmenu").hidden=!state.tmenu;$("tsort").setAttribute("aria-expanded",String(!!state.tmenu));
+  if(state.tmenu)$("tsort").setAttribute("aria-controls","tmenu");else $("tsort").removeAttribute("aria-controls");
   $("tsort").classList.toggle("on",mode==="group"||!!state.arr[v]);
 }
 function renderTaskView(v,target,emptyTxt){
