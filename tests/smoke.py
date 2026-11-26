@@ -1188,6 +1188,15 @@ with sync_playwright() as p:
     check('table absente : on n\'insiste pas avant le lendemain', pg.evaluate("localStorage.getItem('closer-err-off')===today()"))
     c.close()
 
+    # 7 autre date. Le champ « Autre date » reste dans la fiche (Safari iOS lui donnait une largeur minimale)
+    c, pg, errs = device(cfg=False)
+    pg.evaluate("document.querySelector('.fab').click()"); pg.wait_for_timeout(400)
+    pg.evaluate("document.querySelector('[data-act=\"sdate\"][data-v=\"other\"]').click()"); pg.wait_for_timeout(300)
+    pg.fill('#sh-due', '2026-12-14'); pg.wait_for_timeout(200)
+    r = pg.evaluate("(()=>{const i=document.querySelector('#sh-due').getBoundingClientRect(),f=document.querySelector('#sh-title').getBoundingClientRect();return [i.left,i.right,f.left,f.right,getComputedStyle(document.querySelector('#sh-due')).textAlign]})()")
+    check('« Autre date » aligné sur les autres champs, sans dépasser', abs(r[0] - r[2]) < 1 and r[1] <= r[3] + 1 and r[4] in ('left', 'start'), r)
+    c.close()
+
     # 7 survol. Ordinateur, univers : le survol d'une ligne remplit la carte jusqu'à ses bords arrondis
     c, pg, errs = device(cfg=False, desktop=True)
     pg.evaluate("""()=>{localStorage.setItem('closer-palette','powder');localStorage.setItem('cap-items-v1',JSON.stringify([['s1',{kind:'task',title:'Seule',cat:'Perso',due:today(),done:false,created:1}]]))}""")

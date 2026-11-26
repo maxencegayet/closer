@@ -515,9 +515,10 @@ body.arr-drag .list{overflow:visible}
 .flab{display:flex;align-items:baseline;justify-content:space-between;gap:6px;padding-left:4px;min-height:18px}
 .flab label{font-size:13px;font-weight:600;color:var(--muted)}
 .linkbtn.tiny{font-size:13px;padding:0}
-/* Safari iOS donne au champ heure une largeur minimale propre : on la neutralise pour qu'il reste dans sa colonne */
-.two.eq .timefield input[type="time"]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box;height:50px;text-align:left}
-.two.eq .timefield input[type="time"]::-webkit-date-and-time-value{text-align:left}
+/* Safari iOS donne aux champs date et heure une largeur minimale propre (et centre leur texte) :
+   on la neutralise pour qu'ils restent dans leur colonne, alignés à gauche comme les autres champs */
+.two.eq .timefield input[type="time"],.sheet input#sh-due{-webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box;height:50px;text-align:left}
+.two.eq .timefield input[type="time"]::-webkit-date-and-time-value,.sheet input#sh-due::-webkit-date-and-time-value{text-align:left}
 .tquick{margin-top:-4px}
 .timefield .tquick{margin-top:8px}
 .tquick .chip{padding:6px 14px;font-size:13px;font-variant-numeric:tabular-nums}
