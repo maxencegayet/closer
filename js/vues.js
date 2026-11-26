@@ -33,7 +33,7 @@ function renderJour(){
       var segs="";
       for(var i=0;i<total;i++)segs+='<i'+(i<done?' class="on"':"")+'></i>';
       h+='<div class="segs" role="img" aria-label="'+done+' sur '+total+' faites">'+segs+'</div>';
-    }else h+='<div class="pbar" role="img" aria-label="'+done+' sur '+total+' faites"><i style="width:'+(done/total*100).toFixed(1)+'%"></i></div>';
+    }else h+='<div class="pbar" role="img" aria-label="'+done+' sur '+total+' faites"><i data-css="width:'+(done/total*100).toFixed(1)+'%"></i></div>';
   }
   $("hero").innerHTML=h;
   if(state.mode!=="loading")setBadge(rest);
@@ -225,7 +225,7 @@ function renderTaskView(v,target,emptyTxt){
   var done=all.filter(function(x){return x.d.done;}).sort(function(a,b){return (b.d.doneAt||0)-(a.d.doneAt||0);});
   if(done.length&&!arr){
     html+=foldBlock(v+":done","Terminées",done.length,done.slice(0,50).map(function(x){return taskRow(x,false,null,!catShown);}).join(""),"",
-      '<button type="button" class="linkbtn" data-act="clear-done" data-id="'+v+'" style="margin:2px 8px 0">Supprimer les terminées</button>');
+      '<button type="button" class="linkbtn u-mclr" data-act="clear-done" data-id="'+v+'">Supprimer les terminées</button>');
   }
   $(target).innerHTML=html;
   return {open:open.length,late:open.filter(function(x){return isDate(x.d.due)&&x.d.due<t;}).length};
@@ -279,7 +279,7 @@ function renderObjectifs(){
         '<span class="t">'+esc(ti)+'</span><span class="pct">'+pct+' %</span>'+
         '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>'+
       when+
-      '<div class="track"><div class="fill" data-gid="'+esc(g.id)+'" data-p="'+pct+'" style="transform:scaleX('+(pct/100)+')"></div></div>'+
+      '<div class="track"><div class="fill" data-gid="'+esc(g.id)+'" data-p="'+pct+'" data-css="transform:scaleX('+(pct/100)+')"></div></div>'+
       (open?"":'<div class="gsum">'+esc(sum)+'</div>')+
       '<div class="gbody" id="gb-'+esc(g.id)+'"'+(open?"":" hidden")+'>'+
       '<div class="steps">'+rows.map(function(r){return r.h;}).join("")+

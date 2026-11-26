@@ -192,7 +192,7 @@ function gripBtn(a,id,ti){
 }
 function taskRow(t,hideDate,a,hideCat){
   var d=t.d,ti=cap(d.title), tl='<span class="title">'+(d.prio?BANG:"")+esc(ti)+'</span>', lab=(d.prio?"Important. ":"");
-  if(a)return '<div class="row'+(d.prio?" prio":"")+'" data-rid="'+esc(t.id)+'" style="padding-left:16px"><div class="body tline" style="padding-right:8px">'+tl+taskSide(d,hideDate,hideCat)+'</div>'+
+  if(a)return '<div class="row u-pl16'+(d.prio?" prio":"")+'" data-rid="'+esc(t.id)+'"><div class="body tline u-pr8">'+tl+taskSide(d,hideDate,hideCat)+'</div>'+
     '<span class="mvs">'+gripBtn(a,t.id,ti)+'</span></div>';
   return '<div class="row'+(d.prio?" prio":"")+(d.done?" done":"")+'">'+
     checkBtn("task",t.id,d.done,(d.done?"Marquer non fait : ":"Marquer fait : ")+ti)+

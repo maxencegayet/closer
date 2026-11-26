@@ -251,6 +251,30 @@ function rgbOf(c){
   return null;
 }
 // couleur de surlignage → clé de la palette (une couleur inconnue ou transparente = pas de surlignage)
+// surlignage rangé en classe (hl-y, hl-g…) et non en style= : la politique de sécurité bloque les styles en ligne
+// valeur d'une propriété lue dans l'attribut style= (même bloqué, l'attribut reste lisible), sinon dans le style appliqué
+function stVal(n,prop){
+  var raw=String(n.getAttribute&&n.getAttribute("style")||""),re=new RegExp("(?:^|;)\\s*"+prop+"\\s*:\\s*([^;]+)","i"),m=raw.match(re);
+  if(m)return m[1].trim();
+  var cam=prop.replace(/-([a-z])/g,function(x,y){return y.toUpperCase();});
+  return String(n.style&&n.style[cam]||"");
+}
+function hlOf(n){
+  if(!n||n.nodeType!==1)return "";
+  var b=stVal(n,"background-color")||stVal(n,"background");
+  if(b)return hlKey(b);
+  var m=String(n.getAttribute("class")||"").match(/(?:^|\s)hl-([a-z])(?:\s|$)/);
+  return m&&hlHex(m[1])?m[1]:"";
+}
+// après une commande du navigateur (surligner), les styles qu'il a posés deviennent des classes
+function hlNorm(el){
+  Array.prototype.slice.call(el.querySelectorAll("span")).forEach(function(sp){
+    if(!stVal(sp,"background-color")&&!stVal(sp,"background"))return;
+    var k=hlOf(sp),rest=String(sp.getAttribute("style")||"").split(";").filter(function(x){return x.trim()&&!/^\s*background/i.test(x);}).join(";");
+    if(rest)sp.setAttribute("style",rest);else sp.removeAttribute("style");
+    if(k)sp.className="hl-"+k;else sp.removeAttribute("class");
+  });
+}
 function hlKey(c){
   var v=rgbOf(c);if(!v||v[3]<0.5)return "";
   var best="",bd=1e9;HL.forEach(function(h){var w=rgbOf(h[1]),d=Math.abs(w[0]-v[0])+Math.abs(w[1]-v[1])+Math.abs(w[2]-v[2]);if(d<bd){bd=d;best=h[0];}});
@@ -299,16 +323,16 @@ function rteClean(html){
         parent.appendChild(at);continue;
       }
       if(/^(SCRIPT|STYLE|TEMPLATE|IFRAME|OBJECT|EMBED|IMG|SVG|VIDEO|AUDIO|CANVAS|INPUT|BUTTON|SELECT|TEXTAREA|META|LINK|HEAD|TITLE)$/.test(tag))continue;
-      var target=parent,st=c.style||{},td=String(st.textDecorationLine||st.textDecoration||""),fw=String(st.fontWeight||"");
+      var target=parent,td=stVal(c,"text-decoration-line")||stVal(c,"text-decoration"),fw=stVal(c,"font-weight"),fs=stVal(c,"font-style");
       if(rteBlock(c)){var dv=document.createElement("div");parent.appendChild(dv);target=dv;}
       var f=[];
       if(tag==="B"||tag==="STRONG"||fw==="bold"||+fw>=600)f.push("b");
-      if(tag==="I"||tag==="EM"||st.fontStyle==="italic")f.push("i");
+      if(tag==="I"||tag==="EM"||fs==="italic")f.push("i");
       if(tag==="U"||/underline/.test(td))f.push("u");
       if(tag==="S"||tag==="STRIKE"||tag==="DEL"||/line-through/.test(td))f.push("s");
       f.forEach(function(t){var e=document.createElement(t);target.appendChild(e);target=e;});
-      var k=hlKey(st.backgroundColor);
-      if(k){var sp=document.createElement("span");sp.style.backgroundColor=hlHex(k);target.appendChild(sp);target=sp;}
+      var k=hlOf(c);
+      if(k){var sp=document.createElement("span");sp.className="hl-"+k;target.appendChild(sp);target=sp;}
       add(target,c);
     }
   }
@@ -367,7 +391,7 @@ function rteCmd(cmd){
 // curseur dans un passage surligné, sans sélection : on en sort, la suite s'écrit sans surlignage
 function rteHlEscape(){
   var el=$("ne-body"),s=window.getSelection();if(!el||!s.rangeCount||!s.isCollapsed)return false;
-  var sp=null;for(var n=s.anchorNode;n&&n!==el;n=n.parentNode)if(n.nodeType===1&&n.style&&hlKey(n.style.backgroundColor))sp=n;
+  var sp=null;for(var n=s.anchorNode;n&&n!==el;n=n.parentNode)if(hlOf(n))sp=n;
   if(!sp)return false;
   var z=document.createTextNode("\u200b");sp.parentNode.insertBefore(z,sp.nextSibling);
   var r=document.createRange();r.setStart(z,1);r.collapse(true);s.removeAllRanges();s.addRange(r);
@@ -379,15 +403,16 @@ function rteHl(k){
   try{document.execCommand("styleWithCSS",false,true);}catch(e){}
   document.execCommand("hiliteColor",false,k?hlHex(k):"transparent");
   try{document.execCommand("styleWithCSS",false,false);}catch(e){}
+  hlNorm(el);
   // enlever : on retire aussi les surlignages englobants que le navigateur aurait laissés
   if(!k){var s=window.getSelection();if(s.rangeCount){var r=s.getRangeAt(0);
-    Array.prototype.slice.call(el.querySelectorAll("span")).forEach(function(sp){if(hlKey(sp.style.backgroundColor)&&r.intersectsNode(sp)){var range=document.createRange();range.selectNodeContents(sp);
-      if(r.compareBoundaryPoints(Range.START_TO_START,range)<=0&&r.compareBoundaryPoints(Range.END_TO_END,range)>=0)sp.style.backgroundColor="";}});}}
+    Array.prototype.slice.call(el.querySelectorAll("span")).forEach(function(sp){if(hlOf(sp)&&r.intersectsNode(sp)){var range=document.createRange();range.selectNodeContents(sp);
+      if(r.compareBoundaryPoints(Range.START_TO_START,range)<=0&&r.compareBoundaryPoints(Range.END_TO_END,range)>=0)sp.removeAttribute("class");}});}}
   rteSave(el);rteState();
 }
 function rteHlAt(){
   var s=window.getSelection();if(!s.rangeCount)return "";
-  for(var n=s.anchorNode;n&&n.id!=="ne-body";n=n.parentNode)if(n.nodeType===1&&n.style){var k=hlKey(n.style.backgroundColor);if(k)return k;}
+  for(var n=s.anchorNode;n&&n.id!=="ne-body";n=n.parentNode){var k=hlOf(n);if(k)return k;}
   return "";
 }
 // état des boutons (gras actif, etc.)
@@ -434,7 +459,7 @@ function fmtBar(){
     '<div class="ne-aa" id="ne-aa" hidden role="group" aria-label="Mise en forme du texte">'+
       '<div class="aa-row">'+[["bold","Gras","⌘B"],["italic","Italique","⌘I"],["underline","Souligné","⌘U"],["strikeThrough","Barré","⌘⇧X"]].map(function(x){
         return '<button type="button" class="fb" data-act="fmt" data-v="'+x[0]+'" aria-pressed="false" aria-label="'+x[1]+'" title="'+x[1]+' ('+kbd(x[2])+')">'+RTE_ICON[x[0]]+'<kbd>'+kbd(x[2])+'</kbd></button>';}).join("")+'</div>'+
-      '<div class="aa-row hlrow" id="hl-pop">'+HL.map(function(h){return '<button type="button" class="hlc" data-act="hl" data-v="'+h[0]+'" style="background:'+h[1]+'" aria-label="Surligner en '+h[2].toLowerCase()+'" title="'+h[2]+'"></button>';}).join("")+
+      '<div class="aa-row hlrow" id="hl-pop">'+HL.map(function(h){return '<button type="button" class="hlc hl-'+h[0]+'" data-act="hl" data-v="'+h[0]+'" aria-label="Surligner en '+h[2].toLowerCase()+'" title="'+h[2]+'"></button>';}).join("")+
         '<span class="hlk"><kbd>'+kbd("⌘⇧H")+'</kbd></span><button type="button" class="hlc none" data-act="hl" data-v="" aria-label="Enlever le surlignage" title="Sans surlignage"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>'+
     '</div></div>';
 }

@@ -124,7 +124,7 @@ function recapCard(){
   return recapHTML(R,true);
 }
 function acHTML(){
-  var h='<div class="sh-head"><button type="button" class="btn ghost small" data-act="close-sheet">Fermer</button><h2 id="sh-h">Réglages</h2><span style="width:78px"></span></div>';
+  var h='<div class="sh-head"><button type="button" class="btn ghost small" data-act="close-sheet">Fermer</button><h2 id="sh-h">Réglages</h2><span class="u-sp78"></span></div>';
 
   /* 1. Compte */
   if(!acOn()){/* comptes désactivés : rien à afficher ici */}
@@ -139,10 +139,10 @@ function acHTML(){
       '<span class="ps"><i class="acdot'+(cst===1?" ok":cst===2?" err":"")+'"></i>'+esc(st)+'</span></span>'+
       '<button type="button" class="icon" data-act="ac-sync" aria-label="Synchroniser maintenant"><svg viewBox="0 0 24 24" aria-hidden="true" class="'+(cst===3?"spin":"")+'">'+IC.sync+'</svg></button></div>';
   }else if(AS.step==="signup"){
-    h+='<section class="sgroup"><h3 class="slab">Créer un compte</h3><p class="snote" style="margin:0 0 4px">Tu recevras un e-mail pour confirmer ton adresse.</p>'+emField()+pwField("new-password","8 caractères minimum",1)+
+    h+='<section class="sgroup"><h3 class="slab">Créer un compte</h3><p class="snote u-m0b4">Tu recevras un e-mail pour confirmer ton adresse.</p>'+emField()+pwField("new-password","8 caractères minimum",1)+
       '<div class="stack"><button type="submit" class="btn">Créer mon compte</button><button type="button" class="btn ghost" data-act="ac-tologin">J\'ai déjà un compte</button></div></section>';
   }else{
-    h+='<section class="sgroup"><h3 class="slab">Compte</h3><p class="snote" style="margin:0 0 4px">Facultatif : connecte-toi pour retrouver tes éléments sur tous tes appareils. Sans compte, ils restent sur cet appareil.</p>'+emField()+pwField("current-password","Mot de passe")+
+    h+='<section class="sgroup"><h3 class="slab">Compte</h3><p class="snote u-m0b4">Facultatif : connecte-toi pour retrouver tes éléments sur tous tes appareils. Sans compte, ils restent sur cet appareil.</p>'+emField()+pwField("current-password","Mot de passe")+
       '<div class="stack"><button type="submit" class="btn">Se connecter</button><button type="button" class="btn ghost" data-act="ac-tosignup">Créer un compte</button><button type="button" class="btn ghost" data-act="ac-forgot">Mot de passe oublié ?</button></div></section>';
   }
   if(AS.msg)h+='<div class="acbox" role="status">'+esc(AS.msg)+'</div>';
@@ -226,7 +226,7 @@ function acHTML(){
   if(acOn()){rows+=sRow("ac-priv","shield","Confidentialité",{exp:showPriv});
     if(showPriv)rows+='<div class="sdetail"><b>Sans compte</b>, tout reste sur ton appareil.<br><br><b>Avec un compte</b>, sont stockés en ligne : ton adresse e-mail et tes éléments (tâches, devoirs, habitudes, objectifs, notes). Hébergement : Supabase (Europe).<br><br><b>Utilisation</b> : uniquement pour te connecter et synchroniser tes appareils. Pas de publicité, pas de revente.<br><br><b>Accès</b> : chaque compte ne peut lire que ses propres données.<br><br><b>Statistiques anonymes</b> : un identifiant tiré au hasard sur l\'appareil, sans lien avec ton compte ni ton contenu, et seulement 4 événements (ouverture du jour, premier élément, journée active, compte créé). Désactivables ci-dessus.</div>';}
   h+=sGroup("À propos",rows);
-  h+='<p class="snote" style="text-align:center">Closer · version '+APPV+'</p>';
+  h+='<p class="snote u-tc">Closer · version '+APPV+'</p>';
   return h;
 }
 function acRefresh(){
@@ -346,11 +346,11 @@ function errSend(where,m){
 /* page « Univers » : un aperçu par univers, appliqué dès qu'on le touche */
 function palHTML(){
   var cur=palChoice(), d=isDark()?4:3;
-  return '<div class="sh-head"><button type="button" class="btn ghost small" data-act="ac-open">Retour</button><h2 id="sh-h">Univers</h2><span style="width:78px"></span></div>'+
-    '<div class="hint" style="margin-top:0">Les couleurs de toute l\'appli. Chaque univers a sa couleur et sa matière, comme une planche de matériaux. Clair, Sombre ou Auto (dans Apparence) s\'appliquent à chacun.</div>'+
+  return '<div class="sh-head"><button type="button" class="btn ghost small" data-act="ac-open">Retour</button><h2 id="sh-h">Univers</h2><span class="u-sp78"></span></div>'+
+    '<div class="hint u-mt0">Les couleurs de toute l\'appli. Chaque univers a sa couleur et sa matière, comme une planche de matériaux. Clair, Sombre ou Auto (dans Apparence) s\'appliquent à chacun.</div>'+
     '<div class="pals" role="radiogroup" aria-label="Univers">'+PALETTES.map(function(p){var c=p[d];
-      return '<button type="button" class="pal" role="radio" aria-checked="'+(p[0]===cur)+'" data-act="pick-pal" data-v="'+p[0]+'" style="--pv-bg:'+c[0]+';--pv-hbg:'+c[1]+';--pv-hink:'+c[2]+';--pv-surface:'+c[3]+';--pv-line:'+c[4]+'">'+
-        '<span class="pv" aria-hidden="true"><b>3</b><i></i><u>'+[c[0],c[6],c[7],c[8],c[5]].map(function(x){return '<s style="background:'+x+'"></s>';}).join("")+'</u><span class="ok"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></span>'+
+      return '<button type="button" class="pal" role="radio" aria-checked="'+(p[0]===cur)+'" data-act="pick-pal" data-v="'+p[0]+'" data-css="--pv-bg:'+c[0]+';--pv-hbg:'+c[1]+';--pv-hink:'+c[2]+';--pv-surface:'+c[3]+';--pv-line:'+c[4]+'">'+
+        '<span class="pv" aria-hidden="true"><b>3</b><i></i><u>'+[c[0],c[6],c[7],c[8],c[5]].map(function(x){return '<s data-css="background:'+x+'"></s>';}).join("")+'</u><span class="ok"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></span>'+
         '<span class="pn">'+esc(p[1])+'<span class="pw">'+esc(p[2])+'</span>'+(PAL_MAT[p[0]]?'<span class="pm">'+esc(PAL_MAT[p[0]])+'</span>':'')+'</span></button>';}).join("")+'</div>'+
-    '<div class="hint" style="margin-top:0">L\'univers est gardé sur cet appareil, comme l\'apparence.</div>';
+    '<div class="hint u-mt0">L\'univers est gardé sur cet appareil, comme l\'apparence.</div>';
 }

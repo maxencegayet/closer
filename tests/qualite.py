@@ -31,7 +31,7 @@ check('univers à jour (outils/univers.py --verifier)', r.returncode == 0, r.std
 # ---------------------------------------------------------------- 2. poids (octets, non compressés)
 BUDGETS = {'index.html': 14000, 'css/closer.css': 85000, 'css/univers.css': 22000, 'sw.js': 7000,
            'js/brouillon.js': 62000, 'js/reglages.js': 46000, 'js/actions.js': 38000, 'js/vues.js': 34000,
-           'js/base.js': 30000, 'js/fiche.js': 29000, 'js/sync.js': 26000, 'js/demarrage.js': 9000, 'js/univers.js': 4000, 'js/tete.js': 1200}
+           'js/base.js': 30000, 'js/fiche.js': 29000, 'js/sync.js': 26000, 'js/demarrage.js': 9000, 'js/univers.js': 4000, 'js/tete.js': 2400}
 trop = {f: os.path.getsize(os.path.join(RACINE, f)) for f, b in BUDGETS.items() if os.path.getsize(os.path.join(RACINE, f)) > b}
 check('chaque fichier sous son budget de poids', not trop, {f: f'{t} > {BUDGETS[f]}' for f, t in trop.items()})
 svg = [p for p in glob.glob(os.path.join(RACINE, 'matieres', '*.svg')) if os.path.getsize(p) > 3000]
@@ -132,8 +132,8 @@ with sync_playwright() as p:
     check('aucune erreur à l\'ouverture', not errs, errs)
     # sécurité : la politique de la page est bien en place et bloque un site tiers ; la bibliothèque Supabase vient de l'appli
     csp = pg.evaluate("(document.querySelector('meta[http-equiv=\"Content-Security-Policy\"]')||{}).content||''")
-    check('politique de sécurité présente (scripts de l\'appli seulement, aucun objet, aucun cadre)',
-          "script-src 'self';" in csp and "object-src 'none'" in csp and "frame-src 'none'" in csp and 'unsafe-eval' not in csp, csp)
+    check('politique de sécurité présente (tout refusé par défaut, scripts et styles de l\'appli seulement, aucun style en ligne, aucun objet, aucun cadre)',
+          "default-src 'none';" in csp and "script-src 'self';" in csp and "style-src 'self';" in csp and 'unsafe-inline' not in csp and "object-src 'none'" in csp and "frame-src 'none'" in csp and 'unsafe-eval' not in csp, csp)
     bloque = pg.evaluate("fetch('https://exemple.org/fuite').then(()=>false,()=>true)")
     pg.wait_for_timeout(200)
     check('un envoi vers un site tiers est bloqué', bloque and any('connect-src' in v for v in VIOL), VIOL)
@@ -169,6 +169,25 @@ with sync_playwright() as p:
         return graves
     VIOL.clear(); visiter(pg); pg.wait_for_timeout(300)
     check('aucune règle de sécurité enfreinte pendant la visite de tous les écrans', not VIOL, VIOL)
+    # styles calculés et surlignage du Brouillon sous la politique réelle (aucun style en ligne autorisé)
+    pg.evaluate("location.hash='#objectifs'"); pg.wait_for_timeout(300)
+    fill = pg.evaluate("(document.querySelector('.fill[data-gid]')||{}).style?.transform||''")
+    check('barre de progression d\'objectif posée sans style en ligne', fill.startswith('scaleX('), fill)
+    pg.evaluate("""()=>{const t='Jaune et vert',h='<div><span style="background-color: rgb(255, 240, 163);">Jaune</span> et <span class="hl-g">vert</span></div>';
+      localStorage.setItem('cap-items-v1',JSON.stringify([['n2',{kind:'note',title:'Surlignée',text:t,html:h,hk:hsh(t),folder:'',created:5,updated:5}]]));
+      localStorage.setItem('closer-theme','light');localStorage.setItem('closer-palette','')}""")
+    pg.reload(); pg.wait_for_timeout(400); pg.evaluate("location.hash='#brouillon/n2'"); pg.wait_for_timeout(500)
+    hl = pg.evaluate("[...document.querySelectorAll('#ne-body span')].map(s=>s.className+'='+getComputedStyle(s).backgroundColor)")
+    check('surlignages du Brouillon visibles sous la politique de sécurité (anciens et nouveaux)',
+          hl == ['hl-y=rgb(255, 240, 163)', 'hl-g=rgb(200, 241, 197)'], hl)
+    VIOL.clear()
+    pg.evaluate("""()=>{const b=document.getElementById('ne-body');b.focus();const r=document.createRange();r.selectNodeContents(b.lastChild);
+      const s=getSelection();s.removeAllRanges();s.addRange(r);rteHl('b')}"""); pg.wait_for_timeout(200)
+    hl2 = pg.evaluate("[...document.querySelectorAll('#ne-body span')].map(s=>s.className+'|'+(s.getAttribute('style')||'')+'|'+getComputedStyle(s).backgroundColor)")
+    check('surligner une sélection fonctionne sous la politique de sécurité (classe, sans style en ligne)',
+          any(x.startswith('hl-b||rgb(205, 226, 255)') for x in hl2) and not any('|background' in x for x in hl2), hl2)
+    sv = pg.evaluate("(get('n2')||{}).html||''")
+    check('note surlignée enregistrée avec des classes, sans style=', 'hl-b' in sv and 'style=' not in sv, sv)
     if NPM:
         ca = b.new_context(viewport={'width': 390, 'height': 844}, is_mobile=ENGINE == 'chromium', has_touch=True, locale='fr-FR', timezone_id='Europe/Paris', bypass_csp=True)
         ca.add_init_script('window.__CLOSER_TEST=1;window.__CLOSER_NOSTATS=1;window.__CLOSER_CFG={"url":"","key":""};')

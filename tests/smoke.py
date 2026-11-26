@@ -573,7 +573,7 @@ with sync_playwright() as p:
     pg.click('#ne-tools [data-act="aa"]'); pg.click('#hl-pop [data-v="g"]'); pg.keyboard.type(' vert'); pg.wait_for_timeout(150)
     pg.click('#ne-tools [data-act="aa"]'); pg.click('#hl-pop [data-v=""]'); pg.keyboard.type(' fin'); pg.wait_for_timeout(150)
     h = pg.evaluate("state.items.get(state.noteOpen).html")
-    check('« × » du panneau : la suite s\'écrit sans surlignage', h.count('background') == 1 and h.rstrip().endswith('fin'))
+    check('« × » du panneau : la suite s\'écrit sans surlignage', h.count('hl-') == 1 and 'style=' not in h and h.rstrip().endswith('fin'))
     check('le caractère invisible ne pollue pas le texte brut', '\u200b' not in pg.evaluate("state.items.get(state.noteOpen).text"))
     # photo en plein écran, puis Supprimer
     pg.set_input_files('#att-any', files=[{'name': 'p.png', 'mimeType': 'image/png', 'buffer': PNG}]); pg.wait_for_timeout(800)
@@ -655,11 +655,11 @@ with sync_playwright() as p:
     check('Ctrl+Maj+X : barré', '<s>passif</s>' in note()['html'])
     sel_word('Le'); pg.click('#hl-pop [data-v="g"]'); pg.wait_for_timeout(150)
     h = note()['html']
-    check('surligné en vert, palette fermée', 'background-color: rgb(200, 241, 197)' in h and 'Le</span>' in h)
+    check('surligné en vert, palette fermée', 'class="hl-g"' in h and 'Le</span>' in h)
     sel_word('Le'); pg.keyboard.press('Control+Shift+h'); pg.wait_for_timeout(150)
-    check('Ctrl+Maj+H sur un passage surligné : surlignage enlevé', 'background' not in note()['html'])
+    check('Ctrl+Maj+H sur un passage surligné : surlignage enlevé', 'hl-' not in note()['html'])
     pg.keyboard.press('Control+Shift+h'); pg.wait_for_timeout(150)
-    check('Ctrl+Maj+H : surligné en jaune', 'rgb(255, 240, 163)' in note()['html'])
+    check('Ctrl+Maj+H : surligné en jaune', 'class="hl-y"' in note()['html'])
     pg.evaluate("(()=>{const t=document.getElementById('ne-body');rteSelect(t,3,3);})()"); pg.wait_for_timeout(100)
     pg.click('#ne-tools [data-act="aa"]'); pg.wait_for_timeout(100)
     check('« Aa » referme le panneau, les boutons restent', pg.is_hidden('#ne-aa') and pg.is_visible('#ne-tools [data-act="aa"]'))
@@ -668,7 +668,7 @@ with sync_playwright() as p:
     # rouvrir : la mise en forme revient
     pg.click('[data-act="note-close"]'); pg.wait_for_timeout(350)
     pg.click('#l-notes .nrow'); pg.wait_for_timeout(350)
-    check('note rouverte : gras, italique, souligné, barré, surligné affichés', pg.evaluate("(()=>{const b=document.getElementById('ne-body');return !!(b.querySelector('b')&&b.querySelector('i')&&b.querySelector('u')&&b.querySelector('s')&&b.querySelector('span[style*=background]'))})()"))
+    check('note rouverte : gras, italique, souligné, barré, surligné affichés', pg.evaluate("(()=>{const b=document.getElementById('ne-body');return !!(b.querySelector('b')&&b.querySelector('i')&&b.querySelector('u')&&b.querySelector('s')&&b.querySelector('span[class^=hl-]'))})()"))
     # coller : texte seul ; contenu dangereux nettoyé
     check('nettoyage : script, image et styles inconnus retirés', pg.evaluate("rteClean('<div onclick=\"x()\">a<script>alert(1)</script><img src=x onerror=y><span style=\"color:red;background-color:#123456\">b</span><strong>c</strong></div>')") == '<div>ab<b>c</b></div>')
     # ancienne version de Closer sur un autre appareil : le texte a changé, la mise en forme périmée est ignorée
@@ -900,10 +900,10 @@ with sync_playwright() as p:
     # n° 11 : barre de la carte noire
     pg.evaluate(SEED, [[f't{i}', {'title': f'Tâche {i}', 'due': 'T', 'done': i < 3}] for i in range(12)])
     pg.reload(); pg.wait_for_timeout(500)
-    check('plus de 10 éléments : barre continue au bon niveau', not pg.query_selector('#hero .segs') and pg.get_attribute('#hero .pbar i', 'style') == 'width:25.0%'
+    check('plus de 10 éléments : barre continue au bon niveau', not pg.query_selector('#hero .segs') and pg.evaluate("document.querySelector('#hero .pbar i').style.width") == '25%'
           and pg.get_attribute('#hero .pbar', 'aria-label') == '3 sur 12 faites')
     pg.click('#v-jour [data-act="done"][data-id="t5"], #v-jour .check[data-id="t5"]'); pg.wait_for_timeout(400)
-    check('cocher fait avancer la barre continue', pg.get_attribute('#hero .pbar i', 'style') == 'width:33.3%')
+    check('cocher fait avancer la barre continue', pg.evaluate("document.querySelector('#hero .pbar i').style.width") == '33.3%')
     pg.evaluate(SEED, [[f't{i}', {'title': f'Tâche {i}', 'due': 'T', 'done': i < 1}] for i in range(4)])
     pg.reload(); pg.wait_for_timeout(500)
     check('10 éléments ou moins : un segment chacun', pg.eval_on_selector_all('#hero .segs i', 'n=>[n.length,n.filter(e=>e.classList.contains("on")).length]') == [4, 1] and not pg.query_selector('#hero .pbar'))

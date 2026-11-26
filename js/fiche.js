@@ -110,26 +110,26 @@ function renderSheet(){
   if(k==="palette"){$("sheet").innerHTML=palHTML();return;}
   if(k==="backup"){
     var last="";try{last=localStorage.getItem("closer-last-export")||"";}catch(e){}
-    h='<div class="sh-head"><button type="button" class="btn ghost small" data-act="ac-open">Retour</button><h2 id="sh-h">Sauvegarde</h2><span style="width:78px"></span></div>'+
-      '<div class="hint" style="margin-top:0">'+(typeof SU!=="undefined"&&SU?"Tes éléments sont synchronisés sur ton compte. Une sauvegarde exportée en est une copie de secours en plus, à garder où tu veux.":"Tes données sont enregistrées dans ce navigateur, sur cet appareil uniquement. Vider les données du navigateur les efface : exporte une sauvegarde de temps en temps.")+'</div>'+
+    h='<div class="sh-head"><button type="button" class="btn ghost small" data-act="ac-open">Retour</button><h2 id="sh-h">Sauvegarde</h2><span class="u-sp78"></span></div>'+
+      '<div class="hint u-mt0">'+(typeof SU!=="undefined"&&SU?"Tes éléments sont synchronisés sur ton compte. Une sauvegarde exportée en est une copie de secours en plus, à garder où tu veux.":"Tes données sont enregistrées dans ce navigateur, sur cet appareil uniquement. Vider les données du navigateur les efface : exporte une sauvegarde de temps en temps.")+'</div>'+
       '<div class="stack"><button type="button" class="btn" data-act="export">Exporter mes données</button>'+
       '<label class="btn ghost filebtn">Importer une sauvegarde<input type="file" id="sh-import" accept=".json,application/json"></label></div>'+
-      '<div class="hint" style="margin-top:0">'+(dr.msg?esc(dr.msg):(isDate(last)?"Dernier export le "+esc(fmt(last,{day:"numeric",month:"long",year:"numeric"}))+".":"Aucun export pour l\'instant."))+'</div>'+
-      '<div class="hint" style="margin-top:0">Importer ajoute les éléments du fichier à ceux déjà présents. Pour passer d\'un appareil à l\'autre : exporte sur le premier, importe sur le second.</div>';
+      '<div class="hint u-mt0">'+(dr.msg?esc(dr.msg):(isDate(last)?"Dernier export le "+esc(fmt(last,{day:"numeric",month:"long",year:"numeric"}))+".":"Aucun export pour l\'instant."))+'</div>'+
+      '<div class="hint u-mt0">Importer ajoute les éléments du fichier à ceux déjà présents. Pour passer d\'un appareil à l\'autre : exporte sur le premier, importe sur le second.</div>';
   $("sheet").innerHTML=h;return;
   }
   if(k==="nfolders"){
-    h='<div class="sh-head">'+(sheet.back?'<button type="button" class="btn ghost small" data-act="ac-open">Retour</button>':'<button type="button" class="btn ghost small" data-act="close-sheet">Fermer</button>')+'<h2 id="sh-h">'+(sheet.forNote?"Nouveau dossier":"Dossiers")+'</h2><span style="width:78px"></span></div>'+
+    h='<div class="sh-head">'+(sheet.back?'<button type="button" class="btn ghost small" data-act="ac-open">Retour</button>':'<button type="button" class="btn ghost small" data-act="close-sheet">Fermer</button>')+'<h2 id="sh-h">'+(sheet.forNote?"Nouveau dossier":"Dossiers")+'</h2><span class="u-sp78"></span></div>'+
       '<div class="addcat"><input type="text" id="sh-nfname" placeholder="Nom du dossier, ex. Cours" aria-label="Nouveau dossier" maxlength="24" autocapitalize="sentences"><button type="submit" class="btn">'+(sheet.forNote?"Créer et ranger":"Ajouter")+'</button></div>'+
-      (sheet.forNote?"":'<div class="catlist">'+nFolders().map(function(c){var n=byKind("note").filter(function(x){return x.d.folder===c;}).length;return '<div class="catrow"><span>'+esc(c)+' <span style="color:var(--muted)">· '+n+'</span></span><button type="button" class="x" data-act="nf-del" data-v="'+esc(c)+'" aria-label="Supprimer le dossier '+esc(c)+'">×</button></div>';}).join("")+'</div>'+
-      '<div class="hint" style="margin-top:0">Supprimer un dossier ne supprime pas ses notes : elles passent dans « Sans dossier ».</div>');
+      (sheet.forNote?"":'<div class="catlist">'+nFolders().map(function(c){var n=byKind("note").filter(function(x){return x.d.folder===c;}).length;return '<div class="catrow"><span>'+esc(c)+' <span class="u-muted">· '+n+'</span></span><button type="button" class="x" data-act="nf-del" data-v="'+esc(c)+'" aria-label="Supprimer le dossier '+esc(c)+'">×</button></div>';}).join("")+'</div>'+
+      '<div class="hint u-mt0">Supprimer un dossier ne supprime pas ses notes : elles passent dans « Sans dossier ».</div>');
     $("sheet").innerHTML=h;return;
   }
   if(k==="cats"){
-    h='<div class="sh-head">'+(sheet.back?'<button type="button" class="btn ghost small" data-act="ac-open">Retour</button>':'<button type="button" class="btn ghost small" data-act="close-sheet">Fermer</button>')+'<h2 id="sh-h">Catégories</h2><span style="width:78px"></span></div>'+
+    h='<div class="sh-head">'+(sheet.back?'<button type="button" class="btn ghost small" data-act="ac-open">Retour</button>':'<button type="button" class="btn ghost small" data-act="close-sheet">Fermer</button>')+'<h2 id="sh-h">Catégories</h2><span class="u-sp78"></span></div>'+
       '<div class="addcat"><input type="text" id="sh-catname" placeholder="Nouvelle catégorie, ex. Sport" aria-label="Nouvelle catégorie" maxlength="24" autocapitalize="sentences"><button type="submit" class="btn">Ajouter</button></div>'+
       '<div class="catlist">'+cats().map(function(c){return '<div class="catrow"><span>'+esc(c)+'</span><button type="button" class="x" data-act="cat-del" data-v="'+esc(c)+'" aria-label="Retirer la catégorie '+esc(c)+'">×</button></div>';}).join("")+'</div>'+
-      '<div class="hint" style="margin-top:0">Retirer une catégorie ne supprime pas ses tâches : elles gardent leur étiquette.</div>';
+      '<div class="hint u-mt0">Retirer une catégorie ne supprime pas ses tâches : elles gardent leur étiquette.</div>';
     $("sheet").innerHTML=h;return;
   }
   h+='<div class="sh-head"><button type="button" class="btn ghost small" data-act="close-sheet">'+(sheet.streak?"Terminé":"Annuler")+'</button>'+
@@ -148,7 +148,7 @@ function renderSheet(){
       sChip("sfreq","0","Chaque jour",!dr.freq)+sChip("sfreq","-1","Certains jours",dr.freq<0)+[1,2,3,4,5,6].map(function(n){return sChip("sfreq",String(n),n+" fois par semaine",dr.freq===n);}).join("")+'</div>'+
       // « certains jours » : les jours où l'habitude est prévue (elle n'apparaît que ces jours-là)
       (dr.freq<0?'<div class="dows" role="group" aria-label="Jours prévus">'+DOW_LETTER.map(function(l,i){var on=(dr.days||[]).indexOf(i+1)>=0;return '<button type="button" class="dow" aria-pressed="'+on+'" data-act="sday" data-v="'+(i+1)+'" aria-label="'+DOW_LONG[i]+'">'+l+'</button>';}).join("")+'</div>'+
-        (normDays(dr.days).length?"":'<div class="hint" style="margin-top:4px">Aucun jour choisi : l\'habitude sera prévue chaque jour.</div>'):"")+'</div>';
+        (normDays(dr.days).length?"":'<div class="hint u-mt4">Aucun jour choisi : l\'habitude sera prévue chaque jour.</div>'):"")+'</div>';
     h+=timeField(dr);   // rappel de l'habitude, chaque jour où elle n'est pas encore faite
   }
   if(k==="hw"){

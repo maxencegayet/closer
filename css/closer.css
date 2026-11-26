@@ -553,9 +553,9 @@ body.arr-drag .list{overflow:visible}
 .ne-body.rte{white-space:pre-wrap;overflow-wrap:anywhere;-webkit-user-modify:read-write;cursor:text;padding-bottom:96px}
 .ne-body.rte:empty::before{content:attr(data-ph);color:var(--faint);pointer-events:none}
 .ne-body.rte b,.ne-body.rte strong{font-weight:700}
-.ne-body.rte span[style*="background"]{border-radius:3px;padding:0 1px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
-:root[data-theme="dark"] .ne-body.rte span[style*="background"]{color:#141414}
-@media (prefers-color-scheme:dark){:root[data-theme="auto"] .ne-body.rte span[style*="background"]{color:#141414}}
+.ne-body.rte span[class^="hl-"]{border-radius:3px;padding:0 1px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+:root[data-theme="dark"] .ne-body.rte span[class^="hl-"]{color:#141414}
+@media (prefers-color-scheme:dark){:root[data-theme="auto"] .ne-body.rte span[class^="hl-"]{color:#141414}}
 
 
 /* 25 nov. : barre cachée sans sélection ; en haut de l'écran visible quand le clavier est ouvert */
@@ -769,3 +769,20 @@ body.editing{background-image:none!important}
 /* changement d'univers : fondu enchaîné de toute la page (Safari 18+, Chrome), coupé si « réduire les animations » */
 ::view-transition-old(root),::view-transition-new(root){animation-duration:380ms;animation-timing-function:cubic-bezier(0.23,1,0.32,1)}
 @media (prefers-reduced-motion:reduce){::view-transition-old(root),::view-transition-new(root){animation:none}}
+
+/* Sans style en ligne (politique de sécurité : style-src 'self') : petites classes utilitaires
+   et couleurs de surlignage du Brouillon (mêmes valeurs que HL dans brouillon.js) */
+.u-sp78{width:78px !important}
+.u-mt0{margin-top:0 !important}
+.u-mt4{margin-top:4px !important}
+.u-m0b4{margin:0 0 4px !important}
+.u-mclr{margin:2px 8px 0 !important}
+.u-tc{text-align:center !important}
+.u-muted{color:var(--muted) !important}
+.u-pl16{padding-left:16px !important}
+.u-pr8{padding-right:8px !important}
+.hl-y{background-color:#fff0a3}
+.hl-g{background-color:#c8f1c5}
+.hl-b{background-color:#cde2ff}
+.hl-p{background-color:#ffd1e1}
+.hl-o{background-color:#ffd9b0}
