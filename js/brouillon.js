@@ -268,11 +268,14 @@ function hlOf(n){
 }
 // après une commande du navigateur (surligner), les styles qu'il a posés deviennent des classes
 function hlNorm(el){
-  Array.prototype.slice.call(el.querySelectorAll("span")).forEach(function(sp){
+  // le navigateur peut poser la couleur sur un <span> ou directement sur un <b>, <i>, <u>, <s>… :
+  // la couleur devient toujours un <span class="hl-…"> (sur un <i>, le span se met à l'intérieur, l'italique reste)
+  Array.prototype.slice.call(el.querySelectorAll("[style]")).forEach(function(sp){
     if(!stVal(sp,"background-color")&&!stVal(sp,"background"))return;
     var k=hlOf(sp),rest=String(sp.getAttribute("style")||"").split(";").filter(function(x){return x.trim()&&!/^\s*background/i.test(x);}).join(";");
     if(rest)sp.setAttribute("style",rest);else sp.removeAttribute("style");
-    if(k)sp.className="hl-"+k;else sp.removeAttribute("class");
+    if(sp.tagName==="SPAN"){if(k)sp.className="hl-"+k;else sp.removeAttribute("class");return;}
+    if(k){var w=document.createElement("span");w.className="hl-"+k;while(sp.firstChild)w.appendChild(sp.firstChild);sp.appendChild(w);}
   });
 }
 function hlKey(c){
@@ -397,21 +400,83 @@ function rteHlEscape(){
   var r=document.createRange();r.setStart(z,1);r.collapse(true);s.removeAllRanges();s.addRange(r);
   rteState();return true;
 }
+/* Surligner : toucher une couleur l'applique ; toucher la couleur déjà active l'enlève ; « × » enlève.
+   Sans sélection (simple curseur), la couleur choisie vaut pour la suite de la frappe : elle reste affichée comme active
+   (hlPending) jusqu'à ce qu'on tape ou qu'on déplace le curseur. */
+var hlPending="", hlPendingAt=null;
 function rteHl(k){
   var el=rteFocus();if(!el)return;
-  if(!k&&rteHlEscape())return;
-  try{document.execCommand("styleWithCSS",false,true);}catch(e){}
-  document.execCommand("hiliteColor",false,k?hlHex(k):"transparent");
-  try{document.execCommand("styleWithCSS",false,false);}catch(e){}
-  hlNorm(el);
-  // enlever : on retire aussi les surlignages englobants que le navigateur aurait laissés
-  if(!k){var s=window.getSelection();if(s.rangeCount){var r=s.getRangeAt(0);
-    Array.prototype.slice.call(el.querySelectorAll("span")).forEach(function(sp){if(hlOf(sp)&&r.intersectsNode(sp)){var range=document.createRange();range.selectNodeContents(sp);
-      if(r.compareBoundaryPoints(Range.START_TO_START,range)<=0&&r.compareBoundaryPoints(Range.END_TO_END,range)>=0)sp.removeAttribute("class");}});}}
+  var s=window.getSelection();if(!s.rangeCount)return;
+  var cur=rteHlAt()||hlPending;
+  if(k&&k===cur)k="";                                   // même couleur une deuxième fois = enlever
+  if(s.isCollapsed){
+    if(!k){
+      if(hlPending&&!rteHlAt()){hlCancelTyping();}       // couleur choisie mais rien tapé : on l'oublie
+      else rteHlEscape();                                // dans un passage surligné : la suite s'écrit sans
+      hlPending="";hlPendingAt=null;rteState();return;
+    }
+    hlTypingColor(k);hlPending=k;hlPendingAt=hlCaretKey();rteState();return;
+  }
+  if(k){
+    try{document.execCommand("styleWithCSS",false,true);}catch(e){}
+    document.execCommand("hiliteColor",false,hlHex(k));
+    try{document.execCommand("styleWithCSS",false,false);}catch(e){}
+    hlNorm(el);
+  }else hlStrip(el,s.getRangeAt(0));
+  hlPending="";hlPendingAt=null;
   rteSave(el);rteState();
+}
+function hlTypingColor(k){
+  try{document.execCommand("styleWithCSS",false,true);}catch(e){}
+  document.execCommand("hiliteColor",false,hlHex(k));
+  try{document.execCommand("styleWithCSS",false,false);}catch(e){}
+}
+function hlCancelTyping(){
+  // le navigateur garde la couleur « en attente » : on la remplace par « aucune »
+  try{document.execCommand("styleWithCSS",false,true);}catch(e){}
+  try{document.execCommand("hiliteColor",false,"transparent");}catch(e){}
+  try{document.execCommand("styleWithCSS",false,false);}catch(e){}
+}
+function hlCaretKey(){var s=window.getSelection();return s.rangeCount?[s.anchorNode,s.anchorOffset]:null;}
+// enlever le surlignage d'une sélection, même d'un bout de passage surligné (le reste garde sa couleur)
+function hlStrip(el,r){
+  // 1. couper les textes aux bords de la sélection
+  var sc=r.startContainer,so=r.startOffset,ec=r.endContainer,eo=r.endOffset;
+  if(ec.nodeType===3&&eo>0&&eo<ec.data.length){ec.splitText(eo);}
+  if(sc.nodeType===3&&so>0&&so<sc.data.length){var t2=sc.splitText(so);if(ec===sc){ec=t2;eo=ec.data.length;}sc=t2;so=0;}
+  var rr=document.createRange();rr.setStart(sc,so);rr.setEnd(ec,eo);
+  // 2. textes entièrement dans la sélection
+  var w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT),n,list=[];
+  while((n=w.nextNode()))if(n.data.length&&rr.intersectsNode(n)){var nr=document.createRange();nr.selectNodeContents(n);
+    if(rr.compareBoundaryPoints(Range.START_TO_START,nr)<=0&&rr.compareBoundaryPoints(Range.END_TO_END,nr)>=0)list.push(n);}
+  // 3. sortir chacun de ses passages surlignés (en coupant le passage en deux si besoin)
+  list.forEach(function(t){
+    for(var a=hlAnc(el,t);a;a=hlAnc(el,t))hlLift(a,t);
+  });
+  // 4. ménage : passages vides, et la sélection reste sur le texte traité
+  Array.prototype.slice.call(el.querySelectorAll("span")).forEach(function(sp){if(!sp.textContent&&!sp.querySelector("img,br"))sp.remove();});
+  if(list.length){var ns=document.createRange();ns.setStart(list[0],0);var l=list[list.length-1];ns.setEnd(l,l.data.length);var sel=window.getSelection();sel.removeAllRanges();sel.addRange(ns);}
+}
+function hlAnc(el,t){for(var n=t.parentNode;n&&n!==el;n=n.parentNode)if(n.tagName==="SPAN"&&hlOf(n))return n;return null;}
+function hlLift(a,t){
+  var r=document.createRange(),p=a.parentNode;
+  r.setStart(a,0);r.setEndBefore(t);var left=r.extractContents();
+  r=document.createRange();r.setStartAfter(t);r.setEnd(a,a.childNodes.length);var right=r.extractContents();
+  function keep(fr){return fr.textContent.length||(fr.querySelector&&fr.querySelector("img,br"));}
+  if(keep(left)){var la=a.cloneNode(false);la.appendChild(left);p.insertBefore(la,a);}
+  if(keep(right)){var ra=a.cloneNode(false);ra.appendChild(right);p.insertBefore(ra,a.nextSibling);}
+  while(a.firstChild)p.insertBefore(a.firstChild,a);
+  p.removeChild(a);
 }
 function rteHlAt(){
   var s=window.getSelection();if(!s.rangeCount)return "";
+  // sélection : la couleur commune à tout le texte sélectionné (le bord d'un mot voisin ne compte pas)
+  if(!s.isCollapsed){var el=$("ne-body"),r=s.getRangeAt(0);if(el&&el.contains(r.commonAncestorContainer)){
+    var w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT),tn,key=null;
+    while((tn=w.nextNode())){if(!r.intersectsNode(tn)||!tn.data.replace(/\u200b/g,"").length)continue;
+      var a0=tn===r.startContainer?r.startOffset:0,b0=tn===r.endContainer?r.endOffset:tn.data.length;if(b0<=a0)continue;
+      var an=hlAnc(el,tn),kk=an?hlOf(an):"";if(key===null)key=kk;else if(key!==kk)return "";}
+    return key||"";}}
   for(var n=s.anchorNode;n&&n.id!=="ne-body";n=n.parentNode){var k=hlOf(n);if(k)return k;}
   return "";
 }
@@ -427,7 +492,7 @@ function rteActive(){
   var s=window.getSelection(),b=$("ne-body"),on=false;
   if(s&&s.rangeCount&&b&&b.contains(s.anchorNode)){
     ["bold","italic","underline","strikeThrough"].forEach(function(c){try{if(document.queryCommandState(c))on=true;}catch(e){}});
-    if(rteHlAt())on=true;
+    if(rteHlAt()||hlPending)on=true;
   }
   ab.classList.toggle("on",on);
 }
@@ -435,7 +500,8 @@ function rteState(){
   rteMode();rteActive();
   var bar=$("ne-aa");if(!bar)return;
   ["bold","italic","underline","strikeThrough"].forEach(function(c){var b=bar.querySelector('[data-v="'+c+'"]');if(b){var on=false;try{on=document.queryCommandState(c);}catch(e){}b.setAttribute("aria-pressed",String(!!on));}});
-  var k=rteHlAt();Array.prototype.forEach.call(document.querySelectorAll("#ne-aa .hlc"),function(c){c.setAttribute("aria-pressed",String(c.dataset.v===k&&!!k));});
+  if(hlPending){var ck=hlCaretKey();if(!ck||!hlPendingAt||ck[0]!==hlPendingAt[0]||ck[1]!==hlPendingAt[1]||rteHlAt())hlPending="";}
+  var k=rteHlAt()||hlPending;Array.prototype.forEach.call(document.querySelectorAll("#ne-aa .hlc"),function(c){c.setAttribute("aria-pressed",String(c.dataset.v===k&&!!k));});
 }
 document.addEventListener("selectionchange",function(){if($("ne-tools"))rteState();var b=$("ne-body"),sl=window.getSelection();if(b&&sl&&sl.rangeCount&&b.contains(sl.anchorNode))phRange=sl.getRangeAt(0).cloneRange();});
 document.addEventListener("focusin",function(){if($("ne-tools"))rteMode();});

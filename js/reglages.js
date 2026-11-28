@@ -30,6 +30,7 @@ var IC={
 };
 var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 var NEWS=[
+  ["28 nov.","Brouillon : toucher une couleur de surlignage déjà active l'enlève, « × » enlève aussi le surlignage d'un bout de passage, et la couleur choisie s'affiche active même avant de taper."],
   ["27 nov.","L'onglet Objectifs devient « Progrès » : le bilan de ta semaine en tête, puis tes objectifs et tes habitudes. Réglages plus courts, avec « Une remarque ? » pour m'écrire en deux secondes. Fiche d'ajout allégée : « Rappel » et « Répéter » sont sous « Plus d'options » tant que tu ne t'en sers pas."],
   ["26 nov.","Nouveau : Réglages › Mes données › Récemment supprimés. Ce que tu supprimes y reste 30 jours, même depuis un autre appareil ; « Remettre » le replace où il était. Sur le Jour, le compteur des habitudes compte aussi celles de la semaine."],
   ["26 nov.","Sécurité renforcée : Closer ne charge plus rien depuis un site extérieur, la page refuse tout envoi vers un site inconnu, et l'import d'une sauvegarde écarte les éléments douteux."],
