@@ -820,7 +820,7 @@ with sync_playwright() as p:
     check('après enregistrement, plus de brouillon', pg.evaluate("localStorage.getItem('closer-draft')") is None)
     pg.click('#fab'); pg.wait_for_timeout(300)
     check('+ suivant : fiche vide', pg.input_value('#sh-title') == '')
-    check('brouillon et effet : aucune erreur', not errs)
+    check('brouillon et effet : aucune erreur', not errs, errs)
     c.close()
 
     # 7 bis. Geste iOS : glisser la fiche vers le bas la ferme ; un petit glissement lent la laisse ouverte
